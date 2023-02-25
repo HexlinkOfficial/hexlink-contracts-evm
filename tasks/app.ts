@@ -42,7 +42,7 @@ const getTokenFactory = async function(
             ethers.utils.getAddress(address)
         );
     }
-    
+
 
 task("token_factory", "get contract address of token factory")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {

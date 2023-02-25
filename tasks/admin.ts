@@ -519,20 +519,23 @@ task("set_swap_prices", "set prices of gas token")
         console.log(tokens);
         console.log(prices);
         const { deployer } = await hre.ethers.getNamedSigners();
-        if (netConf(hre)["safe"]) {
-            const data = swap.interface.encodeFunctionData(
-                "setPrices",
-                [tokens, prices]
-            );
-            await proposeOrExectueSafeTx(hre, deployer, {
-                to: swap.address,
-                value: "0",
-                data
-            });
-        } else {
-            await swap.connect(deployer).setPrices(tokens, prices);
-        }
-        await swap.connect(deployer).deposit(
-            {value: ethers.utils.parseEther("0.5")}
+        // if (netConf(hre)["safe"]) {
+        //     const data = swap.interface.encodeFunctionData(
+        //         "setPrices",
+        //         [tokens, prices]
+        //     );
+        //     await proposeOrExectueSafeTx(hre, deployer, {
+        //         to: swap.address,
+        //         value: "0",
+        //         data
+        //     });
+        // } else {
+        //     await swap.connect(deployer).setPrices(tokens, prices);
+        // }
+        console.log(swap.address);
+        const {gasPrice} = await hre.ethers.provider.getFeeData();
+        const tx = await swap.connect(deployer).deposit(
+            {value: ethers.utils.parseEther("0.1"), gasPrice}
         );
+        console.log(tx);
     });

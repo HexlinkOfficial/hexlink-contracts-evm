@@ -198,7 +198,7 @@ const senders = [
   "0x6df8bc42ba9e438bf14375b07fd06a5bc37e8c35",
 ];
 
-task("deposit", "deposit to senders")
+task("depositGasPool", "deposit to senders")
     .addOptionalParam("amount")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const { deployer } = await hre.ethers.getNamedSigners();

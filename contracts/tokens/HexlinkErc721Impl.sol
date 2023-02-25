@@ -59,10 +59,9 @@ contract HexlinkErc721Impl is
         }
     }
 
-    function withdraw(uint256 amount) external onlyOwner {
-        require(gasSponsorship >= amount, "insufficient balance");
-        gasSponsorship -= amount;
-        Address.sendValue(payable(msg.sender), amount);
+    function withdraw() external onlyOwner {
+        gasSponsorship = 0;
+        Address.sendValue(payable(msg.sender), gasSponsorship);
     }
 
     function deposit() external payable {

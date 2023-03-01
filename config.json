@@ -80,8 +80,8 @@
             "minDelay": 30
         },
         "oracles": {
-            "EMAIL_OTP": "",
-            "TWITTER_OAUTH": ""
+            "EMAIL_OTP": "0xa599d212a5c4DB3b78b708605f14a4FbCD43cc56",
+            "TWITTER_OAUTH": "0x10B5D1144B46D4eA7450B00222A54a39cD79B8e2"
         },
         "gasTokens": [{
             "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",

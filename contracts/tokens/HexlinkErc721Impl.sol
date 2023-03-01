@@ -76,6 +76,10 @@ contract HexlinkErc721Impl is
         validator = _validator;
     }
 
+    function increaseSupply(uint256 amount) external onlyOwner {
+        maxSupply += amount;
+    }
+
     function _validateSiganture(
         address recipient,
         address refundReceiver,

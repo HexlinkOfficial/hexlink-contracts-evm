@@ -9,11 +9,6 @@
         "timelock": {
             "minDelay": 60
         },
-        "gasStation": {
-             "swapRouter": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-             "wrapped": "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6",
-             "dai": "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844"
-        },
         "oracles": {
             "EMAIL_OTP": "0xF514Ae7306652DcCb3B215AcE1396aaee2B3C204",
             "TWITTER_OAUTH": "0x8dd83bfB002baD8589a7C4dcDA40cd5E6430e533"
@@ -46,10 +41,6 @@
         "timelock": {
             "minDelay": 60
         },
-        "gasStation": {
-            "swapRouter": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-            "wrapped": "0x9c3C9283D3e44854697Cd22D3Faa240Cfb032889"
-        },
         "oracles": {
             "EMAIL_OTP": "0xe3F49bA9689846A061CFE2C0f669fB063E99e6AE",
             "TWITTER_OAUTH": "0xe2ef0a85B7Ace0d178424CF018A81FDa2E103C09"
@@ -66,6 +57,21 @@
                 "price": "1000000000000000000"
             }
         ]
+    },
+    "nitro": {
+        "validator": "0xEF2e3F91209F88A3143e36Be10D52502162426B3",
+        "timelock": {
+            "minDelay": 30
+        },
+        "oracles": {
+            "EMAIL_OTP": "0xf856efCDFCC1b29169D45b5CB65ed0E1c12A9C62",
+            "TWITTER_OAUTH": "0xC21600000d51296e96b3e60376822cc34171f32f"
+        },
+        "gasTokens": [{
+            "address": "0xF4856cC575d3BbC39cf264c56D9dF003F965A8f1",
+            "decimals": 18,
+            "price": "1000000000000000000"
+        }]
     },
     "galileo": {
         "nftRoot": "0x72fb3F7B0A3e0ff3Ee1F488B853A85bdb781e140"

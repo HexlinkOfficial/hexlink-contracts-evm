@@ -85,7 +85,9 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
         require(pd.creator == msg.sender, "Unauthorized");
         bytes32 packetId = _packetId(pd);
         // packet locked for one day before withdraw
-        require(block.timestamp - packets_[packetId].createdAt > 86400, "Packet locked");
+        uint256 createdAt = packets_[packetId].createdAt;
+        require(createdAt > 0, "Packet not found");
+        require(block.timestamp - createdAt > 86400, "Packet locked");
 
         uint256 balance = packets_[packetId].balance;
         if (balance > 0) {

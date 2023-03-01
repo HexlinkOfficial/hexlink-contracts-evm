@@ -34,7 +34,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
       "HexlinkUpgradeable",
       hexlinkDeployment.address
     );
-    const owner = await hexlink.owner();
     const admin = await hre.deployments.get("HexlinkAdmin");
     const oracleRegistry = await deployments.get(
       "IdentityOracleRegistry"

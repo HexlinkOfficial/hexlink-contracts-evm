@@ -42,7 +42,7 @@ async function initOracle(
     const owner = await oracle.owner();
     if (owner.toLowerCase() == ethers.constants.AddressZero.toLowerCase()) {
       const { deployer } = await hre.ethers.getNamedSigners();
-      let validator = netConf(hre)["validator"];
+      let validator = (netConf as any)(hre)["validator"];
       if (validator == undefined) {
           validator = (await hre.getNamedAccounts())["validator"];
       }
@@ -63,18 +63,20 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     autoMine: true
   });
 
-  const oracles = netConf(hre)["oracles"] || {};
+  const oracles = (netConf as any)(hre)["oracles"] || {};
   let emailOtp = oracles["EMAIL_OTP"];
-  if (emailOtp == undefined) {
+  if (emailOtp === undefined || emailOtp.length === 0) {
     emailOtp = await createOracle("EMAIL_OTP", hre);
+    console.log("EMAIL_OTP oracle registered at " + emailOtp);
   } else {
     console.log("reusing EMAIL_OTP oracle at " + emailOtp);
   }
 
   let twitterOAuth = oracles["TWITTER_OAUTH"];
-  if (twitterOAuth == undefined) {
+  if (twitterOAuth == undefined || twitterOAuth.length === 0) {
     twitterOAuth = await createOracle("TWITTER_OAUTH", hre);
   } else {
+    console.log("TWITTER_OAUTH oracle registered at " + twitterOAuth);
     console.log("reusing TWITTER_OAUTH oracle at " + twitterOAuth);
   }
 

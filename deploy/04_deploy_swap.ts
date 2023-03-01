@@ -4,8 +4,8 @@ import {DeployFunction} from "hardhat-deploy/types";
 import * as config from '../config.json';
 const getSafe = async function(hre: HardhatRuntimeEnvironment) {
     let netConf = config[hre.network.name as keyof typeof config] || {};
-    if (netConf["safe"] !== undefined) {
-        return hre.ethers.utils.getAddress(netConf["safe"]);
+    if ((netConf as any)["safe"] !== undefined) {
+        return hre.ethers.utils.getAddress((netConf as any)["safe"]);
     } else {
         const { deployer } = await hre.getNamedAccounts();
         return deployer;

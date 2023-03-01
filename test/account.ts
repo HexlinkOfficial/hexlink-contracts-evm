@@ -169,6 +169,11 @@ describe("Hexlink Account", function() {
     const { deployer } = await ethers.getNamedSigners();
     const accountDeployer = await getContract("TestAccountDeployer");
     const senderAddr = await accountDeployer.addressOfName(sender);
+    await deployments.deploy("TestHexlinkERC1155", {
+      from: deployer.address,
+      log: true,
+      autoMine: true,
+    });
     const erc1155 = await getContract("TestHexlinkERC1155");
 
     // receive erc1155 before account created

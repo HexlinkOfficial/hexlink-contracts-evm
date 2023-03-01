@@ -299,7 +299,7 @@ describe("Hexlink Redpacket", function() {
         const accountAddr = await hexlink.addressOfName(sender);
         const token = await getHexlinkToken();
         const redPacket = await getRedPacket();
-    
+
         const swap = await getHexlinkSwap();
         await setGasPrice(token, swap);
         await swap.connect(deployer).deposit({value: ethers.utils.parseEther("1.0")});

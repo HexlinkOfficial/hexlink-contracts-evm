@@ -5,19 +5,12 @@ import { ethers } from "ethers";
 
 const getAdminConfig = async function(hre: HardhatRuntimeEnvironment) {
     let netConf = config[hre.network.name as keyof typeof config] || {};
-    if (netConf["safe"] !== undefined) {
-        return {
-            minDelay: Number(netConf["timelock"].minDelay),
-            proposers: [ethers.utils.getAddress(netConf["safe"])],
-            executors: [ethers.utils.getAddress(netConf["safe"])]
-        }
-    } else {
-        const { deployer } = await hre.getNamedAccounts();
-        return {
-            minDelay: Number(netConf["timelock"]?.minDelay || 0),
-            proposers: [deployer],
-            executors: [deployer]
-        }
+    const {deployer} = await hre.getNamedAccounts();
+    const safe = (netConf as any)["safe"] || deployer;
+    return {
+        minDelay: Number((netConf as any)["timelock"].minDelay || 0),
+        proposers: [ethers.utils.getAddress(safe)],
+        executors: [ethers.utils.getAddress(safe)]
     }
 }
 

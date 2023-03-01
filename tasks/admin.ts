@@ -11,6 +11,10 @@ import SafeServiceClient, {
     SafeInfoResponse,
   } from '@safe-global/safe-service-client';
 
+function hash(value: string) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
+}
+
 const processArgs = async function(
     timelock: Contract,
     args : {
@@ -268,8 +272,8 @@ task("register_oracle", "register oracle contract for identity and auth type")
         const data = registry.interface.encodeFunctionData(
             "regsiter",
             [{
-                identityType: Number(args.identity),
-                authType: Number(args.auth)
+                identityType: hash(args.identity),
+                authType: hash(args.auth)
             }, ethers.utils.getAddress(args.oracle)]
         )
         if (args.wait) {

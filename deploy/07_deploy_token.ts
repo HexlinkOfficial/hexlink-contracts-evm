@@ -44,12 +44,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     log: true,
     autoMine: true,
   });
-
-  await deploy("TestHexlinkERC1155", {
-    from: deployer,
-    log: true,
-    autoMine: true,
-  });
 };
 
 export default func;

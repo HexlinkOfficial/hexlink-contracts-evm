@@ -7,11 +7,9 @@ const HEXLINK : {[key: string]: string} = {
     "mumbai": "0x78317ef8b020Fe10e845ab8723403cF1e58Ef1Cc",
 }
 
-const genNameHash = function(name: string) : string {
-    return ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(name)
-    );
-};
+function hash(value: string) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
+}
 
 const getHexlink = async function(
     hre: HardhatRuntimeEnvironment
@@ -34,7 +32,7 @@ const getDefaultAddress = async function(
     const artifact = await hre.artifacts.readArtifact("AccountProxy");
     const initCodeHash = ethers.utils.keccak256(artifact.bytecode);
     return ethers.utils.getCreate2Address(
-        hexlink, genNameHash(name), initCodeHash
+        hexlink, hash(name), initCodeHash
     );
 }
 
@@ -61,12 +59,25 @@ task("hexlink_check", "check hexlink metadata")
             "AccountBeacon",
             (await hre.deployments.get("AccountBeacon")).address
         );
+        const oracleRegistryAddr = await hexlink.oracleRegistry();
+        const registry = await hre.ethers.getContractAt(
+            "IdentityOracleRegistry",
+            oracleRegistryAddr
+        );
         const result = {
             "address": hexlink.address,
             "accountBase": await hexlink.accountBase(),
             "accountBeacon": await beacon.address,
             "accountImpl": await beacon.implementation(),
-            "oracleRegistry": await hexlink.oracleRegistry(),
+            "oracleRegistry": oracleRegistryAddr,
+            "oracles": {
+                "emailOtp": await registry.oracle(
+                    {identityType: hash("email"), authType: hash("otp")}
+                ),
+                "twitterOauth": await registry.oracle(
+                    {identityType: hash("twitter.com"), authType: hash("oauth")}
+                ),
+            },
             "authConfig": {
                 twoStageLock: (await hexlink.twoStageLock()).toNumber(),
                 ttl: (await hexlink.ttl()).toNumber(),
@@ -82,7 +93,7 @@ task("hexlink_check", "check hexlink metadata")
 task("account", "Prints account address")
     .addParam("name")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const hexlink = await getHexlink(hre);
         console.log("name hash is " + nameHash);
         const account = await hexlink.addressOfName(nameHash);
@@ -94,7 +105,7 @@ task("nonce", "get current nonce")
     .addParam("name")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         return await hexlink.nonce(nameHash);
     });
 
@@ -104,7 +115,7 @@ task("bumpNonce", "bump nonce for a name")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const tx = await hexlink.connect(deployer).bumpNonce(
             nameHash,
             args.proof
@@ -121,7 +132,7 @@ task("deployAccount", "deploy a new account per given email")
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
 
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const initData = hexlink.interface.encodeFunctionData(
             "init", [args.owner]
         );
@@ -142,7 +153,7 @@ task("resetAccount", "reset the account address")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const tx = await hexlink.connect(deployer).reset(
             nameHash,
             args.account,
@@ -159,7 +170,7 @@ task("reset2Fac", "reset the account address with 2fac")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const tx = await hexlink.connect(deployer).reset(
             nameHash,
             args.account,
@@ -176,7 +187,7 @@ task("reset2Stage", "reset the account address with 2fac")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
-        const nameHash = genNameHash(args.name);
+        const nameHash = hash(args.name);
         const tx = await hexlink.connect(deployer).reset2Stage(
             nameHash,
             args.account,

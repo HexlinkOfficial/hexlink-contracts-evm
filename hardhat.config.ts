@@ -54,6 +54,16 @@ const config: HardhatUserConfig = {
       chainId: 3334,
       url: "https://galileo.web3q.io:8545",
       accounts,
+    },
+    nova: {
+      chainId: 42170,
+      url: "https://nova.arbitrum.io/rpc",
+      accounts,
+    },
+    nitro: {
+      chainId: 421613,
+      url: "https://goerli-rollup.arbitrum.io/rpc",
+      accounts,
     }
   },
   gasReporter: {

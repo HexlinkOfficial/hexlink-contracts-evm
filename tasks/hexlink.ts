@@ -5,6 +5,7 @@ import { ethers, Contract } from "ethers";
 const HEXLINK : {[key: string]: string} = {
     "goerli": "0xbad6a7948a1d3031ee7236d0180b6271fa569148",
     "mumbai": "0x78317ef8b020Fe10e845ab8723403cF1e58Ef1Cc",
+    "nitro": "0x7e0B0332aDbEC1a84E1E264f308AE581fcda5684",
 }
 
 function hash(value: string) {

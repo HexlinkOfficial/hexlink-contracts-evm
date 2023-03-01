@@ -73,6 +73,32 @@
             "price": "1500000000000000000000"
         }]
     },
+    "nova": {
+        "validator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
+        "safe": "0xdbCaf063873dC6be53c007Cf8f8447E303Cac8A3",
+        "timelock": {
+            "minDelay": 30
+        },
+        "oracles": {
+            "EMAIL_OTP": "",
+            "TWITTER_OAUTH": ""
+        },
+        "gasTokens": [{
+            "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+            "decimals": 18,
+            "price": "2000000000000000000000"
+        },
+        {
+            "address": "0x722e8bdd2ce80a4422e880164f2079488e115365",
+            "decimals": 18,
+            "price": "1000000000000000000"
+        },
+        {
+            "address": "0x750ba8b76187092b0d1e87e28daaf484d1b5273b",
+            "decimals": 6,
+            "price": "2000000000"
+        }]
+    },
     "galileo": {
         "nftRoot": "0x72fb3F7B0A3e0ff3Ee1F488B853A85bdb781e140"
     }

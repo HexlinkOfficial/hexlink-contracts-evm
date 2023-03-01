@@ -214,7 +214,7 @@ task("depositGasPool", "deposit to senders")
     .addOptionalParam("amount")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const { deployer } = await hre.ethers.getNamedSigners();
-        const amount = args.amount || "0.1";
+        const amount = args.amount || "0.001";
         const value = ethers.utils.parseEther(amount);
         const total = value.mul(senders.length);
         const ops = senders.map(sender => ({

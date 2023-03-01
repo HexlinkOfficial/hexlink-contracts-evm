@@ -11,6 +11,8 @@ import SafeServiceClient, {
     SafeInfoResponse,
   } from '@safe-global/safe-service-client';
 
+import * as fs from 'fs';
+
 function hash(value: string) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
 }
@@ -524,6 +526,6 @@ task("set_swap_prices", "set prices of gas token")
         const {gasPrice} = await hre.ethers.provider.getFeeData();
         await swap.connect(deployer).setPrices(tokens, prices);
         await swap.connect(deployer).deposit(
-            {value: ethers.utils.parseEther("0.1"), gasPrice}
+            {value: ethers.utils.parseEther("0.001"), gasPrice}
         );
     });

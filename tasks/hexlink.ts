@@ -6,6 +6,7 @@ const HEXLINK : {[key: string]: string} = {
     "goerli": "0xbad6a7948a1d3031ee7236d0180b6271fa569148",
     "mumbai": "0x78317ef8b020Fe10e845ab8723403cF1e58Ef1Cc",
     "nitro": "0x7e0B0332aDbEC1a84E1E264f308AE581fcda5684",
+    "arbitrum": "0x1e47cA3F46619f8A5CBFB98a23f564c9865E58ce",
 }
 
 function hash(value: string) {
@@ -214,7 +215,7 @@ task("depositGasPool", "deposit to senders")
     .addOptionalParam("amount")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const { deployer } = await hre.ethers.getNamedSigners();
-        const amount = args.amount || "0.001";
+        const amount = args.amount || "0.005";
         const value = ethers.utils.parseEther(amount);
         const total = value.mul(senders.length);
         const ops = senders.map(sender => ({

@@ -55,6 +55,11 @@ const config: HardhatUserConfig = {
       url: "https://galileo.web3q.io:8545",
       accounts,
     },
+    arbitrum: {
+      chainId: 42161,
+      url: "https://arb1.arbitrum.io/rpc",
+      accounts,
+    },
     nova: {
       chainId: 42170,
       url: "https://nova.arbitrum.io/rpc",

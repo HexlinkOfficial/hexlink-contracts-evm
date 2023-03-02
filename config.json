@@ -73,6 +73,37 @@
             "price": "1500000000000000000000"
         }]
     },
+    "arbitrum": {
+        "safe": "0xC904356E795023DDf290FD58056cd516E815C785",
+        "validator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
+        "timelock": {
+            "minDelay": 30
+        },
+        "oracles": {
+            "EMAIL_OTP": "0x7a2B0583A8227E6FdDDAC83eF0e27Eca78B94ba0",
+            "TWITTER_OAUTH": "0xCF68c5D7a525F1dcB0a36B655652A4F3d26144E4"
+        },
+        "gasTokens": [{
+            "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+            "decimals": 18,
+            "price": "2000000000000000000000"
+        },
+        {
+            "address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+            "decimals": 18,
+            "price": "1000000000000000000"
+        },
+        {
+            "address": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+            "decimals": 6,
+            "price": "2000000000"
+        },
+        {
+            "address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+            "decimals": 6,
+            "price": "2000000000"
+        }]
+    },
     "nova": {
         "validator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
         "safe": "0xdbCaf063873dC6be53c007Cf8f8447E303Cac8A3",

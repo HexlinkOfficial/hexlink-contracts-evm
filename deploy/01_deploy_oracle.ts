@@ -75,8 +75,8 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
   let twitterOAuth = oracles["TWITTER_OAUTH"];
   if (twitterOAuth == undefined || twitterOAuth.length === 0) {
     twitterOAuth = await createOracle("TWITTER_OAUTH", hre);
-  } else {
     console.log("TWITTER_OAUTH oracle registered at " + twitterOAuth);
+  } else {
     console.log("reusing TWITTER_OAUTH oracle at " + twitterOAuth);
   }
 

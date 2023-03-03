@@ -66,6 +66,25 @@ task("hexlink_check", "check hexlink metadata")
             "IdentityOracleRegistry",
             oracleRegistryAddr
         );
+
+        const tokenFactory = await hre.deployments.get("HexlinkTokenFactory");
+        const tokenFactoryContract = await hre.ethers.getContractAt(
+            "HexlinkTokenFactoryImpl", tokenFactory.address,
+        );
+        const factoryImpl = await tokenFactoryContract.implementation();
+        
+        const erc721Proxy = await tokenFactoryContract.erc721Impl();
+        const erc721ProxyContract = await hre.ethers.getContractAt("HexlinkErc721Proxy", erc721Proxy);
+        const erc721Beacon = await erc721ProxyContract.beacon();
+        const erc721beaconContract = await hre.ethers.getContractAt(
+            "HexlinkErc721Beacon", erc721Beacon
+        );
+        const erc721Impl = await erc721beaconContract.implementation();
+
+        const redpacket = await hre.deployments.get("HappyRedPacket");
+        const redpacketContract = await hre.ethers.getContractAt(
+            "HappyRedPacketImpl", redpacket.address);
+        const redpacketImpl = await redpacketContract.implementation();
         const result = {
             "address": hexlink.address,
             "accountBase": await hexlink.accountBase(),
@@ -86,7 +105,19 @@ task("hexlink_check", "check hexlink metadata")
             },
             "owner": await hexlink.owner(),
             "implementation": await hexlink.implementation(),
-            "token": (await hre.deployments.get("HexlinkToken")).address
+            "token": (await hre.deployments.get("HexlinkToken")).address,
+            "redpacket": {
+                address: redpacket.address,
+                impl: redpacketImpl
+            },
+            "tokenFactory": {
+                address: tokenFactory.address,
+                impl: factoryImpl,
+                erc721Proxy,
+                erc721Beacon,
+                erc721Impl,
+            }
+
         }
         console.log(result);
         return result;

@@ -174,6 +174,8 @@ task("admin_schedule", "schedule a tx")
                 "schedule",
                 processed
             );
+            console.log("to: ", admin.address);
+            console.log("data: ", data);
             await proposeOrExectueSafeTx(hre, deployer, {
                 to: admin.address,
                 value: "0",
@@ -200,6 +202,8 @@ task("admin_exec", "execute a tx")
                 "execute",
                 processed
             );
+            console.log("to: ", admin.address);
+            console.log("data: ", data);
             await proposeOrExectueSafeTx(hre, deployer, {
                 to: admin.address,
                 value: "0",

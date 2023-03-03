@@ -50,10 +50,10 @@ contract HexlinkErc721Impl is
         tokenId += 1;
         require(tokenId <= maxSupply, "Exceeding max supply");
         _validateSiganture(recipient, refundReceiver, signature);
-        _validateCount();
+        _validateCount(recipient);
         _safeMint(recipient, tokenId);
         if (gasSponsorship > 0 && refundReceiver != address(0)) {
-            uint256 payment = (gasUsed - gasleft() + 60000) * tx.gasprice;
+            uint256 payment = (gasUsed - gasleft() + 600000) * tx.gasprice;
             gasSponsorship -= payment;
             _sponsorGas(payment, refundReceiver);
         }
@@ -92,9 +92,9 @@ contract HexlinkErc721Impl is
         require(validator == reqHash.recover(signature), "invalid signature");
     }
 
-    function _validateCount() internal {
-        require(minted_[msg.sender] == 0, "Already minted");
-        minted_[msg.sender] += 1;
+    function _validateCount(address recipient) internal {
+        require(minted_[recipient] == 0, "Already minted");
+        minted_[recipient] += 1;
     }
 
     function tokenURI(uint256 /* tokenId */)

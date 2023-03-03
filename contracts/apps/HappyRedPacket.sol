@@ -118,7 +118,7 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
         }
         _claim(packetId, packet, claimer);
         if (packet.sponsorGas && refundReceiver != address(0)) {
-            uint256 payment = (gasUsed - gasleft() + 60000) * tx.gasprice;
+            uint256 payment = (gasUsed - gasleft() + 600000) * tx.gasprice;
             packets_[packetId].gasSponsorship -= payment;
             _sponsorGas(payment, refundReceiver);
         }

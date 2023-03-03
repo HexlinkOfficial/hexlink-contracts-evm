@@ -526,6 +526,6 @@ task("set_swap_prices", "set prices of gas token")
         const {gasPrice} = await hre.ethers.provider.getFeeData();
         await swap.connect(deployer).setPrices(tokens, prices);
         await swap.connect(deployer).deposit(
-            {value: ethers.utils.parseEther("0.001"), gasPrice}
+            {value: ethers.utils.parseEther("0.01"), gasPrice}
         );
     });

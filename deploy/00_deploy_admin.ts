@@ -8,7 +8,7 @@ const getAdminConfig = async function(hre: HardhatRuntimeEnvironment) {
     const {deployer} = await hre.getNamedAccounts();
     const safe = (netConf as any)["safe"] || deployer;
     return {
-        minDelay: Number((netConf as any)["timelock"].minDelay || 0),
+        minDelay: Number((netConf as any)["timelock"]?.minDelay || 0),
         proposers: [ethers.utils.getAddress(safe)],
         executors: [ethers.utils.getAddress(safe)]
     }

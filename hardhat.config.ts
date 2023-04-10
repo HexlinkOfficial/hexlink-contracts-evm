@@ -1,4 +1,4 @@
-import { HardhatUserConfig, task, extendEnvironment } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-ethers";
@@ -9,10 +9,11 @@ import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 
 import "./tasks/admin";
-import "./tasks/account";
 import "./tasks/nft";
 import "./tasks/hexlink";
 import "./tasks/auth";
+import "./tasks/config";
+import "./tasks/deploy";
 import "./tasks/app";
 import "./tasks/redpacket";
 
@@ -34,11 +35,25 @@ task("accounts", "Prints the list of accounts", async (_taskArgs, hre) => {
   }
 });
 
-const accounts = process.env.HARDHAT_DEPLOYER !== undefined ?
-  [process.env.HARDHAT_DEPLOYER] :
-  [];
+const accounts = process.env.HARDHAT_DEPLOYER && process.env.HARDHAT_FACTORY_DEPLOYER ?
+  [process.env.HARDHAT_DEPLOYER, process.env.HARDHAT_FACTORY_DEPLOYER] :
+  [
+    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+    "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
+  ];
 const config: HardhatUserConfig = {
-  solidity: "0.8.8",
+  solidity: {
+    version: "0.8.12",
+    settings: {
+      viaIR: true,
+      optimizer: {
+        enabled: true,
+        runs: 1,
+      },
+    },
+  },
   networks: {
     goerli: {
       chainId: 5,
@@ -79,11 +94,14 @@ const config: HardhatUserConfig = {
     deployer: {
       default: 0,
     },
-    validator: {
+    factoryDeployer: {
       default: 1,
     },
-    tester: {
+    validator: {
       default: 2,
+    },
+    tester: {
+      default: 3,
     },
   },
   etherscan: {

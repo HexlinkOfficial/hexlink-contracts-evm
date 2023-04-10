@@ -2,34 +2,7 @@ import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import {ethers, BigNumber} from "ethers";
 
-function genRedPacketId(
-    hre: HardhatRuntimeEnvironment,
-    contract: string,
-    creator: string,
-    packet: any
-) : string {
-    const redPacketType = "tuple(address,bytes32,uint256,address,uint32,uint8)";
-    return ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "address", "address", redPacketType],
-            [
-                hre.network.config.chainId,
-                contract,
-                creator,
-                [
-                    packet.token,
-                    packet.salt,
-                    packet.balance,
-                    packet.validator,
-                    packet.split,
-                    packet.mode
-                ]
-            ]
-        )
-    );
-}
-
-task("claim", "print state")
+task("claim", "claim red packet")
     .setAction(async function (args, hre: HardhatRuntimeEnvironment) {
         const { deployer } = await hre.ethers.getNamedSigners();
         const contract = await hre.ethers.getContractAt(

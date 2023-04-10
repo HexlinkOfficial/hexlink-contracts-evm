@@ -1,11 +1,36 @@
 //SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.12;
 
-import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@solidstate/contracts/access/ownable/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
-contract AccountBeacon is UpgradeableBeacon {
-    constructor(address impl, address owner) UpgradeableBeacon(impl) {
-        _transferOwnership(owner);
+contract AccountBeacon is IBeacon, Ownable {
+    event Upgraded(address indexed implementation);
+
+    address private _implementation;
+
+    function init(address newOwner, address newImplementation) external {
+        require(owner() == address(0), "already initialized");
+        _transferOwnership(newOwner);
+        _setImplementation(newImplementation);
+    }
+
+    function implementation() public view virtual override returns (address) {
+        return _implementation;
+    }
+
+    function upgradeTo(address newImplementation) public virtual onlyOwner {
+        _setImplementation(newImplementation);
+        emit Upgraded(newImplementation);
+    }
+
+    function _setImplementation(address newImplementation) private {
+        require(
+            Address.isContract(newImplementation),
+            "UpgradeableBeacon: implementation is not a contract"
+        );
+        _implementation = newImplementation;
     }
 }

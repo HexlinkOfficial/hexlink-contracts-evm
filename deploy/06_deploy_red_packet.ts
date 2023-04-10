@@ -37,4 +37,5 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 };
 
 export default func;
-func.tags = ["HEXL", "APP"];
+func.tags = ["APP"];
+func.id = "redpacket";

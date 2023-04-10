@@ -1,15 +1,14 @@
 //SPDX-License-Identifier: Unlicense
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../utils/GasSponsor.sol";
 
-contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
+contract HappyRedPacket is Ownable, UUPSUpgradeable {
     using ECDSA for bytes32;
     using Address for address;
 
@@ -32,7 +31,6 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
         address validator;
         uint32 split;
         uint8 mode; // 0: not_set, 1: fixed, 2: randomized
-        bool sponsorGas;
     }
 
     struct RedPacket {
@@ -107,7 +105,6 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
         address refundReceiver,
         bytes calldata signature
     ) public {
-        uint256 gasUsed = gasleft();
         bytes32 packetId = _packetId(packet);
         if (signature.length == 0) {
             require(msg.sender == packet.validator, "Unauthorized");
@@ -117,11 +114,6 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
             require(packet.validator == reqHash.recover(signature), "Invalid signature");
         }
         _claim(packetId, packet, claimer);
-        if (packet.sponsorGas && refundReceiver != address(0)) {
-            uint256 payment = (gasUsed - gasleft() + 600000) * tx.gasprice;
-            packets_[packetId].gasSponsorship -= payment;
-            _sponsorGas(payment, refundReceiver);
-        }
     }
 
     function _claim(
@@ -186,13 +178,4 @@ contract HappyRedPacketImpl is Ownable, UUPSUpgradeable, GasSponsor {
     function _authorizeUpgrade(
         address newImplementation
     ) internal view onlyOwner override { }
-}
-
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-
-contract HappyRedPacket is ERC1967Proxy {
-    constructor(
-        address logic,
-        bytes memory data
-    ) ERC1967Proxy(logic, data) payable {}
 }

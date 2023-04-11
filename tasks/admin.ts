@@ -1,21 +1,8 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { ethers, BigNumber, Signer, Contract } from "ethers";
+import { ethers, BigNumber, Contract } from "ethers";
 import config from '../config.json';
-
-import EthersAdapter from '@safe-global/safe-ethers-lib'
-import Safe from '@safe-global/safe-core-sdk'
-import { SafeTransactionDataPartial } from '@safe-global/safe-core-sdk-types'
-import SafeServiceClient, {
-    ProposeTransactionProps,
-    SafeInfoResponse,
-  } from '@safe-global/safe-service-client';
-
-import * as fs from 'fs';
-
-function hash(value: string) {
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
-}
+import { getHexlink } from "./hexlink";
 
 const processArgs = async function(
     timelock: Contract,
@@ -38,118 +25,44 @@ const processArgs = async function(
     ];
 }
 
+async function getAdmin(hre: HardhatRuntimeEnvironment, admin?: string) {
+    return await hre.ethers.getContractAt(
+        "TimelockController",
+        admin || "0xda960A1b2D45B92439dACD470bD15C754948Bc4D"
+    );
+}
+
 function netConf(hre: HardhatRuntimeEnvironment) {
     return config[hre.network.name as keyof typeof config] || {};
 }
 
-async function getAdminContract(hre: HardhatRuntimeEnvironment) {
-    const adminDeployed = await hre.deployments.get("HexlinkAdmin");
-    return await hre.ethers.getContractAt(
-        "TimelockController",
-        adminDeployed.address
-    );
-}
-
-async function safeService(
-    hre: HardhatRuntimeEnvironment,
-    ethAdapter: EthersAdapter
-) : Promise<SafeServiceClient> {
-    return new SafeServiceClient({
-        txServiceUrl: netConf(hre)["safeApi"],
-        ethAdapter
-    });
-}
-
-async function getSafe(
-    hre: HardhatRuntimeEnvironment,
-    signer: Signer
-) : Promise<{safe: Safe, safeService: SafeServiceClient, safeInfo: SafeInfoResponse}> {
-    const ethAdapter = new EthersAdapter({ethers, signerOrProvider: signer})
-    const safe = await Safe.create({
-        ethAdapter,
-        safeAddress: netConf(hre)["safe"]
-    });
-    const service = await safeService(hre, ethAdapter)
-    const info: SafeInfoResponse = await service.getSafeInfo(netConf(hre)["safe"])
-    return {safe, safeService: service, safeInfo: info};
-}
-
-async function proposeOrExectueSafeTx(
-    hre: HardhatRuntimeEnvironment,
-    signer: Signer,
-    tx: SafeTransactionDataPartial
-) {
-    const { safe, safeService, safeInfo } = await getSafe(hre, signer);
-
-    const senderAddress = await (safe.getEthAdapter()).getSignerAddress();
-    if (senderAddress == undefined) {
-        throw "No signer found for safe transaction";
-    }
-    if (safeInfo.owners.find(
-        (owner) => owner.toLowerCase() === senderAddress.toLowerCase()
-    ) == undefined) {
-        throw "Signer is not owner of safe";
-    }
-
-    const safeTransaction = await safe.createTransaction({ safeTransactionData: tx });
-    const signedSafeTransaction = await safe.signTransaction(safeTransaction);
-    console.log("Signed safe transaction is ");
-    console.log(signedSafeTransaction);
-
-    // if threshold = 1, execute directly
-    if (safeInfo.threshold == 1) {
-        const executeTxResponse = await safe.executeTransaction(safeTransaction)
-        await executeTxResponse.transactionResponse?.wait();
-        return;
-    }
-
-    // else propose for other owners to confirm
-    const safeTxHash = await safe.getTransactionHash(signedSafeTransaction);
-
-    const senderSignature = signedSafeTransaction.signatures.get(senderAddress!);
-    if (senderSignature == undefined) {
-        throw "Signature not find at transaction";
-    }
-    const safeAddress = safe.getAddress();
-    const transactionConfig: ProposeTransactionProps = {
-        safeAddress,
-        safeTransactionData: safeTransaction.data,
-        safeTxHash,
-        senderAddress,
-        senderSignature: senderSignature.data
-      }
-    return await safeService.proposeTransaction(transactionConfig);
-}
-
 task("admin_check", "check if has role")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdminContract(hre);
+        const admin = await getAdmin(hre, undefined);
         const minDelay = await admin.getMinDelay();
         console.log("admin is " + admin.address + ", with min delay as " + minDelay);
 
-        const { deployer } = await hre.ethers.getNamedSigners();
-        const safe = netConf(hre)["safe"]
-            ? ethers.utils.getAddress(netConf(hre)["safe"])
-            : deployer.address;
-        console.log("Owner of admin is " + safe);
+        const {deployer} = await hre.getNamedAccounts();
+        const controller = deployer;
+        console.log("Owner of admin is " + controller);
 
         const isProposer = await admin.hasRole(
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE")),
-            safe
+            controller
         );
-        console.log(safe + " is " + (isProposer ? "" : "not ") +  "proposer");
+        console.log(controller + " is " + (isProposer ? "" : "not ") +  "proposer");
 
         const isCanceller = await admin.hasRole(
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CANCELLER_ROLE")),
-            safe
+            controller
         );
-        console.log(safe + " is " + (isCanceller ? "" : "not ") +  "canceller");
+        console.log(controller + " is " + (isCanceller ? "" : "not ") +  "canceller");
 
         const isExecutor = await admin.hasRole(
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE")),
-            safe
+            controller
         );
-        console.log(safe + " is " + (isExecutor ? "" : "not ") +  "executor");
+        console.log(controller + " is " + (isExecutor ? "" : "not ") +  "executor");
 
         const isAdmin = await admin.hasRole(
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TIMELOCK_ADMIN_ROLE")),
@@ -165,25 +78,12 @@ task("admin_schedule", "schedule a tx")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
+    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdminContract(hre);
+        const admin = await getAdmin(hre, args.admin);
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
-        if (netConf(hre)["safe"]) {
-            const data = admin.interface.encodeFunctionData(
-                "schedule",
-                processed
-            );
-            console.log("to: ", admin.address);
-            console.log("data: ", data);
-            await proposeOrExectueSafeTx(hre, deployer, {
-                to: admin.address,
-                value: "0",
-                data
-            });
-        } else {
-            await admin.connect(deployer).schedule(...processed);
-        }
+        await admin.connect(deployer).schedule(...processed);
     });
 
 task("admin_exec", "execute a tx")
@@ -192,26 +92,13 @@ task("admin_exec", "execute a tx")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
+    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdminContract(hre);
+        const admin = await getAdmin(hre, args.admin);
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
         processed.pop();
-        if (netConf(hre)["safe"]) {
-            const data = admin.interface.encodeFunctionData(
-                "execute",
-                processed
-            );
-            console.log("to: ", admin.address);
-            console.log("data: ", data);
-            await proposeOrExectueSafeTx(hre, deployer, {
-                to: admin.address,
-                value: "0",
-                data
-            });
-        } else {
-            await admin.connect(deployer).execute(...processed);
-        }
+        await admin.connect(deployer).execute(...processed);
     });
 
 task("admin_schedule_and_exec", "schedule and execute")
@@ -221,15 +108,18 @@ task("admin_schedule_and_exec", "schedule and execute")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
+    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdminContract(hre);
+        const admin = await getAdmin(hre, args.admin);
         await hre.run("admin_schedule", args);
-        function wait(ms: number) {
-            return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
-        }
         const delay = Number(args.dealy) || (await admin.getMinDelay()).toNumber();
-        console.log("Will wait for " + delay + " seconds before exec");
-        await wait(delay + 1);
+        if (delay > 0) {
+            const wait = (ms: number) => {
+                return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
+            };
+            console.log("Will wait for " + delay + " seconds before exec");
+            await wait(delay + 1);
+        }
         await hre.run("admin_exec", args);
     });
 
@@ -240,8 +130,9 @@ task("admin_schedule_or_exec", "schedule and execute")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
+    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdminContract(hre);
+        const admin = await getAdmin(hre, args.admin);
         const processed = await processArgs(admin, args);
         processed.pop();
         const operationId = ethers.utils.keccak256(
@@ -264,67 +155,41 @@ task("admin_schedule_or_exec", "schedule and execute")
         }
     });
 
-task("register_oracle", "register oracle contract for identity and auth type")
-    .addParam("identity")
-    .addParam("auth")
-    .addParam("oracle")
+task("register_validator", "register validator at oracle contract")
+    .addParam("registry")
+    .addParam("validator")
+    .addFlag("registered")
     .addFlag("nowait")
     .setAction(async (args: any, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("IdentityOracleRegistry");
-        const registry = await hre.ethers.getContractAt(
-            "IdentityOracleRegistry",
-            deployment.address
-        );
+        const registry = await hre.ethers.getContractAt("NameRegistry", args.registry);
         const data = registry.interface.encodeFunctionData(
-            "regsiter",
-            [{
-                identityType: hash(args.identity),
-                authType: hash(args.auth)
-            }, ethers.utils.getAddress(args.oracle)]
+            "registerValidator",
+            [ethers.utils.getAddress(args.validator), args.registered]
         )
-        if (args.wait) {
+        const registered = await registry.isRegistered(args.validator);
+        if (registered) {
+            console.log("Already registered, skipping ");
+            return;
+        }
+        console.log("Registering valdiator " + args.validator + " at registry " + args.oracle);
+        if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: registry.address, data });
         } else {
             await hre.run("admin_schedule_and_exec", { target: registry.address, data });
         }
     });
 
-task("register_validator", "register validator at oracle contract")
-    .addParam("oracle")
-    .addParam("validator")
-    .addFlag("registered")
+task("set_registry", "set name registry")
+    .addParam("schema")
     .addFlag("nowait")
-    .setAction(async (args: any, hre : HardhatRuntimeEnvironment) => {
-        const oracle = await hre.ethers.getContractAt("SimpleIdentityOracle", args.oracle);
-        const data = oracle.interface.encodeFunctionData(
-            "register",
-            [ethers.utils.getAddress(args.validator), args.registered]
-        )
-        const registered = await oracle.isRegistered(args.validator);
-        if (registered) {
-            console.log("Already registered, skipping ");
-            return;
-        }
-        console.log("Registering valdiator " + args.validator + " at oracle " + args.oracle);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: oracle.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: oracle.address, data });
-        }
-    });
-
-task("set_oracle_registry", "set oracle registry")
-    .addFlag("nowait")
+    .addOptionalParam("domain")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("HexlinkProxy");
-        const hexlink = await hre.ethers.getContractAt(
-            "HexlinkUpgradeable",
-            ethers.utils.getAddress(deployment.address)
-        );
+        const hexlink = await getHexlink(hre);
         const registry = await hre.deployments.get("IdentityOracleRegistry");
+        const domain = args.domain ? hash(args.domain) : ethers.constants.HashZero;
         const data = hexlink.interface.encodeFunctionData(
-            "setOracleRegistry",
-            [registry.address]
+            "setRegistry",
+            [hash(args.schema), domain, registry.address]
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
@@ -336,11 +201,17 @@ task("set_oracle_registry", "set oracle registry")
 task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        await hre.run("deploy", {tags: "CORE"});
-        const impl = await hre.deployments.get("HexlinkUpgradeable");
-        const hexlink = await hre.run("hexlink", {});
+        const { deployer } = await hre.ethers.getNamedSigners();
+        const deployed = await hre.deployments.deploy("Hexlink", {
+            from: deployer.address,
+            args: ["0xf58182A01f4C427BaAe068C36CBE772a4976778E"],
+            log: true,
+            autoMine: true,
+        });
+
+        const hexlink = await getHexlink(hre);
         const existing = await hexlink.implementation();
-        if (existing.toLowerCase() == impl.address.toLowerCase()) {
+        if (existing.toLowerCase() == deployed.address.toLowerCase()) {
             console.log("No need to upgrade");
             return;
         }
@@ -348,9 +219,9 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         // upgrade hexlink proxy
         const data = hexlink.interface.encodeFunctionData(
             "upgradeTo",
-            [impl.address]
+            [deployed.address]
         );
-        console.log("Upgrading from " + existing + " to " + impl.address);
+        console.log("Upgrading from " + existing + " to " + deployed.address);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {
@@ -361,24 +232,28 @@ task("upgrade_hexlink", "upgrade hexlink contract")
 task("upgrade_account", "upgrade account implementation")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("AccountBeacon");
+        const { deployer } = await hre.ethers.getNamedSigners();
         const beacon = await hre.ethers.getContractAt(
-            "AccountBeacon", deployment.address
+            "AccountBeacon", "0x1b9F49FEEfC4F519352DA188861123ad7b2e7cB6"
         );
+        const deployed = await hre.deployments.deploy("Account", {
+            from: deployer.address,
+            args: [],
+            log: true,
+            autoMine: true,
+        });
 
-        await hre.run("deploy", {tags: "ACCOUNT"});
-        const accountImpl = await hre.deployments.get("AccountSimple");
         const existing = await beacon.implementation();
-        if (existing.toLowerCase() === accountImpl.address.toLowerCase()) {
+        if (existing.toLowerCase() === deployed.address.toLowerCase()) {
             console.log("No need to upgrade");
             return;
         }
 
         const data = beacon.interface.encodeFunctionData(
             "upgradeTo",
-            [accountImpl.address]
+            [deployed.address]
         );
-        console.log("Upgrading from " + existing + " to " + accountImpl.address);
+        console.log("Upgrading from " + existing + " to " + deployed.address);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: beacon.address, data });
         } else {

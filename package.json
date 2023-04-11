@@ -1,9 +1,9 @@
 {
   "name": "HexlinkContract",
   "devDependencies": {
-    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.13",
+    "@nomiclabs/hardhat-ethers": "^2.2.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.8",
-    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.5",
     "@openzeppelin/contracts": "^4.8.0",
     "@safe-global/safe-core-sdk": "^3.2.2",
     "@safe-global/safe-ethers-lib": "^1.8.0",
@@ -32,6 +32,7 @@
     "typechain": "^5.2.0"
   },
   "dependencies": {
+    "@account-abstraction/contracts": "0.6.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.1",
     "ethfs-uploader": "^1.1.8"
   }

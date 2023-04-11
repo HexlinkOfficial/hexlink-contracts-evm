@@ -2,6 +2,11 @@
 
 pragma solidity ^0.8.12;
 
+/**
+    Do not update this file, this file is used
+    to ensure the identical cross-chain addresses
+*/
+
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 
 contract ContractFactory is Ownable {

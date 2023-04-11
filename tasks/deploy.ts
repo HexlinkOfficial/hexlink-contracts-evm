@@ -115,9 +115,10 @@ task("deployHexlinkProxy", "deploy hexlink proxy contract")
         const salt5 = genSalt('hexlink.dummyImpl');
         const dummyImpl = await factory.getAddress(bytescode5, salt5);
         if (await isContract(hre, dummyImpl)) {
-            console.log(`Reusing "HexlinkProxy" deployed at ${dummyImpl}`);
+            console.log(`Reusing "DummyUUPSImpl" deployed at ${dummyImpl}`);
         } else {
             const tx5 = await factory.connect(deployer).deploy(bytescode5, salt5);
+            await tx5.wait();
             console.log(`deploying "DummyImpl" (tx: ${tx5.hash})...: deployed at ${dummyImpl}`);
         }
 
@@ -135,6 +136,7 @@ task("deployHexlinkProxy", "deploy hexlink proxy contract")
             console.log(`Reusing "HexlinkProxy" deployed at ${hexlinkProxy}`);
         } else {
             const tx6 = await factory.connect(deployer).deploy(bytecode6, salt6);
+            await tx6.wait();
             console.log(`deploying "HexlinkProxy" (tx: ${tx6.hash})...: deployed at ${hexlinkProxy}`);
         }
 
@@ -166,6 +168,7 @@ task("deployAll", "deploy hexlink related contracts")
             console.log(`Reusing "TimelockController" deployed at ${admin}`);
         } else {
             const tx0 = await factory.connect(deployer).deploy(bytecode0, salt0);
+            await tx0.wait();
             console.log(`deploying "TimelockController" (tx: ${tx0.hash})...: deployed at ${admin}`);
         }
 
@@ -183,6 +186,7 @@ task("deployAll", "deploy hexlink related contracts")
             console.log(`Reusing "Account" deployed at ${accountImpl}`);
         } else {
             const tx1 = await factory.connect(deployer).deploy(bytecode1, salt1);
+            await tx1.wait();
             console.log(`deploying "Account" (tx: ${tx1.hash})...: deployed at ${accountImpl}`);
         }
 
@@ -197,6 +201,7 @@ task("deployAll", "deploy hexlink related contracts")
             console.log(`Reusing "AccountBeacon" deployed at ${accountBeacon}`);
         } else {
             const tx2 = await factory.connect(deployer).deploy(bytecode2, salt2);
+            await tx2.wait();
             console.log(`deploying "AccountBeacon" (tx: ${tx2.hash})...: deployed at ${accountBeacon}`);
         }
     
@@ -217,6 +222,7 @@ task("deployAll", "deploy hexlink related contracts")
             console.log(`Reusing "AccountProxy" deployed at ${accountProxy}`);
         } else {
             const tx3 = await factory.connect(deployer).deploy(bytecode3, salt3);
+            await tx3.wait();
             console.log(`deploying "AccountProxy" (tx: ${tx3.hash})...: deployed at ${accountProxy}`);
         }
 
@@ -231,6 +237,7 @@ task("deployAll", "deploy hexlink related contracts")
             console.log(`Reusing "Hexlink" deployed at ${hexlinkImpl}`);
         } else {
             const tx4 = await factory.connect(deployer).deploy(bytecode4, salt4);
+            await tx4.wait();
             console.log(`deploying "Hexlink" (tx: ${tx4.hash})...: deployed at ${hexlinkImpl}`);
         }
 

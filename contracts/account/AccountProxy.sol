@@ -3,6 +3,11 @@
 
 pragma solidity ^0.8.12;
 
+/**
+    Do not update this file, this file is used
+    to ensure the identical cross-chain addresses
+*/
+
 import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import "@openzeppelin/contracts/proxy/Proxy.sol";
 

@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.12;
 
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-
 /**
     Do not update this file, this file is used
     to ensure the identical cross-chain addresses
 */
+
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 contract DummyUUPSImpl is UUPSUpgradeable {
     function implementation() external view returns (address) {

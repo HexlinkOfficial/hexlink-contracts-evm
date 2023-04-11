@@ -13,7 +13,10 @@ The design could be found at:
 
 1. [Hexlink Contract Design](https://docs.google.com/document/d/1rggtUx_oS0rD3e9hYCvAL0IslBUc7OaOQC9ily24X1A/edit?usp=sharing)
 2. [Hexlink Wallet Contract Design](https://docs.google.com/document/d/1r2hulO2eJJokoH_gO9cdKQTyegUnTUCtSN-_M3E9hnw/edit?usp=sharing)
-3. [Hexlink Identity Oracle Design](https://docs.google.com/document/d/12icd_yso1thRwwbgfArgzoU2y_GI-3bNSc9jhxZqugw/edit?usp=sharing)
+
+# Account Abstraction Dependency
+
+The repo depends on ver0.6.0 of [eth-infinitism/account-abstraction](https://github.com/eth-infinitism/account-abstraction/tree/ver0.6.0). You need to clone the repo to local and put it at the same folder of this repo and link the repo as the dependency of this one.
 
 # Commands
 

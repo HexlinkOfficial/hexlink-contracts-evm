@@ -1,8 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import config from '../config.json';
-import { getHexlink } from "./hexlink";
+import { hash, getHexlink, getAdmin } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -23,17 +22,6 @@ const processArgs = async function(
         args.salt || ethers.constants.HashZero,  // salt
         BigNumber.from(args.delay || await timelock.getMinDelay())
     ];
-}
-
-async function getAdmin(hre: HardhatRuntimeEnvironment, admin?: string) {
-    return await hre.ethers.getContractAt(
-        "TimelockController",
-        admin || "0xda960A1b2D45B92439dACD470bD15C754948Bc4D"
-    );
-}
-
-function netConf(hre: HardhatRuntimeEnvironment) {
-    return config[hre.network.name as keyof typeof config] || {};
 }
 
 task("admin_check", "check if has role")
@@ -111,6 +99,7 @@ task("admin_schedule_and_exec", "schedule and execute")
     .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const admin = await getAdmin(hre, args.admin);
+        console.log("scheduling...");
         await hre.run("admin_schedule", args);
         const delay = Number(args.dealy) || (await admin.getMinDelay()).toNumber();
         if (delay > 0) {
@@ -120,7 +109,9 @@ task("admin_schedule_and_exec", "schedule and execute")
             console.log("Will wait for " + delay + " seconds before exec");
             await wait(delay + 1);
         }
+        console.log("executing...");
         await hre.run("admin_exec", args);
+        console.log("done.");
     });
 
 task("admin_schedule_or_exec", "schedule and execute")
@@ -199,19 +190,12 @@ task("set_registry", "set name registry")
     });
 
 task("upgrade_hexlink", "upgrade hexlink contract")
+    .addParam("implementation", "new hexlink implementation")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const { deployer } = await hre.ethers.getNamedSigners();
-        const deployed = await hre.deployments.deploy("Hexlink", {
-            from: deployer.address,
-            args: ["0xf58182A01f4C427BaAe068C36CBE772a4976778E"],
-            log: true,
-            autoMine: true,
-        });
-
         const hexlink = await getHexlink(hre);
         const existing = await hexlink.implementation();
-        if (existing.toLowerCase() == deployed.address.toLowerCase()) {
+        if (existing.toLowerCase() == args.implementation.toLowerCase()) {
             console.log("No need to upgrade");
             return;
         }
@@ -219,9 +203,9 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         // upgrade hexlink proxy
         const data = hexlink.interface.encodeFunctionData(
             "upgradeTo",
-            [deployed.address]
+            [args.implementation]
         );
-        console.log("Upgrading from " + existing + " to " + deployed.address);
+        console.log("Upgrading from " + existing + " to " + args.implementation);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {

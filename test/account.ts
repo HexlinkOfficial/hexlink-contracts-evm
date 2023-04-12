@@ -1,42 +1,23 @@
 import { expect } from "chai";
-import { ethers, deployments, getNamedAccounts, artifacts, run } from "hardhat";
+import * as hre from "hardhat";
+import { ethers, deployments, getNamedAccounts, run } from "hardhat";
 import { Contract } from "ethers";
-import { hash } from "../tasks/utils";
+import { buildAuthProof } from "../tasks/utils";
+import { senderName, senderNameHash, receiverNameHash} from "./testers";
 
-const senderName = "mailto:sender@gmail.com";
-const sender = hash(senderName);
-const receiverName = "mailto:receiver@gmail.com";
-const receiver = hash(receiverName);
-
-const genERC20TransferTxData = async function (
-  receiver: string,
-  amount: Number
-): Promise<string> {
-  const artifact = await artifacts.readArtifact("ERC20");
-  const iface = new ethers.utils.Interface(artifact.abi);
-  return iface.encodeFunctionData(
-    "transfer",
-    [receiver, amount]
-  );
-}
-
-const deployAccount = async (hexlink: Contract, nameHash: string, owner: string) => {
-  const name = {
-    schema: hash("mailto"),
-    domain: hash("gmail.com"),
-    name: nameHash
-  };
-  const proof = await run("build_deploy_auth_proof", {
-    name: nameHash,
+const deploySender = async (hexlink: Contract, owner: string) => {
+  const proof = await buildAuthProof(
+    hre,
+    senderNameHash,
     owner,
-    validator: "validator",
-    hexlink: hexlink.address,
-  });
-  const accountAddr = await hexlink.ownedAccount(nameHash);
+    "validator",
+    hexlink.address
+  );
+  const accountAddr = await hexlink.ownedAccount(senderNameHash);
   await expect(
-    hexlink.deploy(name, owner, proof)
+    hexlink.deploy(senderName, owner, proof)
   ).to.emit(hexlink, "Deployed").withArgs(
-    nameHash, accountAddr
+    senderNameHash, accountAddr
   );
 }
 
@@ -47,6 +28,8 @@ describe("Hexlink Account", function () {
   let beacon: Contract;
   let impl: string;
   let admin: string;
+  let sender: string;
+  let receiver: string;
 
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
@@ -57,6 +40,8 @@ describe("Hexlink Account", function () {
     beacon = await ethers.getContractAt("AccountBeacon", result.accountBeacon);
     impl = result.accountImpl;
     admin = result.admin;
+    sender = await hexlink.ownedAccount(senderNameHash);
+    receiver = await hexlink.ownedAccount(receiverNameHash);
   });
 
   it("Should with correct beacon and implementation", async function () {
@@ -64,7 +49,6 @@ describe("Hexlink Account", function () {
     expect(await proxy.beacon()).to.eq(beacon.address);
 
     const { deployer } = await getNamedAccounts();
-
     const impl2 = await deployments.deploy(
       "AccountV2ForTest",
       {
@@ -86,7 +70,6 @@ describe("Hexlink Account", function () {
   });
 
   it("Should transfer erc20 successfully", async function () {
-    const senderAddr = await hexlink.ownedAccount(sender);
     const { deployer } = await ethers.getNamedSigners();
 
     // receive tokens before account created
@@ -95,81 +78,76 @@ describe("Hexlink Account", function () {
       (await deployments.get("HexlinkToken")).address
     );
     await expect(
-      token.connect(deployer).transfer(senderAddr, 5000)
+      token.connect(deployer).transfer(sender, 5000)
     ).to.emit(token, "Transfer")
-      .withArgs(deployer.address, senderAddr, 5000);
-    expect(await token.balanceOf(senderAddr)).to.eq(5000);
+      .withArgs(deployer.address, sender, 5000);
+    expect(await token.balanceOf(sender)).to.eq(5000);
 
     // deploy account contract
-    await deployAccount(hexlink, sender, deployer.address);
+    await deploySender(hexlink, deployer.address);
 
     // receive tokens after account created
     await expect(
-      token.connect(deployer).transfer(senderAddr, 5000)
+      token.connect(deployer).transfer(sender, 5000)
     ).to.emit(token, "Transfer")
-      .withArgs(deployer.address, senderAddr, 5000);
-    expect(await token.balanceOf(senderAddr)).to.eq(10000);
+      .withArgs(deployer.address, sender, 5000);
+    expect(await token.balanceOf(sender)).to.eq(10000);
 
     // send tokens
-    expect(await token.balanceOf(senderAddr)).to.eq(10000);
-    const receiverAddr = await hexlink.ownedAccount(receiver);
-    const senderAcc = await ethers.getContractAt("Account", senderAddr);
+    expect(await token.balanceOf(sender)).to.eq(10000);
+    const senderAcc = await ethers.getContractAt("Account", sender);
     await senderAcc.connect(deployer).exec(
       token.address,
       0,
       token.interface.encodeFunctionData(
         "transfer",
-        [receiverAddr, 5000]
+        [receiver, 5000]
       )
     );
-    expect(await token.balanceOf(senderAddr)).to.eq(5000);
-    expect(await token.balanceOf(receiverAddr)).to.eq(5000);
+    expect(await token.balanceOf(sender)).to.eq(5000);
+    expect(await token.balanceOf(receiver)).to.eq(5000);
   });
 
   it("Should transfer eth successfully", async function () {
     const { deployer } = await ethers.getNamedSigners();
-    const senderAddr = await hexlink.ownedAccount(sender);
 
     // receive eth before account created
     const tx1 = await deployer.sendTransaction({
-      to: senderAddr,
+      to: sender,
       value: ethers.utils.parseEther("1.0")
     });
     await tx1.wait();
     expect(
-      await ethers.provider.getBalance(senderAddr)
+      await ethers.provider.getBalance(sender)
     ).to.eq(ethers.utils.parseEther("1.0"));
 
     // create new account contract
-    await deployAccount(hexlink, sender, deployer.address);
+    await deploySender(hexlink, deployer.address);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
-      to: senderAddr,
+      to: sender,
       value: ethers.utils.parseEther("1.0")
     });
     await tx2.wait();
     expect(
-      await ethers.provider.getBalance(senderAddr)
+      await ethers.provider.getBalance(sender)
     ).to.eq(ethers.utils.parseEther("2.0"));
 
     // send ETH
-    const receiverAddr = await hexlink.ownedAccount(receiver);
-    const senderAcc = await ethers.getContractAt("Account", senderAddr);
+    const senderAcc = await ethers.getContractAt("Account", sender);
     await senderAcc.connect(deployer).exec(
-      receiverAddr,
+      receiver,
       ethers.utils.parseEther("0.5"),
       []
     );
     expect(
-      await ethers.provider.getBalance(receiverAddr)
+      await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
   });
 
   it("Should hold and transfer ERC1155 successfully", async function () {
     const { deployer } = await ethers.getNamedSigners();
-    const senderAddr = await hexlink.ownedAccount(sender);
-
     const deployed = await deployments.deploy("TestHexlinkERC1155", {
       from: deployer.address,
       log: true,
@@ -183,36 +161,35 @@ describe("Hexlink Account", function () {
     // receive erc1155 before account created
     await expect(
       erc1155.connect(deployer).safeTransferFrom(
-        deployer.address, senderAddr, 1, 10, []
+        deployer.address, sender, 1, 10, []
       )
     ).to.emit(erc1155, "TransferSingle")
-      .withArgs(deployer.address, deployer.address, senderAddr, 1, 10);
-    expect(await erc1155.balanceOf(senderAddr, 1)).to.eq(10);
+      .withArgs(deployer.address, deployer.address, sender, 1, 10);
+    expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
 
     // create new account contract
-    await deployAccount(hexlink, sender, deployer.address);
+    await deploySender(hexlink, deployer.address);
 
     // receive erc1155 after account created
     await expect(
       erc1155.connect(deployer).safeTransferFrom(
-        deployer.address, senderAddr, 1, 10, []
+        deployer.address, sender, 1, 10, []
       )
     ).to.emit(erc1155, "TransferSingle")
-      .withArgs(deployer.address, deployer.address, senderAddr, 1, 10);
-    expect(await erc1155.balanceOf(senderAddr, 1)).to.eq(20);
+      .withArgs(deployer.address, deployer.address, sender, 1, 10);
+    expect(await erc1155.balanceOf(sender, 1)).to.eq(20);
 
     // send erc1155
-    const receiverAddr = await hexlink.ownedAccount(receiver);
-    const senderAcc = await ethers.getContractAt("Account", senderAddr);
+    const senderAcc = await ethers.getContractAt("Account", sender);
     await senderAcc.connect(deployer).exec(
       erc1155.address,
       0,
       erc1155.interface.encodeFunctionData(
         "safeTransferFrom",
-        [senderAddr, receiverAddr, 1, 10, []]
+        [sender, receiver, 1, 10, []]
       )
     );
-    expect(await erc1155.balanceOf(senderAddr, 1)).to.eq(10);
-    expect(await erc1155.balanceOf(receiverAddr, 1)).to.eq(10);
+    expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
+    expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });
 });

@@ -60,13 +60,24 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         address owner,
         bytes calldata authProof
     ) external override returns(address account) {
+        address registry = getRegistry(name.schema, name.domain);
+        require(registry != address(0), "registry not found");
+
         bytes32 requestId = keccak256(
             abi.encode(msg.sig, address(this), block.chainid, owner)
         );
-        address registry = _validateName(name, requestId, authProof);
-        account = Clones.cloneDeterministic(accountImplementation, name.name);
-        IHexlinkAccount(account).init(owner, name.name, registry);
-        emit Deployed(name.name, account);
+        bytes32 nameHash = _encodeName(name);
+        uint256 validationData = INameRegistry(
+            registry
+        ).validateName(nameHash, requestId, authProof);
+        require(
+            validationData == 0,
+            string.concat("name validation error ", Strings.toString(validationData))
+        );
+
+        account = Clones.cloneDeterministic(accountImplementation, nameHash);
+        IHexlinkAccount(account).init(owner, nameHash, registry);
+        emit Deployed(nameHash, account);
     }
 
     /** name registry functions */
@@ -83,20 +94,8 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         return RegistryStorage.getRegistry(schema, domain);
     }
 
-    function _validateName(
-        Name calldata name,
-        bytes32 requestInfo,
-        bytes calldata authProof
-    ) internal view returns(address registry) {
-        registry = getRegistry(name.schema, name.domain);
-        require(registry != address(0), "registry not found");
-        uint256 validationData = INameRegistry(
-            registry
-        ).validateName(name.name, requestInfo, authProof);
-        require(
-            validationData == 0,
-            string.concat("name validation error ", Strings.toString(validationData))
-        );
+    function _encodeName(Name calldata name) internal pure returns(bytes32) {
+        return keccak256(abi.encode(name.schema, name.domain, name.handle));
     }
 
     /** UUPSUpgradeable Functions */

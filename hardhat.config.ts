@@ -11,8 +11,6 @@ import "hardhat-deploy-ethers";
 import "./tasks/admin";
 import "./tasks/nft";
 import "./tasks/hexlink";
-import "./tasks/auth";
-import "./tasks/config";
 import "./tasks/deploy";
 import "./tasks/app";
 import "./tasks/redpacket";

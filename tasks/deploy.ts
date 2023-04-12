@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
-import { hash } from "./utils";
+import { hash, loadConfig, getFactory } from "./utils";
 
 async function getEntrypoint(hre: HardhatRuntimeEnvironment) {
     // if (hre.network.name === 'hardhat') {
@@ -30,7 +30,7 @@ function genSalt(id: string) {
 }
 
 async function getValidator(hre: HardhatRuntimeEnvironment) {
-    let validator = await hre.run("loadConfig", { key: "validator" });
+    let validator = loadConfig(hre, "validator");
     if (validator == undefined) {
         return (await hre.getNamedAccounts())["validator"];
     }
@@ -43,14 +43,6 @@ async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
         if (code !== '0x') return true;
     } catch (error) { }
     return false;
-}
-
-async function getFactory(hre: HardhatRuntimeEnvironment) {
-    const factoryDeployed = await hre.deployments.get("ContractFactory");
-    return await hre.ethers.getContractAt(
-        "ContractFactory",
-        factoryDeployed.address
-    );
 }
 
 task("deployNameRegistry", "deploy name registry contract")

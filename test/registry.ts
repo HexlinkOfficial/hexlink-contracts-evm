@@ -43,7 +43,7 @@ describe("NameRegistry", function() {
     const { validator, deployer } = await ethers.getNamedSigners();
     const registry = await getRegistry();
     const name = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes("alice@gmail.com")
+        ethers.utils.toUtf8Bytes("mailto:alice@gmail.com")
     );
     const requestInfo = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("request")

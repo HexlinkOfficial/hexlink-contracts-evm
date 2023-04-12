@@ -1,5 +1,84 @@
-import { ethers } from "ethers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ethers, Contract } from "ethers";
+import * as config from '../config.json';
 
 export function hash(value: string) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
 }
+
+export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
+    return ethers.utils.keccak256(
+        ethers.utils.defaultAbiCoder.encode(
+          ["bytes32", "bytes32", "bytes32"],
+          [name.schema, name.domain, name.handle]
+        )
+    );
+}
+
+export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
+  let netConf = config[hre.network.name as keyof typeof config] || {};
+  return (netConf as any)[key];
+}
+
+export async function getAdmin(hre: HardhatRuntimeEnvironment, admin?: string) {
+  return await hre.ethers.getContractAt(
+      "TimelockController",
+      admin || "0xda960A1b2D45B92439dACD470bD15C754948Bc4D"
+  );
+}
+
+export async function getHexlink(
+  hre : HardhatRuntimeEnvironment,
+  hexlink?: string
+) : Promise<Contract> {
+  return await hre.ethers.getContractAt(
+      "Hexlink",
+      hexlink || "0x41C72eF8834d2937c4Bf855F8fd28D0E33A3E5A1"
+  );
+}
+
+export async function getFactory(hre: HardhatRuntimeEnvironment) {
+  const factoryDeployed = await hre.deployments.get("ContractFactory");
+  return await hre.ethers.getContractAt(
+      "ContractFactory",
+      factoryDeployed.address
+  );
+}
+
+export const buildAuthProof = async function (
+    hre: HardhatRuntimeEnvironment,
+    name: string,
+    owner: string,
+    signer?: string,
+    hexlink?: string,
+) {
+    const hexlinkContract = await getHexlink(hre, hexlink);
+    const func = hexlinkContract.interface.getSighash("deploy")
+    const validator = await hre.ethers.getNamedSigner(signer);
+    const requestId = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(
+        ["bytes4", "address", "uint256", "address"],
+        [
+          func,
+          hexlinkContract.address,
+          hre.network.config.chainId,
+          owner
+        ]
+      )
+    );
+    const expiredAt = Math.round(Date.now() / 1000) + 3600;
+    const message = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(
+        ["bytes32", "bytes32", "uint256", "address"],
+        [name, requestId, expiredAt, validator.address]
+      )
+    );
+    const signature = await validator.signMessage(
+      ethers.utils.arrayify(message)
+    );
+    const proof = ethers.utils.defaultAbiCoder.encode(
+      ["uint256", "address", "bytes"],
+      [expiredAt, validator.address, signature]
+    )
+    return proof;
+  };

@@ -56,14 +56,15 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
 
     function deploy(
         Name calldata name,
-        address owner,
+        address accountImpl,
+        bytes memory data,
         bytes calldata authProof
     ) external override returns(address account) {
         address registry = getRegistry(name.schema, name.domain);
         require(registry != address(0), "registry not found");
 
         bytes32 requestId = keccak256(
-            abi.encode(msg.sig, address(this), block.chainid, owner)
+            abi.encode(msg.sig, address(this), block.chainid, data)
         );
         bytes32 nameHash = _encodeName(name);
         uint256 validationData = INameRegistry(
@@ -76,8 +77,8 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
 
         account = Clones.cloneDeterministic(address(this), nameHash);
         IHexlinkERC1967Proxy(payable(account)).initProxy(
-            accountImplementation,
-            abi.encodeWithSelector(IHexlinkAccount.init.selector, owner)
+            accountImpl == address(0) ? accountImplementation : accountImpl,
+            data
         );
         emit Deployed(nameHash, account);
     }

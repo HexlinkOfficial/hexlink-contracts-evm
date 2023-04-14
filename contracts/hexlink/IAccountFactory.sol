@@ -10,7 +10,8 @@ interface IAccountFactory {
 
     function deploy(
         Name calldata name,
-        address owner,
+        address accountImpl,
+        bytes memory data,
         bytes calldata proof
     ) external returns(address);
 }

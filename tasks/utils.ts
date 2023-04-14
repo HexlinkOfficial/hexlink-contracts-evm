@@ -57,7 +57,7 @@ export async function getFactory(hre: HardhatRuntimeEnvironment) {
 export const buildAuthProof = async function (
     hre: HardhatRuntimeEnvironment,
     name: string,
-    owner: string,
+    data: string,
     signer?: string,
     hexlink?: string,
 ) {
@@ -66,12 +66,12 @@ export const buildAuthProof = async function (
     const validator = await hre.ethers.getNamedSigner(signer);
     const requestId = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ["bytes4", "address", "uint256", "address"],
+        ["bytes4", "address", "uint256", "bytes"],
         [
           func,
           hexlinkContract.address,
           hre.network.config.chainId,
-          owner
+          data
         ]
       )
     );

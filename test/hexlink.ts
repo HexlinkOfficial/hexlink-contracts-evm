@@ -4,6 +4,7 @@ import {ethers, deployments, getNamedAccounts, run} from "hardhat";
 import { Contract } from "ethers";
 import { hash, buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverName } from "./testers";
+import { buildAccountInitData } from "./account";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -108,37 +109,59 @@ describe("Hexlink", function() {
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
 
     // deploy with invalid proof
+    const validData = await buildAccountInitData(deployer.address);
     const invalidAuthProof = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "deployer",
       hexlink.address
     );
+    const invalidData = await buildAccountInitData(validator.address);
     await expect(
-      hexlink.deploy(senderName, validator.address, invalidAuthProof)
+      hexlink.deploy(
+        senderName,
+        ethers.constants.AddressZero,
+        invalidData,
+        invalidAuthProof
+      )
     ).to.be.revertedWith("name validation error 2");
   
     // deploy with invalid owner
     const proof = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "validator",
       hexlink.address
     );
     await expect(
-      hexlink.deploy(senderName, validator.address, proof)
+      hexlink.deploy(
+        senderName,
+        ethers.constants.AddressZero,
+        invalidData,
+        proof
+      )
     ).to.be.reverted;
 
     // deploy with invalid name
     await expect(
-      hexlink.deploy(receiverName, deployer.address, proof)
+      hexlink.deploy(
+        receiverName,
+        ethers.constants.AddressZero,
+        validData,
+        proof
+      )
     ).to.be.reverted;
   
     //deploy account contract
     await expect(
-      hexlink.deploy(senderName, deployer.address, proof)
+      hexlink.deploy(
+        senderName,
+        ethers.constants.AddressZero,
+        validData,
+        proof
+      )
     ).to.emit(hexlink, "Deployed").withArgs(
       senderNameHash, sender
     );
@@ -152,14 +175,15 @@ describe("Hexlink", function() {
     const proof2 = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "validator",
       hexlink.address
     );
     await expect(
       hexlink.connect(deployer).deploy(
         senderName,
-        deployer.address,
+        ethers.constants.AddressZero,
+        validData,
         proof2
       )
     ).to.be.revertedWith("ERC1167: create2 failed");

@@ -1,24 +1,32 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
-import { ethers, deployments, getNamedAccounts, run } from "hardhat";
+import { ethers, deployments, getNamedAccounts, run, artifacts } from "hardhat";
 import { Contract } from "ethers";
 import { buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverNameHash} from "./testers";
+
+export const buildAccountInitData = async (owner: string) => {
+  const artifact = await artifacts.readArtifact("Account");
+  const iface = new ethers.utils.Interface(artifact.abi);
+  return iface.encodeFunctionData("init", [owner]);
+}
 
 const deploySender = async (
   hexlink: Contract,
   owner: string
 ) : Promise<Contract> => {
+
+  const accountAddr = await hexlink.ownedAccount(senderNameHash);
+  const data = await buildAccountInitData(owner);
   const proof = await buildAuthProof(
     hre,
     senderNameHash,
-    owner,
+    data,
     "validator",
     hexlink.address
   );
-  const accountAddr = await hexlink.ownedAccount(senderNameHash);
   await expect(
-    hexlink.deploy(senderName, owner, proof)
+    hexlink.deploy(senderName, ethers.constants.AddressZero, data, proof)
   ).to.emit(hexlink, "Deployed").withArgs(
     senderNameHash, accountAddr
   );

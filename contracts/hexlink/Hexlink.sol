@@ -56,7 +56,6 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
 
     function deploy(
         Name calldata name,
-        address accountImpl,
         bytes memory data,
         bytes calldata authProof
     ) external override returns(address account) {
@@ -76,10 +75,7 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         );
 
         account = Clones.cloneDeterministic(address(this), nameHash);
-        IHexlinkERC1967Proxy(payable(account)).initProxy(
-            accountImpl == address(0) ? accountImplementation : accountImpl,
-            data
-        );
+        IHexlinkERC1967Proxy(payable(account)).initProxy(accountImplementation, data);
         emit Deployed(nameHash, account);
     }
 

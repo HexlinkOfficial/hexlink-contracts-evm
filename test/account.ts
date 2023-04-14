@@ -26,7 +26,7 @@ const deploySender = async (
     hexlink.address
   );
   await expect(
-    hexlink.deploy(senderName, ethers.constants.AddressZero, data, proof)
+    hexlink.deploy(senderName, data, proof)
   ).to.emit(hexlink, "Deployed").withArgs(
     senderNameHash, accountAddr
   );

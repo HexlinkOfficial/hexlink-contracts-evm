@@ -121,7 +121,6 @@ describe("Hexlink", function() {
     await expect(
       hexlink.deploy(
         senderName,
-        ethers.constants.AddressZero,
         invalidData,
         invalidAuthProof
       )
@@ -138,7 +137,6 @@ describe("Hexlink", function() {
     await expect(
       hexlink.deploy(
         senderName,
-        ethers.constants.AddressZero,
         invalidData,
         proof
       )
@@ -148,7 +146,6 @@ describe("Hexlink", function() {
     await expect(
       hexlink.deploy(
         receiverName,
-        ethers.constants.AddressZero,
         validData,
         proof
       )
@@ -158,7 +155,6 @@ describe("Hexlink", function() {
     await expect(
       hexlink.deploy(
         senderName,
-        ethers.constants.AddressZero,
         validData,
         proof
       )
@@ -182,7 +178,6 @@ describe("Hexlink", function() {
     await expect(
       hexlink.connect(deployer).deploy(
         senderName,
-        ethers.constants.AddressZero,
         validData,
         proof2
       )

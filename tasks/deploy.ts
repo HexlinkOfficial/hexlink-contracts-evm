@@ -41,7 +41,7 @@ task("deployHexlinkProxy", "deploy hexlink related contracts")
         }
 
         // deploy and init hexlink proxy
-        let hexlink = await hre.ethers.getContractAt("HexlinkERC1967Proxy", erc1967Proxy);
+        let hexlink = await hre.ethers.getContractAt("IHexlinkERC1967Proxy", erc1967Proxy);
         if (await hexlink.implementation() === ethers.constants.AddressZero) {
             const admin = await hre.deployments.get("HexlinkAdmin");
             const registry = await hre.deployments.get("EmailNameRegistry");
@@ -50,7 +50,7 @@ task("deployHexlinkProxy", "deploy hexlink related contracts")
             const data = hexlinkImpl.interface.encodeFunctionData(
                 "init", [admin.address, accountImpl.address, [registry.address]]
             )
-            await hexlink.upgradeToAndCallFromProxy(hexlinkImpl.address, data);
+            await hexlink.initProxy(hexlinkImpl.address, data);
             console.log(
                 `HexlinkProxy initiated with ` +
                 `implementation=${hexlinkImpl.address}, ` +

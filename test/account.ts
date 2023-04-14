@@ -50,13 +50,22 @@ describe("Hexlink Account", function () {
         args: [await account.entryPoint()]
       }
     );
-    const tx = await account.upgradeTo(impl2.address);
-    await tx.wait();
-    expect(await account.implementation()).to.eq(impl2.address);
+
+    const accountProxy = await ethers.getContractAt(
+      "HexlinkERC1967Proxy",
+      account.address
+    );
+    await expect(
+      accountProxy.initProxy(impl2.address, [])
+    ).to.be.reverted;
 
     await expect(
       account.upgradeTo(ethers.constants.AddressZero)
     ).to.be.reverted;
+
+    const tx = await account.upgradeTo(impl2.address);
+    await tx.wait();
+    expect(await account.implementation()).to.eq(impl2.address);
   });
 
   it("Should transfer erc20 successfully", async function () {

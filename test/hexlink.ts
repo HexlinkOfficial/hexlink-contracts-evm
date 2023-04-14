@@ -74,6 +74,14 @@ describe("Hexlink", function() {
     });
 
     // upgrade
+    const hexlinkProxy = await ethers.getContractAt(
+      "HexlinkERC1967Proxy",
+      hexlink.address
+    );
+    await expect(
+      hexlinkProxy.initProxy(newHexlinkImpl.address, [])
+    ).to.be.reverted;
+
     const data = hexlink.interface.encodeFunctionData(
       "upgradeTo",
       [newHexlinkImpl.address]

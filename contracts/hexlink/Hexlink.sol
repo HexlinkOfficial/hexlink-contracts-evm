@@ -13,7 +13,7 @@ import "../account/IHexlinkAccount.sol";
 import "./IHexlink.sol";
 import "../registry/INameRegistry.sol";
 import "../registry/RegistryStorage.sol";
-import "../utils/HexlinkERC1967Proxy.sol";
+import "../utils/IHexlinkERC1967Proxy.sol";
 
 contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
     using Address for address;
@@ -75,7 +75,7 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         );
 
         account = Clones.cloneDeterministic(address(this), nameHash);
-        HexlinkERC1967Proxy(payable(account)).upgradeToAndCallFromProxy(
+        IHexlinkERC1967Proxy(payable(account)).initProxy(
             accountImplementation,
             abi.encodeWithSelector(IHexlinkAccount.init.selector, owner)
         );

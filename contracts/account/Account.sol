@@ -9,10 +9,11 @@ import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "./IHexlinkAccount.sol";
 import "./AccountStorage.sol";
 
-contract Account is BaseAccount, IHexlinkAccount, Ownable {
+contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
     using Address for address;
     using ECDSA for bytes32;
 
@@ -23,21 +24,18 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable {
         return abi.encode(msg.sig);
     }
 
-    address internal entrypoint_;
+    address internal immutable entrypoint_;
 
     constructor(address entrypoint) {
         entrypoint_ = entrypoint;
     }
 
-    function init(
-        address owner,
-        bytes32 name,
-        address nameRegistry
-    ) external override {
-        require(_owner() == address(0) && owner != address(0), "HEXL015");
+    function init(address owner) external override {
+        require(
+            _owner() == address(0) && owner != address(0),
+            "already initiated"
+        );
         _transferOwnership(owner);
-        AccountStorage.layout().name = name;
-        AccountStorage.layout().nameRegistry = nameRegistry;
     }
 
     /** IERC4972Account */
@@ -116,6 +114,16 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable {
         }
         return SIG_VALIDATION_FAILED;  
     }
+
+    /** UUPSUpgradeable */
+
+    function implementation() external view returns (address) {
+        return _getImplementation();
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view onlyOwner override { }
 
     /** help functions */
 

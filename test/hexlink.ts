@@ -12,9 +12,9 @@ describe("Hexlink", function() {
 
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
-    const result = await run("deployAll", {});
-    hexlink = await ethers.getContractAt("Hexlink", result.hexlinkProxy);
-    admin = result.admin;
+    const hexlinkProxy = await run("deployHexlinkProxy", {});
+    hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
+    admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.ownedAccount(senderNameHash);
   });
 
@@ -26,30 +26,37 @@ describe("Hexlink", function() {
       await hexlink.getRegistry(schema, domain)
     ).to.eq(registry.address);
 
-    const gmailRegistry = await run(
-      "deployNameRegistry",
+    const {deployer, validator} = await getNamedAccounts();
+    const gmailRegistry = await deployments.deploy(
+      "GmailNameRegistry",
       {
-        admin,
-        name: "GmailNameRegistry",
-        schema: "mailto",
-        domain: "gmail.com"
+          from: deployer,
+          contract: "NameRegistry",
+          args: [
+            hash("mailto"),
+            hash("gmail.com"),
+            admin,
+            [validator]
+          ],
+          log: true,
+          autoMine: true
       }
-  );
+    );
     await expect(
-      hexlink.setRegistry(schema, domain, gmailRegistry)
+      hexlink.setRegistry(schema, domain, gmailRegistry.address)
     ).to.be.reverted;
 
     await run("admin_schedule_and_exec", {
       target: hexlink.address,
       data: hexlink.interface.encodeFunctionData(
-        "setRegistry", [gmailRegistry]
+        "setRegistry", [gmailRegistry.address]
       ),
       admin
     });
 
     expect(
       await hexlink.getRegistry(schema, domain)
-    ).to.eq(gmailRegistry);
+    ).to.eq(gmailRegistry.address);
 
     expect(
       await hexlink.getRegistry(schema, hash("outlook.com"))
@@ -61,7 +68,7 @@ describe("Hexlink", function() {
     const {deployer} = await getNamedAccounts();
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer,
-      args: [await hexlink.accountImplementation()],
+      args: [],
       log: true,
       autoMine: true,
     });

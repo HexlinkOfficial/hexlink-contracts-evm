@@ -6,6 +6,15 @@ export function hash(value: string) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
 }
 
+export async function getDeployedContract(
+  hre: HardhatRuntimeEnvironment,
+  contract: string,
+  name?: string
+) : Promise<Contract> {
+  const deployed = await hre.deployments.get(name || contract);
+  return hre.ethers.getContractAt(contract, deployed.address); 
+}
+
 export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
     return ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(

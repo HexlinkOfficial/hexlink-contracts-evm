@@ -16,8 +16,7 @@ describe("NameRegistry", function() {
 
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
-    const result = await run("deployAll", {});
-    admin = result.admin;
+    admin = (await deployments.get("HexlinkAdmin")).address
   });
 
   it("validator should be registered", async function() {

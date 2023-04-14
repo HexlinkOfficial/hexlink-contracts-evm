@@ -13,25 +13,23 @@ import "../account/IHexlinkAccount.sol";
 import "./IHexlink.sol";
 import "../registry/INameRegistry.sol";
 import "../registry/RegistryStorage.sol";
+import "../utils/HexlinkERC1967Proxy.sol";
 
 contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
     using Address for address;
 
-    event Registered(bytes32 schema, bytes32 domain, address registry);
     event Deployed(bytes32 indexed name, address indexed account);
 
-    address public immutable accountImplementation;
-
-    constructor(address accountImplementation_) {
-        accountImplementation = accountImplementation_;
-    }
+    address public accountImplementation;
 
     function init(
         address owner,
+        address accountImpl,
         address[] memory registries
     ) external {
         require(_owner() == address(0) && owner != address(0), "invalid init owner");
         _transferOwnership(owner);
+        accountImplementation = accountImpl;
         for (uint i = 0; i < registries.length; i++) {
             INameRegistry registry = INameRegistry(registries[i]);
             RegistryStorage.register(
@@ -42,15 +40,16 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         }
     }
 
+    function upgradeAccount(address accountImpl) external onlyOwner {
+        accountImplementation = accountImpl;
+    }
+
     /** EIP-4972 Functions */
 
     function ownedAccount(
         bytes32 name
     ) external view override returns(address) {
-        return Clones.predictDeterministicAddress(
-            accountImplementation,
-            name
-        );
+        return Clones.predictDeterministicAddress(address(this), name);
     }
 
     /** IAccountFactory Functions */
@@ -75,8 +74,11 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
             string.concat("name validation error ", Strings.toString(validationData))
         );
 
-        account = Clones.cloneDeterministic(accountImplementation, nameHash);
-        IHexlinkAccount(account).init(owner, nameHash, registry);
+        account = Clones.cloneDeterministic(address(this), nameHash);
+        HexlinkERC1967Proxy(payable(account)).upgradeToAndCallFromProxy(
+            accountImplementation,
+            abi.encodeWithSelector(IHexlinkAccount.init.selector, owner)
+        );
         emit Deployed(nameHash, account);
     }
 
@@ -87,7 +89,6 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         bytes32 schema = nr.getSchema();
         bytes32 domain = nr.getDomain();
         RegistryStorage.register(schema, domain, registry);
-        emit Registered(schema, domain, registry);
     }
 
     function getRegistry(bytes32 schema, bytes32 domain) public view returns(address) {
@@ -98,7 +99,7 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         return keccak256(abi.encode(name.schema, name.domain, name.handle));
     }
 
-    /** UUPSUpgradeable Functions */
+    /** UUPSUpgradeable */
 
     function implementation() external view returns (address) {
         return _getImplementation();

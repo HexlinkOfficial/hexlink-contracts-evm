@@ -6,9 +6,5 @@ import "./IERC4972Account.sol";
 import "./IExectuable.sol";
 
 interface IHexlinkAccount is IERC4972Account, IExectuable{
-    function init(
-        address owner,
-        bytes32 name,
-        address nameRegistry
-    ) external;
+    function init(address owner) external;
 }

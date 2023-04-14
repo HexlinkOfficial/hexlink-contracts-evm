@@ -7,5 +7,11 @@ import "./IERC4972.sol";
 import "./IAccountFactory.sol";
 
 interface IHexlink is IERC4972, IAccountFactory {
-    function init(address owner, address[] memory registries) external;
+    function init(
+        address owner,
+        address accountImpl,
+        address[] memory registries
+    ) external;
+
+    function upgradeAccount(address accountImpl) external;
 }

@@ -14,7 +14,7 @@ contract ContractFactory is Ownable {
         _transferOwnership(owner);
     }
 
-    function deploy(bytes memory bytecode, uint salt) public payable onlyOwner {
+    function deploy(bytes memory bytecode, bytes32 salt) public payable onlyOwner {
         address addr;
         /*
         NOTE: How to call create2

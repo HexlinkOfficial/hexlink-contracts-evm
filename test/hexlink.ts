@@ -4,6 +4,7 @@ import {ethers, deployments, getNamedAccounts, run} from "hardhat";
 import { Contract } from "ethers";
 import { hash, buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverName } from "./testers";
+import { buildAccountInitData } from "./account";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -12,9 +13,9 @@ describe("Hexlink", function() {
 
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
-    const result = await run("deployAll", {});
-    hexlink = await ethers.getContractAt("Hexlink", result.hexlinkProxy);
-    admin = result.admin;
+    const hexlinkProxy = await run("deployHexlinkProxy", {});
+    hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
+    admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.ownedAccount(senderNameHash);
   });
 
@@ -26,30 +27,37 @@ describe("Hexlink", function() {
       await hexlink.getRegistry(schema, domain)
     ).to.eq(registry.address);
 
-    const gmailRegistry = await run(
-      "deployNameRegistry",
+    const {deployer, validator} = await getNamedAccounts();
+    const gmailRegistry = await deployments.deploy(
+      "GmailNameRegistry",
       {
-        admin,
-        name: "GmailNameRegistry",
-        schema: "mailto",
-        domain: "gmail.com"
+          from: deployer,
+          contract: "NameRegistry",
+          args: [
+            hash("mailto"),
+            hash("gmail.com"),
+            admin,
+            [validator]
+          ],
+          log: true,
+          autoMine: true
       }
-  );
+    );
     await expect(
-      hexlink.setRegistry(schema, domain, gmailRegistry)
+      hexlink.setRegistry(schema, domain, gmailRegistry.address)
     ).to.be.reverted;
 
     await run("admin_schedule_and_exec", {
       target: hexlink.address,
       data: hexlink.interface.encodeFunctionData(
-        "setRegistry", [gmailRegistry]
+        "setRegistry", [gmailRegistry.address]
       ),
       admin
     });
 
     expect(
       await hexlink.getRegistry(schema, domain)
-    ).to.eq(gmailRegistry);
+    ).to.eq(gmailRegistry.address);
 
     expect(
       await hexlink.getRegistry(schema, hash("outlook.com"))
@@ -61,12 +69,20 @@ describe("Hexlink", function() {
     const {deployer} = await getNamedAccounts();
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer,
-      args: [await hexlink.accountImplementation()],
+      args: [],
       log: true,
       autoMine: true,
     });
 
     // upgrade
+    const hexlinkProxy = await ethers.getContractAt(
+      "HexlinkERC1967Proxy",
+      hexlink.address
+    );
+    await expect(
+      hexlinkProxy.initProxy(newHexlinkImpl.address, [])
+    ).to.be.reverted;
+
     const data = hexlink.interface.encodeFunctionData(
       "upgradeTo",
       [newHexlinkImpl.address]
@@ -93,37 +109,55 @@ describe("Hexlink", function() {
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
 
     // deploy with invalid proof
+    const validData = await buildAccountInitData(deployer.address);
     const invalidAuthProof = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "deployer",
       hexlink.address
     );
+    const invalidData = await buildAccountInitData(validator.address);
     await expect(
-      hexlink.deploy(senderName, validator.address, invalidAuthProof)
+      hexlink.deploy(
+        senderName,
+        invalidData,
+        invalidAuthProof
+      )
     ).to.be.revertedWith("name validation error 2");
   
     // deploy with invalid owner
     const proof = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "validator",
       hexlink.address
     );
     await expect(
-      hexlink.deploy(senderName, validator.address, proof)
+      hexlink.deploy(
+        senderName,
+        invalidData,
+        proof
+      )
     ).to.be.reverted;
 
     // deploy with invalid name
     await expect(
-      hexlink.deploy(receiverName, deployer.address, proof)
+      hexlink.deploy(
+        receiverName,
+        validData,
+        proof
+      )
     ).to.be.reverted;
   
     //deploy account contract
     await expect(
-      hexlink.deploy(senderName, deployer.address, proof)
+      hexlink.deploy(
+        senderName,
+        validData,
+        proof
+      )
     ).to.emit(hexlink, "Deployed").withArgs(
       senderNameHash, sender
     );
@@ -137,14 +171,14 @@ describe("Hexlink", function() {
     const proof2 = await buildAuthProof(
       hre,
       senderNameHash,
-      deployer.address,
+      validData,
       "validator",
       hexlink.address
     );
     await expect(
       hexlink.connect(deployer).deploy(
         senderName,
-        deployer.address,
+        validData,
         proof2
       )
     ).to.be.revertedWith("ERC1167: create2 failed");

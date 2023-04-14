@@ -6,6 +6,15 @@ export function hash(value: string) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
 }
 
+export async function getDeployedContract(
+  hre: HardhatRuntimeEnvironment,
+  contract: string,
+  name?: string
+) : Promise<Contract> {
+  const deployed = await hre.deployments.get(name || contract);
+  return hre.ethers.getContractAt(contract, deployed.address); 
+}
+
 export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
     return ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(
@@ -20,11 +29,8 @@ export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
   return (netConf as any)[key];
 }
 
-export async function getAdmin(hre: HardhatRuntimeEnvironment, admin?: string) {
-  return await hre.ethers.getContractAt(
-      "TimelockController",
-      admin || "0xda960A1b2D45B92439dACD470bD15C754948Bc4D"
-  );
+export async function getAdmin(hre: HardhatRuntimeEnvironment) {
+  return getDeployedContract(hre, "TimelockController", "HexlinkAdmin");
 }
 
 export async function getHexlink(
@@ -33,7 +39,7 @@ export async function getHexlink(
 ) : Promise<Contract> {
   return await hre.ethers.getContractAt(
       "Hexlink",
-      hexlink || "0x41C72eF8834d2937c4Bf855F8fd28D0E33A3E5A1"
+      hexlink || "0x9f81B7588A4Bd2b0e5893f12666c6475a63022ae"
   );
 }
 
@@ -48,7 +54,7 @@ export async function getFactory(hre: HardhatRuntimeEnvironment) {
 export const buildAuthProof = async function (
     hre: HardhatRuntimeEnvironment,
     name: string,
-    owner: string,
+    data: string,
     signer?: string,
     hexlink?: string,
 ) {
@@ -57,12 +63,12 @@ export const buildAuthProof = async function (
     const validator = await hre.ethers.getNamedSigner(signer);
     const requestId = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ["bytes4", "address", "uint256", "address"],
+        ["bytes4", "address", "uint256", "bytes"],
         [
           func,
           hexlinkContract.address,
           hre.network.config.chainId,
-          owner
+          data
         ]
       )
     );

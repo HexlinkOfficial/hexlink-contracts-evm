@@ -1,54 +1,56 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
-import { ethers, deployments, getNamedAccounts, run } from "hardhat";
+import { ethers, deployments, getNamedAccounts, run, artifacts } from "hardhat";
 import { Contract } from "ethers";
 import { buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverNameHash} from "./testers";
 
-const deploySender = async (hexlink: Contract, owner: string) => {
+export const buildAccountInitData = async (owner: string) => {
+  const artifact = await artifacts.readArtifact("Account");
+  const iface = new ethers.utils.Interface(artifact.abi);
+  return iface.encodeFunctionData("init", [owner]);
+}
+
+const deploySender = async (
+  hexlink: Contract,
+  owner: string
+) : Promise<Contract> => {
+
+  const accountAddr = await hexlink.ownedAccount(senderNameHash);
+  const data = await buildAccountInitData(owner);
   const proof = await buildAuthProof(
     hre,
     senderNameHash,
-    owner,
+    data,
     "validator",
     hexlink.address
   );
-  const accountAddr = await hexlink.ownedAccount(senderNameHash);
   await expect(
-    hexlink.deploy(senderName, owner, proof)
+    hexlink.deploy(senderName, data, proof)
   ).to.emit(hexlink, "Deployed").withArgs(
     senderNameHash, accountAddr
   );
+  return await ethers.getContractAt("Account", accountAddr);
 }
 
 describe("Hexlink Account", function () {
   let hexlink: Contract;
-  let account: Contract;
-  let proxy: Contract;
-  let beacon: Contract;
-  let impl: string;
   let admin: string;
   let sender: string;
   let receiver: string;
 
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
-    const result = await run("deployAll", {});
-    hexlink = await ethers.getContractAt("Hexlink", result.hexlinkProxy);
-    account = await ethers.getContractAt("Account", result.accountProxy);
-    proxy = await ethers.getContractAt("AccountProxy", result.accountProxy);
-    beacon = await ethers.getContractAt("AccountBeacon", result.accountBeacon);
-    impl = result.accountImpl;
-    admin = result.admin;
+    const hexlinkProxy = await run("deployHexlinkProxy", {});
+    hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
+    admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.ownedAccount(senderNameHash);
     receiver = await hexlink.ownedAccount(receiverNameHash);
   });
 
-  it("Should with correct beacon and implementation", async function () {
-    expect(await beacon.implementation()).to.eq(impl);
-    expect(await proxy.beacon()).to.eq(beacon.address);
-
+  it("Should upgrade successfully", async function () {
     const { deployer } = await getNamedAccounts();
+    let account = await deploySender(hexlink, deployer);
     const impl2 = await deployments.deploy(
       "AccountV2ForTest",
       {
@@ -56,17 +58,22 @@ describe("Hexlink Account", function () {
         args: [await account.entryPoint()]
       }
     );
-    const data = beacon.interface.encodeFunctionData(
-      "upgradeTo", [impl2.address]
+
+    const accountProxy = await ethers.getContractAt(
+      "HexlinkERC1967Proxy",
+      account.address
     );
-    await expect(beacon.upgradeTo(impl2.address)).to.be.reverted;
-    await run("admin_schedule_and_exec", {
-      target: beacon.address,
-      data,
-      admin
-    })
-    expect(await beacon.implementation()).to.eq(impl2.address);
-    expect(await proxy.beacon()).to.eq(beacon.address);
+    await expect(
+      accountProxy.initProxy(impl2.address, [])
+    ).to.be.reverted;
+
+    await expect(
+      account.upgradeTo(ethers.constants.AddressZero)
+    ).to.be.reverted;
+
+    const tx = await account.upgradeTo(impl2.address);
+    await tx.wait();
+    expect(await account.implementation()).to.eq(impl2.address);
   });
 
   it("Should transfer erc20 successfully", async function () {
@@ -93,9 +100,9 @@ describe("Hexlink Account", function () {
       .withArgs(deployer.address, sender, 5000);
     expect(await token.balanceOf(sender)).to.eq(10000);
 
-    // send tokens
-    expect(await token.balanceOf(sender)).to.eq(10000);
     const senderAcc = await ethers.getContractAt("Account", sender);
+    // send tokens with owner
+    expect(await token.balanceOf(sender)).to.eq(10000);
     await senderAcc.connect(deployer).exec(
       token.address,
       0,

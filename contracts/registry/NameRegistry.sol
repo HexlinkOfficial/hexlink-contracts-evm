@@ -24,6 +24,15 @@ contract NameRegistry is Ownable, INameRegistry {
     bytes32 internal domain_;
     mapping(address => bool) validators_;
 
+    constructor(
+        bytes32 schema,
+        bytes32 domain,
+        address owner,
+        address[] memory validators
+    ) {
+        init(schema, domain, owner, validators);
+    }
+
     /** INameRegistry */
 
     function getSchema() external view override returns(bytes32) {
@@ -82,7 +91,7 @@ contract NameRegistry is Ownable, INameRegistry {
         bytes32 domain,
         address owner,
         address[] memory validators
-    ) external {
+    ) public {
         require(_owner() == address(0), "HEXL015");
         _transferOwnership(owner);
         for (uint i = 0; i < validators.length; i++) {

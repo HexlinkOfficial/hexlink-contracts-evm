@@ -5,9 +5,19 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
     const {deployer} = await getNamedAccounts();
 
+    // deploy hexlink implementation
+    await deployments.deploy(
+        "Hexlink",
+        {
+            from: deployer,
+            args: [],
+            log: true,
+            autoMine: true
+        }
+    );
+
     // deploy contract factory
     const {factoryDeployer} = await getNamedAccounts();
-    console.log("factoryDeployer is ", factoryDeployer);
     await deployments.deploy(
         "ContractFactory", {
             from: factoryDeployer,
@@ -15,7 +25,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             log: true,
         }
     );
-    await hre.run("deployAll", {});
+    await hre.run("deployHexlinkProxy", {});
 }
 
 export default func;

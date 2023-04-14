@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import { hash, getHexlink, getAdmin } from "./utils";
+import { hash, getHexlink, getAdmin, getDeployedContract } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -190,12 +190,12 @@ task("set_registry", "set name registry")
     });
 
 task("upgrade_hexlink", "upgrade hexlink contract")
-    .addParam("implementation", "new hexlink implementation")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
         const existing = await hexlink.implementation();
-        if (existing.toLowerCase() == args.implementation.toLowerCase()) {
+        const newImpl = await getDeployedContract(hre, "Hexlink");
+        if (existing.toLowerCase() == newImpl.address.toLowerCase()) {
             console.log("No need to upgrade");
             return;
         }
@@ -203,9 +203,9 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         // upgrade hexlink proxy
         const data = hexlink.interface.encodeFunctionData(
             "upgradeTo",
-            [args.implementation]
+            [newImpl.address]
         );
-        console.log("Upgrading from " + existing + " to " + args.implementation);
+        console.log("Upgrading from " + existing + " to " + newImpl.address);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {

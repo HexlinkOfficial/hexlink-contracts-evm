@@ -29,11 +29,8 @@ export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
   return (netConf as any)[key];
 }
 
-export async function getAdmin(hre: HardhatRuntimeEnvironment, admin?: string) {
-  return await hre.ethers.getContractAt(
-      "TimelockController",
-      admin || "0xda960A1b2D45B92439dACD470bD15C754948Bc4D"
-  );
+export async function getAdmin(hre: HardhatRuntimeEnvironment) {
+  return getDeployedContract(hre, "TimelockController", "HexlinkAdmin");
 }
 
 export async function getHexlink(
@@ -42,7 +39,7 @@ export async function getHexlink(
 ) : Promise<Contract> {
   return await hre.ethers.getContractAt(
       "Hexlink",
-      hexlink || "0x41C72eF8834d2937c4Bf855F8fd28D0E33A3E5A1"
+      hexlink || "0x9f81B7588A4Bd2b0e5893f12666c6475a63022ae"
   );
 }
 

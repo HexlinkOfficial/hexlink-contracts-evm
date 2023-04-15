@@ -18,8 +18,9 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // deploy contract factory
     const {factoryDeployer} = await getNamedAccounts();
+    console.log(factoryDeployer);
     await deployments.deploy(
-        "ContractFactory", {
+        "HexlinkContractFactory", {
             from: factoryDeployer,
             args: [deployer],
             log: true,

@@ -9,7 +9,7 @@ pragma solidity ^0.8.12;
 
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 
-contract ContractFactory is Ownable {
+contract HexlinkContractFactory is Ownable {
     constructor(address owner) {
         _transferOwnership(owner);
     }

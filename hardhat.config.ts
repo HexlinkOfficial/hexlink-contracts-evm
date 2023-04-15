@@ -15,6 +15,8 @@ import "./tasks/deploy";
 import "./tasks/app";
 import "./tasks/redpacket";
 
+import "@typechain/hardhat";
+
 task("abi", "Prints abi of contract")
     .addParam("contract", "contract name")
     .addFlag("print", "print abi")

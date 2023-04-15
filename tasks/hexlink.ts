@@ -6,7 +6,7 @@ import { hash, getHexlink, getDeployedContract } from "./utils";
 task("hexlink_check", "check hexlink metadata")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
-        const factory = await getDeployedContract(hre, "ContractFactory");
+        const factory = await getDeployedContract(hre, "HexlinkContractFactory");
         const admin = await getDeployedContract(hre, "TimelockController", "HexlinkAdmin");
         const schema = hash("mailto");
         const result = {

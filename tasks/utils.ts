@@ -44,9 +44,9 @@ export async function getHexlink(
 }
 
 export async function getFactory(hre: HardhatRuntimeEnvironment) {
-  const factoryDeployed = await hre.deployments.get("ContractFactory");
+  const factoryDeployed = await hre.deployments.get("HexlinkContractFactory");
   return await hre.ethers.getContractAt(
-      "ContractFactory",
+      "HexlinkContractFactory",
       factoryDeployed.address
   );
 }

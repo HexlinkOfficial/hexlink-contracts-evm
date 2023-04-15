@@ -41,11 +41,11 @@ doppler run -- npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS $C
 
 | Contract | Address |
 | ----------- | ----------- |
-| ContractFactory | 0xa6524A512A808B8D716aB4f142B71F6B15F1deE9 |
-| AccountProxy | 0x9f81B7588A4Bd2b0e5893f12666c6475a63022ae |
-| HexlinkProxy | 0x9f81B7588A4Bd2b0e5893f12666c6475a63022ae |
+| ContractFactory | 0xF4CCB60BeAb96E801A2c3598e15b4d1Ed72ECa53 |
+| AccountProxy | 0x4c552dC72756A690883f9e8955B231c43c4E598e |
+| HexlinkProxy | 0x4c552dC72756A690883f9e8955B231c43c4E598e |
 
-To ensure all derived accounts share same addresses across different chains, we need to fix the addresses of ContractFactory , HexlinkProxy and AccountProxy. HexlinkProxy and AccountProxy share the same proxy implementation as "HexlinkERC1967Proxy". The contract factory is deployed with 0x170c915f302B07BBe406F918F3053C242f70DdA4.
+To ensure all derived accounts share same addresses across different chains, we need to fix the addresses of ContractFactory , HexlinkProxy and AccountProxy. HexlinkProxy and AccountProxy share the same proxy implementation as "HexlinkERC1967Proxy". The contract factory is deployed with 0x9Afa9fcf35E2486cF3E6775FC9eD93EA14de2926.
 
 ## Prod
 

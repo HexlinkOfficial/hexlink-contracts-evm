@@ -1,13 +1,11 @@
 import {expect} from "chai";
 import * as hre from "hardhat";
 import {ethers, deployments, getNamedAccounts, run} from "hardhat";
-import { BigNumber, BigNumberish, Contract } from "ethers";
+import { BigNumberish, Contract } from "ethers";
 import { resolveProperties } from 'ethers/lib/utils'
 import { hash, buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverName } from "./testers";
 import { buildAccountInitData } from "./account";
-import { SimpleAccountAPI } from "@account-abstraction/sdk";
-import { packUserOp } from '@account-abstraction/utils'
 import {
   UserOperationStruct
 } from '@account-abstraction/contracts'
@@ -230,14 +228,6 @@ describe("Hexlink", function() {
     );
 
     // build user op to deploy and send eth
-    const api = new SimpleAccountAPI({
-      provider: hre.ethers.provider,
-      entryPointAddress: entrypoint.address,
-      accountAddress: sender,
-      owner: deployer,
-      factoryAddress: hexlink.address,
-    });
-
     const fee = await ethers.provider.getFeeData();
     const callData = await buildAccountExecData(
       deployer.address,

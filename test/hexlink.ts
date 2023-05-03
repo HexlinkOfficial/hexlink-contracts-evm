@@ -1,10 +1,24 @@
 import {expect} from "chai";
 import * as hre from "hardhat";
 import {ethers, deployments, getNamedAccounts, run} from "hardhat";
-import { Contract } from "ethers";
+import { BigNumberish, Contract } from "ethers";
+import { resolveProperties } from 'ethers/lib/utils'
 import { hash, buildAuthProof } from "../tasks/utils";
 import { senderName, senderNameHash, receiverName } from "./testers";
 import { buildAccountInitData } from "./account";
+import {
+  UserOperationStruct
+} from '@account-abstraction/contracts'
+
+export const buildAccountExecData = async (
+  target: string,
+  value?: BigNumberish,
+  data?: string
+) => {
+  const artifact = await hre.artifacts.readArtifact("Account");
+  const iface = new ethers.utils.Interface(artifact.abi);
+  return iface.encodeFunctionData("exec", [target, value ?? 0, data ?? []]);
+}
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -182,5 +196,105 @@ describe("Hexlink", function() {
         proof2
       )
     ).to.be.revertedWith("ERC1167: create2 failed");
+  });
+
+  it("should deploy account with erc4337 entrypoint", async function() {
+    const { deployer } = await ethers.getNamedSigners();
+    const entrypoint = await ethers.getContractAt(
+      "EntryPoint",
+      (await deployments.get("EntryPoint")).address
+    );
+    expect(await ethers.provider.getCode(sender)).to.eq("0x");
+    // deposit eth before account created
+    await deployer.sendTransaction({
+      to: sender,
+      value: ethers.utils.parseEther("1.0")
+    });
+
+    const accountInitData = await buildAccountInitData(deployer.address)
+    const proof = await buildAuthProof(
+      hre,
+      senderNameHash,
+      accountInitData,
+      "validator",
+      hexlink.address
+    );
+    const initData = hexlink.interface.encodeFunctionData(
+      "deploy", [senderName, accountInitData, proof]
+    );
+    const initCode = ethers.utils.solidityPack(
+      ["address", "bytes"],
+      [hexlink.address, initData]
+    );
+
+    // build user op to deploy and send eth
+    const fee = await ethers.provider.getFeeData();
+    const callData = await buildAccountExecData(
+      deployer.address,
+      ethers.utils.parseEther("0.5"),
+    );
+
+    const userOp: UserOperationStruct = {
+      sender,
+      nonce: 0,
+      initCode,
+      callData,
+      callGasLimit: 500000,
+      verificationGasLimit: 2000000,
+      preVerificationGas: 0,
+      maxFeePerGas: fee.maxFeePerGas?.toNumber() ?? 0,
+      maxPriorityFeePerGas: fee.maxPriorityFeePerGas?.toNumber() ?? 0,
+      paymasterAndData: [],
+      signature: [],
+    };
+    const op = await resolveProperties(userOp);
+    const opHash = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(
+        [
+          'address',
+          'uint256',
+          'bytes32',
+          'bytes32',
+          'uint256',
+          'uint256',
+          'uint256',
+          'uint256',
+          'uint256',
+          'bytes32',
+        ],
+        [
+          op.sender,
+          op.nonce,
+          ethers.utils.keccak256(op.initCode),
+          ethers.utils.keccak256(op.callData),
+          op.callGasLimit,
+          op.verificationGasLimit,
+          op.preVerificationGas,
+          op.maxFeePerGas,
+          op.maxPriorityFeePerGas,
+          ethers.utils.keccak256(op.paymasterAndData)
+        ]
+      )
+    );
+    const chainId = (await ethers.provider.getNetwork()).chainId;
+    const userOpHash = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(
+        ["bytes32", "address", "uint256"],
+        [opHash, entrypoint.address, chainId]
+      )
+    );
+    const signature = await deployer.signMessage(
+      ethers.utils.arrayify(userOpHash)
+    );
+    const signed = { ...userOp, signature, };
+    await entrypoint.handleOps([signed], deployer.address);
+
+    // check account
+    expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
+    const account = await ethers.getContractAt("Account", sender);
+    expect(await account.owner()).to.eq(deployer.address);
+    expect(
+      await ethers.provider.getBalance(sender)
+    ).to.lte(ethers.utils.parseEther("0.5"));
   });
 });

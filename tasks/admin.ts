@@ -189,10 +189,32 @@ task("set_registry", "set name registry")
         }
     });
 
+task("add_stake")
+    .addFlag("nowait")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const hexlink = await getHexlink(hre);
+        const entrypoint = await hre.ethers.getContractAt(
+            "EntryPoint",
+            "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+        );
+        const data = hexlink.interface.encodeFunctionData(
+            'exec', [
+                entrypoint.address,
+                ethers.utils.parseEther("0.05"),
+                entrypoint.interface.encodeFunctionData("addStake", [86400])
+            ]
+        )
+        console.log("Add stake 0.05 ETH to " + entrypoint.address);
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
+        } else {
+            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+        }
+    });
+
 task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
 
         const proxy = await hre.ethers.getContractAt(

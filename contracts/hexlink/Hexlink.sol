@@ -30,6 +30,8 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
         nameValidator = INameValidator(nameValidator_);
     }
 
+    receive() external payable { }
+
     function initialize(address owner) public initializer {
         _transferOwnership(owner);
     }
@@ -58,4 +60,19 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
     function _authorizeUpgrade(
         address newImplementation
     ) internal view onlyOwner override { }
+
+    /** exec */
+
+    function exec(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) onlyOwner external {
+        (bool success, bytes memory result) = target.call{value : value}(data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
 }

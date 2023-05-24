@@ -39,7 +39,7 @@ export async function getHexlink(
 ) : Promise<Contract> {
   return await hre.ethers.getContractAt(
       "Hexlink",
-      hexlink || "0x9f81B7588A4Bd2b0e5893f12666c6475a63022ae"
+      hexlink || "0x4c552dC72756A690883f9e8955B231c43c4E598e"
   );
 }
 

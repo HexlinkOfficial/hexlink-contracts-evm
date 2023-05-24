@@ -54,7 +54,6 @@ export async function getFactory(hre: HardhatRuntimeEnvironment) {
 export const buildAuthProof = async function (
     hre: HardhatRuntimeEnvironment,
     name: string,
-    data: string,
     signer?: string,
     hexlink?: string,
 ) {
@@ -63,28 +62,21 @@ export const buildAuthProof = async function (
     const validator = await hre.ethers.getNamedSigner(signer);
     const requestId = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ["bytes4", "address", "uint256", "bytes"],
+        ["bytes4", "address", "uint256"],
         [
           func,
           hexlinkContract.address,
           hre.network.config.chainId,
-          data
         ]
       )
     );
-    const expiredAt = Math.round(Date.now() / 1000) + 3600;
     const message = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ["bytes32", "bytes32", "uint256", "address"],
-        [name, requestId, expiredAt, validator.address]
+        ["bytes32", "bytes32"],
+        [name, requestId]
       )
     );
-    const signature = await validator.signMessage(
+    return await validator.signMessage(
       ethers.utils.arrayify(message)
     );
-    const proof = ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "address", "bytes"],
-      [expiredAt, validator.address, signature]
-    )
-    return proof;
   };

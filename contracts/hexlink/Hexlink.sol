@@ -6,45 +6,35 @@ pragma solidity ^0.8.12;
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../account/IHexlinkAccount.sol";
-import "./IHexlink.sol";
-import "../registry/INameRegistry.sol";
-import "../registry/RegistryStorage.sol";
+import "./IERC4972.sol";
+import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
+import "../account/INameValidator.sol";
 
-contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
-    using Address for address;
-
+contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgradeable {
     event Deployed(bytes32 indexed name, address indexed account);
 
-    address public accountImplementation;
+    address public immutable accountBase;
+    INameValidator public immutable nameValidator;
 
-    function init(
-        address owner,
-        address accountImpl,
-        address[] memory registries
-    ) external {
-        require(_owner() == address(0) && owner != address(0), "invalid init owner");
+    constructor(
+        address accountBase_,
+        address nameValidator_
+    ) {
+        accountBase = accountBase_;
+        nameValidator = INameValidator(nameValidator_);
+    }
+
+    function initialize(address owner) public initializer {
         _transferOwnership(owner);
-        accountImplementation = accountImpl;
-        for (uint i = 0; i < registries.length; i++) {
-            INameRegistry registry = INameRegistry(registries[i]);
-            RegistryStorage.register(
-                registry.getSchema(),
-                registry.getDomain(),
-                registries[i]
-            );
-        }
     }
 
-    function upgradeAccount(address accountImpl) external onlyOwner {
-        accountImplementation = accountImpl;
-    }
-
-    /** EIP-4972 Functions */
+    /** IERC4972 */
 
     function ownedAccount(
         bytes32 name
@@ -52,55 +42,28 @@ contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
         return Clones.predictDeterministicAddress(address(this), name);
     }
 
-    /** IAccountFactory Functions */
+    /** IAccountFactory */
 
     function deploy(
-        Name calldata name,
-        bytes memory data,
-        bytes calldata authProof
+        bytes32 name,
+        bytes calldata signature
     ) external override returns(address account) {
-        address registry = getRegistry(name.schema, name.domain);
-        require(registry != address(0), "registry not found");
-
         bytes32 requestId = keccak256(
-            abi.encode(msg.sig, address(this), block.chainid, data)
+            abi.encode(msg.sig, address(this), block.chainid)
         );
-        bytes32 nameHash = _encodeName(name);
-        uint256 validationData = INameRegistry(
-            registry
-        ).validateName(nameHash, requestId, authProof);
         require(
-            validationData == 0,
-            string.concat("name validation error ", Strings.toString(validationData))
+            nameValidator.validate(name, requestId, signature) == 0,
+            "invalid signature"
         );
-
-        account = Clones.cloneDeterministic(address(this), nameHash);
-        IHexlinkERC1967Proxy(payable(account)).initProxy(accountImplementation, data);
-        emit Deployed(nameHash, account);
-    }
-
-    /** name registry functions */
-
-    function setRegistry(address registry) external onlyOwner {
-        INameRegistry nr = INameRegistry(registry);
-        bytes32 schema = nr.getSchema();
-        bytes32 domain = nr.getDomain();
-        RegistryStorage.register(schema, domain, registry);
-    }
-
-    function getRegistry(bytes32 schema, bytes32 domain) public view returns(address) {
-        return RegistryStorage.getRegistry(schema, domain);
-    }
-
-    function _encodeName(Name calldata name) internal pure returns(bytes32) {
-        return keccak256(abi.encode(name.schema, name.domain, name.handle));
+        account = Clones.cloneDeterministic(address(this), name);
+        bytes memory data = abi.encodeWithSignature(
+            "initialize(bytes32,address)", name, address(nameValidator)
+        );
+        IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
+        emit Deployed(name, account);
     }
 
     /** UUPSUpgradeable */
-
-    function implementation() external view returns (address) {
-        return _getImplementation();
-    }
 
     function _authorizeUpgrade(
         address newImplementation

@@ -10,10 +10,12 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IHexlinkAccount.sol";
-import "./AccountStorage.sol";
+import "./EIP4972Storage.sol";
+import "./INameValidator.sol";
 
-contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
+contract Account is BaseAccount, Initializable, IHexlinkAccount, UUPSUpgradeable {
     using Address for address;
     using ECDSA for bytes32;
 
@@ -30,27 +32,18 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
         entrypoint_ = entrypoint;
     }
 
-    function init(address owner) external override {
-        require(
-            _owner() == address(0) && owner != address(0),
-            "already initiated"
-        );
-        _transferOwnership(owner);
+    function initialize(bytes32 name, address validator) public initializer {
+        EIP4972Storage.layout().name = name;
+        EIP4972Storage.layout().validator = validator;
     }
 
     /** IERC4972Account */
 
     function getName() external view override returns(bytes32, address) {
         return (
-            AccountStorage.layout().name,
-            AccountStorage.layout().nameRegistry
+            EIP4972Storage.layout().name,
+            EIP4972Storage.layout().validator
         );
-    }
-
-    function setName(bytes32 name, address nameRegistry) external {
-        _validateCaller();
-        AccountStorage.layout().name = name;
-        AccountStorage.layout().nameRegistry = nameRegistry;
     }
 
     /** IExectuable */
@@ -108,11 +101,10 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
-        bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner() == hash.recover(userOp.signature))  {
-            return 0;
-        }
-        return SIG_VALIDATION_FAILED;  
+        EIP4972Storage.Layout memory s = EIP4972Storage.layout();
+        return INameValidator(s.validator).validate(
+            s.name, userOpHash, userOp.signature
+        );
     }
 
     /** UUPSUpgradeable */
@@ -122,17 +114,17 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
     }
 
     function _authorizeUpgrade(
-        address newImplementation
-    ) internal view onlyOwner override { }
+        address /* newImplementation */
+    ) internal view override {
+         _validateCaller();
+    }
 
     /** help functions */
 
-    function _validateCaller() internal virtual {
+    function _validateCaller() internal view virtual {
         require(
-            msg.sender == address(entryPoint())
-            || msg.sender == owner()
-            || msg.sender == address(this),
-            "HEXLA005"
+            msg.sender == address(entryPoint()) || msg.sender == address(this),
+            "invalid caller"
         );
     }
 }

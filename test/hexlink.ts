@@ -1,23 +1,25 @@
 import {expect} from "chai";
 import * as hre from "hardhat";
-import {ethers, deployments, getNamedAccounts, run} from "hardhat";
-import { BigNumberish, Contract } from "ethers";
-import { resolveProperties } from 'ethers/lib/utils'
-import { hash, buildAuthProof } from "../tasks/utils";
-import { senderName, senderNameHash, receiverName } from "./testers";
-import { buildAccountInitData } from "./account";
-import {
-  UserOperationStruct
-} from '@account-abstraction/contracts'
+import {ethers, deployments, run} from "hardhat";
+import { Contract } from "ethers";
+import { buildAuthProof } from "../tasks/utils";
+import { senderNameHash, receiverNameHash } from "./testers";
+import { buildAccountExecData, call } from "./account";
 
-export const buildAccountExecData = async (
-  target: string,
-  value?: BigNumberish,
-  data?: string
-) => {
-  const artifact = await hre.artifacts.readArtifact("Account");
-  const iface = new ethers.utils.Interface(artifact.abi);
-  return iface.encodeFunctionData("exec", [target, value ?? 0, data ?? []]);
+export const genInitCode = async (hexlink: Contract) => {
+  const deploySig = await buildAuthProof(
+    hre,
+    senderNameHash,
+    "validator",
+    hexlink.address
+  );
+  const initData = hexlink.interface.encodeFunctionData(
+    "deploy", [senderNameHash, deploySig]
+  );
+  return ethers.utils.solidityPack(
+    ["address", "bytes"],
+    [hexlink.address, initData]
+  );
 }
 
 describe("Hexlink", function() {
@@ -33,57 +35,14 @@ describe("Hexlink", function() {
     sender = await hexlink.ownedAccount(senderNameHash);
   });
 
-  it("should with proper name registry set", async function() {
-    const schema = hash("mailto");
-    const domain = hash("gmail.com");
-    const registry = await deployments.get("EmailNameRegistry");
-    expect(
-      await hexlink.getRegistry(schema, domain)
-    ).to.eq(registry.address);
-
-    const {deployer, validator} = await getNamedAccounts();
-    const gmailRegistry = await deployments.deploy(
-      "GmailNameRegistry",
-      {
-          from: deployer,
-          contract: "NameRegistry",
-          args: [
-            hash("mailto"),
-            hash("gmail.com"),
-            admin,
-            [validator]
-          ],
-          log: true,
-          autoMine: true
-      }
-    );
-    await expect(
-      hexlink.setRegistry(schema, domain, gmailRegistry.address)
-    ).to.be.reverted;
-
-    await run("admin_schedule_and_exec", {
-      target: hexlink.address,
-      data: hexlink.interface.encodeFunctionData(
-        "setRegistry", [gmailRegistry.address]
-      ),
-      admin
-    });
-
-    expect(
-      await hexlink.getRegistry(schema, domain)
-    ).to.eq(gmailRegistry.address);
-
-    expect(
-      await hexlink.getRegistry(schema, hash("outlook.com"))
-    ).to.eq(registry.address);
-  });
-
   it("should upgrade successfully", async function() {
     // deploy new hexlink impl
-    const {deployer} = await getNamedAccounts();
+    const {deployer} = await ethers.getNamedSigners();
+    const account = await deployments.get("Account");
+    const validator = await deployments.get("NameValidator");
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
-      from: deployer,
-      args: [],
+      from: deployer.address,
+      args: [account.address, validator.address],
       log: true,
       autoMine: true,
     });
@@ -108,7 +67,7 @@ describe("Hexlink", function() {
       hexlink.address
     );
     expect(
-      await hexlinkV2.implementation()
+      await hexlinkProxy.implementation()
     ).to.eq(newHexlinkImpl.address);
     expect(
       await hexlinkV2.ownedAccount(senderNameHash)
@@ -119,81 +78,60 @@ describe("Hexlink", function() {
   });
 
   it("should deploy account contract", async function() {
-    const { deployer, validator } = await ethers.getNamedSigners();
+    const { deployer } = await ethers.getNamedSigners();
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
 
     // deploy with invalid proof
-    const validData = await buildAccountInitData(deployer.address);
-    const invalidAuthProof = await buildAuthProof(
+    const invalidSig = await buildAuthProof(
       hre,
       senderNameHash,
-      validData,
       "deployer",
       hexlink.address
     );
-    const invalidData = await buildAccountInitData(validator.address);
     await expect(
       hexlink.deploy(
-        senderName,
-        invalidData,
-        invalidAuthProof
-      )
-    ).to.be.revertedWith("name validation error 2");
-  
-    // deploy with invalid owner
-    const proof = await buildAuthProof(
-      hre,
-      senderNameHash,
-      validData,
-      "validator",
-      hexlink.address
-    );
-    await expect(
-      hexlink.deploy(
-        senderName,
-        invalidData,
-        proof
+        senderNameHash,
+        invalidSig
       )
     ).to.be.reverted;
 
+    const validSig = await buildAuthProof(
+      hre,
+      senderNameHash,
+      "validator",
+      hexlink.address
+    );
+  
     // deploy with invalid name
     await expect(
       hexlink.deploy(
-        receiverName,
-        validData,
-        proof
+        receiverNameHash,
+        validSig
       )
     ).to.be.reverted;
   
     //deploy account contract
     await expect(
       hexlink.deploy(
-        senderName,
-        validData,
-        proof
+        senderNameHash,
+        validSig,
       )
     ).to.emit(hexlink, "Deployed").withArgs(
       senderNameHash, sender
     );
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
 
-    // check owner
-    const account = await ethers.getContractAt("Account", sender);
-    expect(await account.owner()).to.eq(deployer.address);
-
     // redeploy should throw
-    const proof2 = await buildAuthProof(
+    const validSig2 = await buildAuthProof(
       hre,
       senderNameHash,
-      validData,
       "validator",
       hexlink.address
     );
     await expect(
       hexlink.connect(deployer).deploy(
-        senderName,
-        validData,
-        proof2
+        senderNameHash,
+        validSig2
       )
     ).to.be.revertedWith("ERC1167: create2 failed");
   });
@@ -211,88 +149,15 @@ describe("Hexlink", function() {
       value: ethers.utils.parseEther("1.0")
     });
 
-    const accountInitData = await buildAccountInitData(deployer.address)
-    const proof = await buildAuthProof(
-      hre,
-      senderNameHash,
-      accountInitData,
-      "validator",
-      hexlink.address
-    );
-    const initData = hexlink.interface.encodeFunctionData(
-      "deploy", [senderName, accountInitData, proof]
-    );
-    const initCode = ethers.utils.solidityPack(
-      ["address", "bytes"],
-      [hexlink.address, initData]
-    );
-
-    // build user op to deploy and send eth
-    const fee = await ethers.provider.getFeeData();
+    const initCode = await genInitCode(hexlink);
     const callData = await buildAccountExecData(
       deployer.address,
       ethers.utils.parseEther("0.5"),
     );
-
-    const userOp: UserOperationStruct = {
-      sender,
-      nonce: 0,
-      initCode,
-      callData,
-      callGasLimit: 500000,
-      verificationGasLimit: 2000000,
-      preVerificationGas: 0,
-      maxFeePerGas: fee.maxFeePerGas?.toNumber() ?? 0,
-      maxPriorityFeePerGas: fee.maxPriorityFeePerGas?.toNumber() ?? 0,
-      paymasterAndData: [],
-      signature: [],
-    };
-    const op = await resolveProperties(userOp);
-    const opHash = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(
-        [
-          'address',
-          'uint256',
-          'bytes32',
-          'bytes32',
-          'uint256',
-          'uint256',
-          'uint256',
-          'uint256',
-          'uint256',
-          'bytes32',
-        ],
-        [
-          op.sender,
-          op.nonce,
-          ethers.utils.keccak256(op.initCode),
-          ethers.utils.keccak256(op.callData),
-          op.callGasLimit,
-          op.verificationGasLimit,
-          op.preVerificationGas,
-          op.maxFeePerGas,
-          op.maxPriorityFeePerGas,
-          ethers.utils.keccak256(op.paymasterAndData)
-        ]
-      )
-    );
-    const chainId = (await ethers.provider.getNetwork()).chainId;
-    const userOpHash = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(
-        ["bytes32", "address", "uint256"],
-        [opHash, entrypoint.address, chainId]
-      )
-    );
-    const signature = await deployer.signMessage(
-      ethers.utils.arrayify(userOpHash)
-    );
-    const signed = { ...userOp, signature, };
-    await entrypoint.handleOps([signed], deployer.address);
+    await call(sender, initCode, callData, entrypoint);
 
     // check account
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
-    const account = await ethers.getContractAt("Account", sender);
-    expect(await account.owner()).to.eq(deployer.address);
     expect(
       await ethers.provider.getBalance(sender)
     ).to.lte(ethers.utils.parseEther("0.5"));

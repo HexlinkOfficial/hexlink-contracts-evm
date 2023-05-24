@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import { hash, getHexlink, getAdmin, getDeployedContract } from "./utils";
+import { hash, getHexlink, getAdmin } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -162,7 +162,7 @@ task("register_validator", "register validator at oracle contract")
             console.log("Already registered, skipping ");
             return;
         }
-        console.log("Registering valdiator " + args.validator + " at registry " + args.oracle);
+        console.log("Registering valdiator " + args.validator + " at registry " + args.registry);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: registry.address, data });
         } else {

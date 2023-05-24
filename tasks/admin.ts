@@ -195,11 +195,12 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         const {deployer} = await hre.getNamedAccounts();
         const hexlink = await getHexlink(hre);
 
-        const existing = await hexlink.implementation();
-        const deployed = await hre.deployments.deploy(
-            "Hexlink",
-            {from: deployer, args: [], log: true}
+        const proxy = await hre.ethers.getContractAt(
+            "HexlinkERC1967Proxy",
+            hexlink.address
         );
+        const existing = await proxy.implementation();
+        const deployed = await hre.deployments.get("Hexlink");
         if (existing.toLowerCase() == deployed.address.toLowerCase()) {
             console.log("No need to upgrade");
             return;
@@ -215,38 +216,6 @@ task("upgrade_hexlink", "upgrade hexlink contract")
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {
             await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
-        }
-    });
-
-task("upgrade_account", "upgrade account implementation")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const { deployer } = await hre.ethers.getNamedSigners();
-        const beacon = await hre.ethers.getContractAt(
-            "AccountBeacon", "0x1b9F49FEEfC4F519352DA188861123ad7b2e7cB6"
-        );
-        const deployed = await hre.deployments.deploy("Account", {
-            from: deployer.address,
-            args: [],
-            log: true,
-            autoMine: true,
-        });
-
-        const existing = await beacon.implementation();
-        if (existing.toLowerCase() === deployed.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-
-        const data = beacon.interface.encodeFunctionData(
-            "upgradeTo",
-            [deployed.address]
-        );
-        console.log("Upgrading from " + existing + " to " + deployed.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: beacon.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: beacon.address, data });
         }
     });
 

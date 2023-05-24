@@ -44,17 +44,7 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
 
     /** IAccountFactory */
 
-    function deploy(
-        bytes32 name,
-        bytes calldata signature
-    ) external override returns(address account) {
-        bytes32 requestId = keccak256(
-            abi.encode(msg.sig, address(this), block.chainid)
-        );
-        require(
-            nameValidator.validate(name, requestId, signature) == 0,
-            "invalid signature"
-        );
+    function deploy(bytes32 name) external override returns(address account) {
         account = Clones.cloneDeterministic(address(this), name);
         bytes memory data = abi.encodeWithSignature(
             "initialize(bytes32,address)", name, address(nameValidator)

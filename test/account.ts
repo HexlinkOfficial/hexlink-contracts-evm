@@ -10,14 +10,8 @@ import { genInitCode } from "./hexlink";
 
 const deploySender = async (hexlink: Contract) : Promise<Contract> => {
   const accountAddr = await hexlink.ownedAccount(senderNameHash);
-  const signature = await buildAuthProof(
-    hre,
-    senderNameHash,
-    "validator",
-    hexlink.address
-  );
   await expect(
-    hexlink.deploy(senderNameHash, signature)
+    hexlink.deploy(senderNameHash)
   ).to.emit(hexlink, "Deployed").withArgs(
     senderNameHash, accountAddr
   );

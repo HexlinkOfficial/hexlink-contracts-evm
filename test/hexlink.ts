@@ -7,14 +7,8 @@ import { senderNameHash, receiverNameHash } from "./testers";
 import { buildAccountExecData, call } from "./account";
 
 export const genInitCode = async (hexlink: Contract) => {
-  const deploySig = await buildAuthProof(
-    hre,
-    senderNameHash,
-    "validator",
-    hexlink.address
-  );
   const initData = hexlink.interface.encodeFunctionData(
-    "deploy", [senderNameHash, deploySig]
+    "deploy", [senderNameHash]
   );
   return ethers.utils.solidityPack(
     ["address", "bytes"],
@@ -81,58 +75,17 @@ describe("Hexlink", function() {
     const { deployer } = await ethers.getNamedSigners();
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
 
-    // deploy with invalid proof
-    const invalidSig = await buildAuthProof(
-      hre,
-      senderNameHash,
-      "deployer",
-      hexlink.address
-    );
-    await expect(
-      hexlink.deploy(
-        senderNameHash,
-        invalidSig
-      )
-    ).to.be.reverted;
-
-    const validSig = await buildAuthProof(
-      hre,
-      senderNameHash,
-      "validator",
-      hexlink.address
-    );
-  
-    // deploy with invalid name
-    await expect(
-      hexlink.deploy(
-        receiverNameHash,
-        validSig
-      )
-    ).to.be.reverted;
-  
     //deploy account contract
     await expect(
-      hexlink.deploy(
-        senderNameHash,
-        validSig,
-      )
+      hexlink.deploy(senderNameHash)
     ).to.emit(hexlink, "Deployed").withArgs(
       senderNameHash, sender
     );
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
 
     // redeploy should throw
-    const validSig2 = await buildAuthProof(
-      hre,
-      senderNameHash,
-      "validator",
-      hexlink.address
-    );
     await expect(
-      hexlink.connect(deployer).deploy(
-        senderNameHash,
-        validSig2
-      )
+      hexlink.connect(deployer).deploy(senderNameHash)
     ).to.be.revertedWith("ERC1167: create2 failed");
   });
 

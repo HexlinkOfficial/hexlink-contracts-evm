@@ -35,8 +35,7 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
         address authModule,
         bytes memory data
     ) public initializer {
-        _setModule(AUTH_MODULE, authModule);
-        _call(authModule, 0, data);
+        _setAndExecModule(AUTH_MODULE, authModule, data);
     }
 
     /** IExectuable */
@@ -94,9 +93,15 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
-        address module = getModule(AUTH_MODULE);
-        require(module != address(0), "module not set");
-        return IAuthModule(module).validate(userOpHash, userOp.signature);
+        bytes memory data = _execModule(
+            AUTH_MODULE,
+            abi.encodeWithSelector(
+                IAuthModule.validate.selector,
+                userOpHash,
+                userOp.signature
+            )
+        );
+        return abi.decode(data, (uint256));
     }
 
     /** UUPSUpgradeable */
@@ -113,10 +118,15 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
 
     /** ModuleManager */
 
-    function setModule(bytes32 key, address module) external {
+    function setAndExecModule(bytes32 key, address module, bytes memory data) external {
         _validateCaller();
-        _setModule(key, module);
+        _setAndExecModule(key, module, data);
         emit ModuleSet(key, module);
+    }
+
+    function execModule(bytes32 key, bytes memory data) external {
+        _validateCaller();
+        _execModule(key, data);
     }
 
     /** help functions */

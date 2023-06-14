@@ -4,18 +4,28 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import "./IAuthModule.sol";
-import "../../utils/EntryPointStaker.sol";
 
-contract DefaultAuthModule is IAuthModule, EntryPointStaker {
-    using ECDSA for bytes32;
-
-    struct Name {
+library ERC4972Storage {
+    struct Layout {
         bytes32 nameType;
         bytes32 name;
     }
-    mapping(address => Name) internal registry;
+
+    bytes32 internal constant STORAGE_SLOT =
+        keccak256('hexlink.account.storage.erc4972');
+
+    function layout() internal pure returns (Layout storage l) {
+        bytes32 slot = STORAGE_SLOT;
+        assembly {
+            l.slot := slot
+        }
+    }
+}
+
+contract DefaultAuthModule is IAuthModule {
+    using ECDSA for bytes32;
+
     address public immutable validator;
 
     constructor(address validator_) {
@@ -23,12 +33,14 @@ contract DefaultAuthModule is IAuthModule, EntryPointStaker {
     }
 
     function setName(bytes32 nameType, bytes32 name) external {
-        registry[msg.sender].nameType = nameType;
-        registry[msg.sender].name = name;
+        ERC4972Storage.Layout storage s = ERC4972Storage.layout();
+        s.nameType = nameType;
+        s.name = name;
     }
 
-    function getName() public view returns(Name memory) {
-        return registry[msg.sender];
+    function getName() public pure returns(bytes32, bytes32) {
+        ERC4972Storage.Layout memory s = ERC4972Storage.layout();
+        return (s.nameType, s.name);
     }
 
     /** INameValidator */
@@ -37,8 +49,8 @@ contract DefaultAuthModule is IAuthModule, EntryPointStaker {
         bytes32 message,
         bytes memory signature
     ) external view override returns(uint256) {
-        Name memory name = getName();
-        bytes32 toSignHash = keccak256(abi.encode(name.nameType, name.name, message));
+        (bytes32 nameType, bytes32 name) = getName();
+        bytes32 toSignHash = keccak256(abi.encode(nameType, name, message));
         address signer = toSignHash.toEthSignedMessageHash().recover(signature);
         return signer == validator ? 0 : 1;
     }

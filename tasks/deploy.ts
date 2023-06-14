@@ -18,6 +18,15 @@ async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
     return false;
 }
 
+export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
+    let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (hre.network.name === 'hardhat') {
+        const deployed = await hre.deployments.get("EntryPoint");
+        entrypoint = deployed.address;
+    }
+    return entrypoint;
+}
+
 task("deployHexlinkProxy", "deploy hexlink related contracts")
     .setAction(async (_args, hre: HardhatRuntimeEnvironment) => {
         const { ethers } = hre;

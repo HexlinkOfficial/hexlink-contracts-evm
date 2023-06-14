@@ -1,5 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
+import { getEntryPoint } from "../tasks/deploy";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
@@ -8,13 +9,14 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     //const admin = await deployments.get("HexlinkAdmin");
     const account = await deployments.get("Account");
     const module = await deployments.get("DefaultAuthModule");
+    let entrypoint = await getEntryPoint(hre);
 
     // deploy hexlink implementation
     await deployments.deploy(
         "Hexlink",
         {
             from: deployer,
-            args: [account.address, module.address],
+            args: [account.address, module.address, entrypoint],
             log: true,
             autoMine: true
         }

@@ -3,6 +3,7 @@ import {ethers, deployments, run} from "hardhat";
 import { Contract } from "ethers";
 import { EMAIL_NAME_TYPE, SENDER_NAME_HASH } from "./testers";
 import { buildAccountExecData, call } from "./account";
+import { getEntryPoint } from "../tasks/deploy";
 
 export const genInitCode = async (hexlink: Contract) => {
   const initData = hexlink.interface.encodeFunctionData(
@@ -32,9 +33,10 @@ describe("Hexlink", function() {
     const {deployer} = await ethers.getNamedSigners();
     const account = await deployments.get("Account");
     const authModule = await deployments.get("DefaultAuthModule");
+    const entrypoint = await deployments.get("EntryPoint");
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer.address,
-      args: [account.address, authModule.address],
+      args: [account.address, authModule.address, entrypoint.address],
       log: true,
       autoMine: true,
     });

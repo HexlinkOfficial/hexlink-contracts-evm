@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@account-abstraction/contracts/core/StakeManager.sol";
 
 import "./IERC4972.sol";
 import "./IAccountFactory.sol";
@@ -25,6 +27,7 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
 
     address public immutable accountBase;
     address public immutable authModule;
+    IStakeManager public immutable entrypoint;
 
     // keccak256("mailto");
     bytes32 public constant MAILTO = 0xa494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96e;
@@ -33,10 +36,12 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
 
     constructor(
         address accountBase_,
-        address authModule_
+        address authModule_,
+        address entrypoint_
     ) {
         accountBase = accountBase_;
         authModule = authModule_;
+        entrypoint = IStakeManager(entrypoint_);
     }
 
     receive() external payable { }
@@ -87,21 +92,6 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
         address newImplementation
     ) internal view onlyOwner override { }
 
-    /** exec, to deposit/withdraw/stake/unstake in entrypoint contract */
-
-    function exec(
-        address target,
-        uint256 value,
-        bytes calldata data
-    ) onlyOwner external {
-        (bool success, bytes memory result) = target.call{value : value}(data);
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
-    }
-
     /** utils */
 
     function _nameHash(
@@ -117,5 +107,19 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
         } else {
             revert InvalidNameType();
         }
+    }
+
+    /** Entrypoint contract staking */
+
+    function addStake(uint32 unstakeDelaySec) onlyOwner external payable {
+        entrypoint.addStake{value: msg.value}(unstakeDelaySec);
+    }
+
+    function unlockStake() onlyOwner external {
+        entrypoint.unlockStake();
+    }
+
+    function withdrawStake() external {
+        entrypoint.withdrawStake(payable(owner()));
     }
 }

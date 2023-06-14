@@ -1,12 +1,13 @@
 import {expect} from "chai";
 import { ethers, deployments } from "hardhat";
+import { EMAIL_NAME_TYPE, SENDER_NAME_HASH } from "./testers";
 
-const getValidator = async function() {
-  const deployment = await deployments.get("NameValidator");
-  return await ethers.getContractAt("NameValidator", deployment.address);
+const getAuthModule = async function() {
+  const deployment = await deployments.get("DefaultAuthModule");
+  return await ethers.getContractAt("DefaultAuthModule", deployment.address);
 };
 
-describe("NameRegistry", function() {
+describe("AuthModule", function() {
   let admin: string;
 
   beforeEach(async function() {
@@ -16,31 +17,32 @@ describe("NameRegistry", function() {
 
   it("signature check", async function() {
     const { validator, deployer } = await ethers.getNamedSigners();
-    const nameValidator = await getValidator();
-    const name = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes("mailto:alice@gmail.com")
-    );
+    const module = await getAuthModule();
+    await module.setName(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    let [nameType, name] = await module.getName();
+    expect(nameType).to.eq(EMAIL_NAME_TYPE);
+    expect(name).to.eq(SENDER_NAME_HASH);
     const requestInfo = ethers.utils.keccak256(
       ethers.utils.toUtf8Bytes("request")
     );
     const message = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(
-        ["bytes32", "bytes32"],
-        [name, requestInfo]
+        ["bytes32", "bytes32", "bytes32"],
+        [EMAIL_NAME_TYPE, SENDER_NAME_HASH, requestInfo]
       )
     );
     const signature = await validator.signMessage(
         ethers.utils.arrayify(message)
     );
     expect(
-        await nameValidator.validate(name, requestInfo, signature)
+        await module.validate(requestInfo, signature)
     ).to.be.eq(0);
 
     const invalidSignature = await deployer.signMessage(
       ethers.utils.arrayify(message)
     );
     expect(
-      await nameValidator.validate(name, requestInfo, invalidSignature)
+      await module.validate(requestInfo, invalidSignature)
     ).to.be.eq(1);
   });
 });

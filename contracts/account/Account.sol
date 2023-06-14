@@ -4,20 +4,18 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@solidstate/contracts/access/ownable/Ownable.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./IHexlinkAccount.sol";
-import "./EIP4972Storage.sol";
-import "./INameValidator.sol";
+import "./IExectuable.sol";
+import "./ModuleManager.sol";
+import "./modules/IAuthModule.sol";
 
-contract Account is BaseAccount, Initializable, IHexlinkAccount, UUPSUpgradeable {
+contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPSUpgradeable {
     using Address for address;
-    using ECDSA for bytes32;
+
+    event ModuleSet(bytes32 key, address module);
 
     receive() external payable { }
 
@@ -27,23 +25,17 @@ contract Account is BaseAccount, Initializable, IHexlinkAccount, UUPSUpgradeable
     }
 
     address internal immutable entrypoint_;
+    bytes32 public constant AUTH_MODULE = 0xa8c0599be6f6588338b5081825970753181ab28be5563b61840e1d0e3306254a;
 
     constructor(address entrypoint) {
         entrypoint_ = entrypoint;
     }
 
-    function initialize(bytes32 name, address validator) public initializer {
-        EIP4972Storage.layout().name = name;
-        EIP4972Storage.layout().validator = validator;
-    }
-
-    /** IERC4972Account */
-
-    function getName() external view override returns(bytes32, address) {
-        return (
-            EIP4972Storage.layout().name,
-            EIP4972Storage.layout().validator
-        );
+    function initialize(
+        address authModule,
+        bytes memory data
+    ) public initializer {
+        _setModule(AUTH_MODULE, authModule, data);
     }
 
     /** IExectuable */
@@ -101,10 +93,12 @@ contract Account is BaseAccount, Initializable, IHexlinkAccount, UUPSUpgradeable
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
-        EIP4972Storage.Layout memory s = EIP4972Storage.layout();
-        return INameValidator(s.validator).validate(
-            s.name, userOpHash, userOp.signature
-        );
+        bytes memory data = _callModule(AUTH_MODULE, abi.encodeWithSelector(
+            IAuthModule.validate.selector,
+            userOpHash,
+            userOp.signature
+        ));
+        return abi.decode(data, (uint256));
     }
 
     /** UUPSUpgradeable */
@@ -117,6 +111,23 @@ contract Account is BaseAccount, Initializable, IHexlinkAccount, UUPSUpgradeable
         address /* newImplementation */
     ) internal view override {
          _validateCaller();
+    }
+
+    /** ModuleManager */
+
+    function setModule(
+        bytes32 key,
+        address module,
+        bytes memory data
+    ) external {
+        _validateCaller();
+        _setModule(key, module, data);
+        emit ModuleSet(key, module);
+    }
+
+    function callModule(bytes32 key, bytes memory data) external {
+        _validateCaller();
+        _callModule(key, data);
     }
 
     /** help functions */

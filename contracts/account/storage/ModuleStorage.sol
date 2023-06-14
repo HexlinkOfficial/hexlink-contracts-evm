@@ -2,14 +2,13 @@
 
 pragma solidity ^0.8.12;
 
-library EIP4972Storage {
+library ModuleStorage {
     struct Layout {
-        bytes32 name;
-        address validator;
+        mapping(bytes32 => address) modules;
     }
 
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.contracts.storage.eip4972');
+        keccak256('hexlink.storage.account.modules');
 
     function layout() internal pure returns (Layout storage l) {
         bytes32 slot = STORAGE_SLOT;

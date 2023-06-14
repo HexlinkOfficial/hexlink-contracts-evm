@@ -8,8 +8,8 @@ import "../hexlink/Hexlink.sol";
 contract HexlinkV2ForTest is Hexlink {
     constructor(
         address accountBase,
-        address nameValidator
-    ) Hexlink(accountBase, nameValidator) { }
+        address authModule
+    ) Hexlink(accountBase, authModule) { }
 
     function name() external pure returns (string memory) {
         return "HexlinkV2ForTest";

@@ -1,10 +1,10 @@
-//SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
+// Hexlink Contracts
 
 pragma solidity ^0.8.12;
 
-interface INameValidator {
+interface IAuthModule {
     function validate(
-        bytes32 name,
         bytes32 message,
         bytes memory signature
     ) external view returns(uint256);

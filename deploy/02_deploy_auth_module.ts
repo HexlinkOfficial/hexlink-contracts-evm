@@ -17,10 +17,10 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     // deploy contract factory
     const validator = await getValidator(hre);
     await deployments.deploy(
-        "NameValidator",
+        "DefaultAuthModule",
         {
             from: deployer,
-            contract: "NameValidator",
+            contract: "DefaultAuthModule",
             args: [validator],
             log: true,
             autoMine: true

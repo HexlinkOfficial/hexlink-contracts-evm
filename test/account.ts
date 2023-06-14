@@ -2,18 +2,17 @@ import { expect } from "chai";
 import * as hre from "hardhat";
 import { ethers, deployments, getNamedAccounts, run } from "hardhat";
 import { Contract, BigNumberish } from "ethers";
-import { buildAuthProof } from "../tasks/utils";
-import { senderNameHash, receiverNameHash} from "./testers";
+import { EMAIL_NAME_TYPE, SENDER_NAME_HASH, RECEIVER_NAME_HASH} from "./testers";
 import { UserOperationStruct } from '@account-abstraction/contracts'
 import { resolveProperties } from 'ethers/lib/utils'
 import { genInitCode } from "./hexlink";
 
 const deploySender = async (hexlink: Contract) : Promise<Contract> => {
-  const accountAddr = await hexlink.ownedAccount(senderNameHash);
+  const accountAddr = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   await expect(
-    hexlink.deploy(senderNameHash)
+    hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
   ).to.emit(hexlink, "Deployed").withArgs(
-    senderNameHash, accountAddr
+    EMAIL_NAME_TYPE, SENDER_NAME_HASH, accountAddr
   );
   return await ethers.getContractAt("Account", accountAddr);
 }
@@ -95,8 +94,8 @@ export const call = async (
   );
   const message = ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ["bytes32", "bytes32"],
-      [senderNameHash, userOpHash]
+      ["bytes32", "bytes32", "bytes32"],
+      [EMAIL_NAME_TYPE, SENDER_NAME_HASH, userOpHash]
     )
   );
   const signature = await validator.signMessage(
@@ -116,8 +115,8 @@ describe("Hexlink Account", function () {
     await deployments.fixture(["TEST"]);
     const hexlinkProxy = await run("deployHexlinkProxy", {});
     hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
-    sender = await hexlink.ownedAccount(senderNameHash);
-    receiver = await hexlink.ownedAccount(receiverNameHash);
+    sender = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    receiver = await hexlink.ownedAccount(EMAIL_NAME_TYPE, RECEIVER_NAME_HASH);
     entrypoint = await ethers.getContractAt(
       "EntryPoint",
       (await deployments.get("EntryPoint")).address

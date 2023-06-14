@@ -33,10 +33,9 @@ describe("Hexlink", function() {
     const {deployer} = await ethers.getNamedSigners();
     const account = await deployments.get("Account");
     const authModule = await deployments.get("DefaultAuthModule");
-    const entrypoint = await deployments.get("EntryPoint");
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer.address,
-      args: [account.address, authModule.address, entrypoint.address],
+      args: [account.address, authModule.address],
       log: true,
       autoMine: true,
     });

@@ -16,7 +16,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         );
     }
 
-    let entrypoint = await getEntryPoint(hre);
+    const entrypoint = await getEntryPoint(hre);
     await deployments.deploy(
         "Account",
         {

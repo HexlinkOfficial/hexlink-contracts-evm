@@ -4,9 +4,11 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./IAuthModule.sol";
 
-contract DefaultAuthModule is IAuthModule {
+import "./IAuthModule.sol";
+import "../../utils/EntryPointStaker.sol";
+
+contract DefaultAuthModule is IAuthModule, EntryPointStaker {
     using ECDSA for bytes32;
 
     struct Name {

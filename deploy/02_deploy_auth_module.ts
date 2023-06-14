@@ -1,6 +1,7 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
 import {loadConfig} from "../tasks/utils";
+import { getEntryPoint } from "../tasks/deploy";
 
 async function getValidator(hre: HardhatRuntimeEnvironment) {
     let validator = loadConfig(hre, "validator");

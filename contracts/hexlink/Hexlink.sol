@@ -9,14 +9,14 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@account-abstraction/contracts/core/StakeManager.sol";
 
 import "./IERC4972.sol";
 import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
+import "../utils/EntryPointStaker.sol";
 
-contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgradeable {
+contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, UUPSUpgradeable {
     event Deployed(
         bytes32 indexed nameType,
         bytes32 indexed name,
@@ -26,8 +26,7 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
     error InvalidNameType();
 
     address public immutable accountBase;
-    address public immutable authModule;
-    IStakeManager public immutable entrypoint;
+    address public immutable defaultAuthModule;
 
     // keccak256("mailto");
     bytes32 public constant MAILTO = 0xa494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96e;
@@ -36,12 +35,10 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
 
     constructor(
         address accountBase_,
-        address authModule_,
-        address entrypoint_
+        address authModule_
     ) {
         accountBase = accountBase_;
-        authModule = authModule_;
-        entrypoint = IStakeManager(entrypoint_);
+        defaultAuthModule = authModule_;
     }
 
     receive() external payable { }
@@ -103,23 +100,9 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, Ownable, UUPSUpgra
 
     function _getAuthModule(bytes32 nameType) internal view returns(address) {
         if (nameType == MAILTO || nameType == TEL) {
-            return authModule;
+            return defaultAuthModule;
         } else {
             revert InvalidNameType();
         }
-    }
-
-    /** Entrypoint contract staking */
-
-    function addStake(uint32 unstakeDelaySec) onlyOwner external payable {
-        entrypoint.addStake{value: msg.value}(unstakeDelaySec);
-    }
-
-    function unlockStake() onlyOwner external {
-        entrypoint.unlockStake();
-    }
-
-    function withdrawStake() external {
-        entrypoint.withdrawStake(payable(owner()));
     }
 }

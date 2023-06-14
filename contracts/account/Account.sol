@@ -95,6 +95,7 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
         address module = getModule(AUTH_MODULE);
+        require(module != address(0), "module not set");
         return IAuthModule(module).validate(userOpHash, userOp.signature);
     }
 

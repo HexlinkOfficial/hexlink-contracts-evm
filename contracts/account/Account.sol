@@ -4,18 +4,18 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@solidstate/contracts/access/ownable/Ownable.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "./IHexlinkAccount.sol";
-import "./AccountStorage.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "./IExectuable.sol";
+import "./ModuleManager.sol";
+import "./modules/IAuthModule.sol";
 
-contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
+contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPSUpgradeable {
     using Address for address;
-    using ECDSA for bytes32;
+
+    event ModuleSet(bytes32 key, address module);
 
     receive() external payable { }
 
@@ -24,33 +24,20 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
         return abi.encode(msg.sig);
     }
 
-    address internal immutable entrypoint_;
+    /** keccak256("hexlink.account.module.auth") */
+    bytes32 public constant AUTH_MODULE = 0x049ca10d833db85bbd7d7e16d3a37e9cf04b6c799ef2e1a180966a9ebabd57b3;
+    IEntryPoint private immutable _entryPoint; 
 
-    constructor(address entrypoint) {
-        entrypoint_ = entrypoint;
+    constructor(address entryPoint_) {
+        _entryPoint = IEntryPoint(entryPoint_);
     }
 
-    function init(address owner) external override {
-        require(
-            _owner() == address(0) && owner != address(0),
-            "already initiated"
-        );
-        _transferOwnership(owner);
-    }
-
-    /** IERC4972Account */
-
-    function getName() external view override returns(bytes32, address) {
-        return (
-            AccountStorage.layout().name,
-            AccountStorage.layout().nameRegistry
-        );
-    }
-
-    function setName(bytes32 name, address nameRegistry) external {
-        _validateCaller();
-        AccountStorage.layout().name = name;
-        AccountStorage.layout().nameRegistry = nameRegistry;
+    function initialize(
+        address authModule,
+        bytes memory data
+    ) public initializer {
+        _setModule(AUTH_MODULE, authModule);
+        _call(authModule, 0, data);
     }
 
     /** IExectuable */
@@ -102,17 +89,14 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
 
     /** ERC4337 BaseAccount */
 
-    function entryPoint() public view override returns (IEntryPoint) {
-        return IEntryPoint(entrypoint_);
+    function entryPoint() public view override returns(IEntryPoint) {
+        return _entryPoint;
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
-        bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner() == hash.recover(userOp.signature))  {
-            return 0;
-        }
-        return SIG_VALIDATION_FAILED;  
+    internal override virtual returns (uint256) {
+        address authModule = getModule(AUTH_MODULE);
+        return IAuthModule(authModule).validate(userOpHash, userOp.signature);
     }
 
     /** UUPSUpgradeable */
@@ -122,17 +106,31 @@ contract Account is BaseAccount, IHexlinkAccount, Ownable, UUPSUpgradeable {
     }
 
     function _authorizeUpgrade(
-        address newImplementation
-    ) internal view onlyOwner override { }
+        address /* newImplementation */
+    ) internal view override {
+         _validateCaller();
+    }
 
-    /** help functions */
+    /** ModuleManager */
 
-    function _validateCaller() internal virtual {
+    function setModule(bytes32 key, address module) external {
+        _validateCaller();
+        _setModule(key, module);
+        emit ModuleSet(key, module);
+    }
+
+    function execModule(bytes32 key, uint256 value, bytes memory data) external {
+        _validateCaller();
+        address module = getModule(key);
+        _call(module, value, data);
+    }
+
+    /** utils */
+
+    function _validateCaller() internal view virtual {
         require(
-            msg.sender == address(entryPoint())
-            || msg.sender == owner()
-            || msg.sender == address(this),
-            "HEXLA005"
+            msg.sender == address(entryPoint()) || msg.sender == address(this),
+            "invalid caller"
         );
     }
 }

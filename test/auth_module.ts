@@ -19,7 +19,7 @@ describe("AuthModule", function() {
     const { validator, deployer } = await ethers.getNamedSigners();
     const module = await getAuthModule();
     await module.setName(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
-    let [nameType, name] = await module.getName();
+    const [nameType, name] = await module.getNameInfo();
     expect(nameType).to.eq(EMAIL_NAME_TYPE);
     expect(name).to.eq(SENDER_NAME_HASH);
     const requestInfo = ethers.utils.keccak256(

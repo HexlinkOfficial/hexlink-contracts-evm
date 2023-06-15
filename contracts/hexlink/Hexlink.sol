@@ -26,10 +26,7 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
     address public immutable accountBase;
     address public immutable defaultAuthModule;
 
-    constructor(
-        address accountBase_,
-        address authModule_
-    ) {
+    constructor(address accountBase_, address authModule_) {
         accountBase = accountBase_;
         defaultAuthModule = authModule_;
     }

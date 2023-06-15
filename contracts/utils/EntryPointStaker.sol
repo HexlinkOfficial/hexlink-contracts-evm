@@ -10,7 +10,7 @@ contract EntryPointStaker is Ownable {
     function addStake(
         address entrypoint,
         uint32 unstakeDelaySec
-    ) external payable {
+    ) onlyOwner external payable {
         IStakeManager(entrypoint).addStake{value: msg.value}(unstakeDelaySec);
     }
 

@@ -3,7 +3,6 @@ import {ethers, deployments, run} from "hardhat";
 import { Contract } from "ethers";
 import { EMAIL_NAME_TYPE, SENDER_NAME_HASH } from "./testers";
 import { buildAccountExecData, call } from "./account";
-import { getEntryPoint } from "../tasks/deploy";
 
 export const genInitCode = async (hexlink: Contract) => {
   const initData = hexlink.interface.encodeFunctionData(
@@ -107,7 +106,6 @@ describe("Hexlink", function() {
       ethers.utils.parseEther("0.5"),
     );
     await call(sender, initCode, callData, entrypoint);
-
     // check account
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(

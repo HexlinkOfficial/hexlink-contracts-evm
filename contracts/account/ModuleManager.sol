@@ -30,20 +30,7 @@ abstract contract ModuleManager {
         return ModuleStorage.layout().modules[key];
     }
 
-    function _setAndExecModule(
-        bytes32 key,
-        address module,
-        bytes memory data
-    ) internal {
+    function _setModule(bytes32 key, address module) internal {
         ModuleStorage.layout().modules[key] = module;
-        if (module != address(0) && data.length > 0) {
-            module.functionDelegateCall(data);
-        }
-    }
-
-    function _execModule(bytes32 key, bytes memory data) internal returns(bytes memory) {
-        address module = getModule(key);
-        require(module != address(0) && data.length > 0, "module not set");
-        return module.functionDelegateCall(data);
     }
 }

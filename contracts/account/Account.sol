@@ -12,7 +12,7 @@ import "./IExectuable.sol";
 import "./ModuleManager.sol";
 import "./modules/IAuthModule.sol";
 
-contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPSUpgradeable {
+contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPSUpgradeable {
     using Address for address;
 
     event ModuleSet(bytes32 key, address module);
@@ -24,18 +24,20 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
         return abi.encode(msg.sig);
     }
 
-    address internal immutable entrypoint_;
-    bytes32 public constant AUTH_MODULE = 0xa8c0599be6f6588338b5081825970753181ab28be5563b61840e1d0e3306254a;
+    /** keccak256("hexlink.account.module.auth") */
+    bytes32 public constant AUTH_MODULE = 0x049ca10d833db85bbd7d7e16d3a37e9cf04b6c799ef2e1a180966a9ebabd57b3;
+    IEntryPoint private immutable _entryPoint; 
 
-    constructor(address entrypoint) {
-        entrypoint_ = entrypoint;
+    constructor(address entryPoint_) {
+        _entryPoint = IEntryPoint(entryPoint_);
     }
 
     function initialize(
         address authModule,
         bytes memory data
     ) public initializer {
-        _setAndExecModule(AUTH_MODULE, authModule, data);
+        _setModule(AUTH_MODULE, authModule);
+        _call(authModule, 0, data);
     }
 
     /** IExectuable */
@@ -87,21 +89,14 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
 
     /** ERC4337 BaseAccount */
 
-    function entryPoint() public view override returns (IEntryPoint) {
-        return IEntryPoint(entrypoint_);
+    function entryPoint() public view override returns(IEntryPoint) {
+        return _entryPoint;
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
-        bytes memory data = _execModule(
-            AUTH_MODULE,
-            abi.encodeWithSelector(
-                IAuthModule.validate.selector,
-                userOpHash,
-                userOp.signature
-            )
-        );
-        return abi.decode(data, (uint256));
+    internal override virtual returns (uint256) {
+        address authModule = getModule(AUTH_MODULE);
+        return IAuthModule(authModule).validate(userOpHash, userOp.signature);
     }
 
     /** UUPSUpgradeable */
@@ -118,18 +113,19 @@ contract Account is BaseAccount, Initializable, IExectuable, ModuleManager, UUPS
 
     /** ModuleManager */
 
-    function setAndExecModule(bytes32 key, address module, bytes memory data) external {
+    function setModule(bytes32 key, address module) external {
         _validateCaller();
-        _setAndExecModule(key, module, data);
+        _setModule(key, module);
         emit ModuleSet(key, module);
     }
 
-    function execModule(bytes32 key, bytes memory data) external {
+    function execModule(bytes32 key, uint256 value, bytes memory data) external {
         _validateCaller();
-        _execModule(key, data);
+        address module = getModule(key);
+        _call(module, value, data);
     }
 
-    /** help functions */
+    /** utils */
 
     function _validateCaller() internal view virtual {
         require(

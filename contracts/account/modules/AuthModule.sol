@@ -5,25 +5,9 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./IAuthModule.sol";
+import "../../utils/EntryPointStaker.sol";
 
-library ERC4972Storage {
-    struct Layout {
-        bytes32 nameType;
-        bytes32 name;
-    }
-
-    bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.storage.erc4972');
-
-    function layout() internal pure returns (Layout storage l) {
-        bytes32 slot = STORAGE_SLOT;
-        assembly {
-            l.slot := slot
-        }
-    }
-}
-
-contract AuthModule is IAuthModule {
+contract AuthModule is IAuthModule, EntryPointStaker {
     using ECDSA for bytes32;
 
     // keccak256("mailto");
@@ -31,33 +15,55 @@ contract AuthModule is IAuthModule {
     // keccak256("tel");
     bytes32 public constant TEL = 0xeeef3d88e44720eeae328f3cead00ac0a41c6a29bad00b2cdf1b4cdb919afe81;
 
-    address public immutable validator;
-
-    constructor(address validator_) {
-        validator = validator_;
+    struct NameInfo {
+        bytes32 nameType;
+        bytes32 name;
     }
+    mapping(address => NameInfo) names;
+    mapping(address => mapping(address => bool)) validators;
+    address public immutable defaultEmailPhoneValidator;
 
-    function setName(bytes32 nameType, bytes32 name) external {
+    modifier onlySupportedNameType(bytes32 nameType) {
         require(nameType == MAILTO || nameType == TEL, "unsupported name type");
-        ERC4972Storage.Layout storage s = ERC4972Storage.layout();
-        s.nameType = nameType;
-        s.name = name;
+        _;
     }
 
-    function getName() public pure returns(bytes32, bytes32) {
-        ERC4972Storage.Layout memory s = ERC4972Storage.layout();
-        return (s.nameType, s.name);
+    constructor(address defaultEmailPhoneValidator_) {
+        defaultEmailPhoneValidator = defaultEmailPhoneValidator_;
     }
 
-    /** INameValidator */
+    function getNameInfo() public view returns(bytes32, bytes32) {
+        return (names[msg.sender].nameType, names[msg.sender].name);
+    }
+
+    function setName(
+        bytes32 nameType,
+        bytes32 name
+    ) onlySupportedNameType(nameType) external {
+        names[msg.sender].nameType = nameType;
+        names[msg.sender].name = name;
+    }
+
+    function setValidator(address validator, bool registered) external {
+        validators[msg.sender][validator] = registered;
+    }
 
     function validate(
         bytes32 message,
         bytes memory signature
     ) external view override returns(uint256) {
-        (bytes32 nameType, bytes32 name) = getName();
-        bytes32 toSignHash = keccak256(abi.encode(nameType, name, message));
-        address signer = toSignHash.toEthSignedMessageHash().recover(signature);
-        return signer == validator ? 0 : 1;
+        (bytes32 nameType, bytes32 name) = getNameInfo();
+        bytes32 signed = keccak256(abi.encode(nameType, name, message));
+        address signer = signed.toEthSignedMessageHash().recover(signature);
+        address defaultValidator = _defaultValidator(nameType);
+        return (
+            defaultValidator == signer || validators[msg.sender][signer]
+        ) ? 0 : 1;
+    }
+
+    function _defaultValidator(
+        bytes32 nameType
+    ) onlySupportedNameType(nameType) internal view returns(address) {
+        return defaultEmailPhoneValidator;
     }
 }

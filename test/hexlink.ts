@@ -32,7 +32,7 @@ describe("Hexlink", function() {
     // deploy new hexlink impl
     const {deployer} = await ethers.getNamedSigners();
     const account = await deployments.get("Account");
-    const authModule = await deployments.get("DefaultAuthModule");
+    const authModule = await deployments.get("AuthModule");
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer.address,
       args: [account.address, authModule.address],

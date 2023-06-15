@@ -3,8 +3,8 @@ import { ethers, deployments } from "hardhat";
 import { EMAIL_NAME_TYPE, SENDER_NAME_HASH } from "./testers";
 
 const getAuthModule = async function() {
-  const deployment = await deployments.get("DefaultAuthModule");
-  return await ethers.getContractAt("DefaultAuthModule", deployment.address);
+  const deployment = await deployments.get("AuthModule");
+  return await ethers.getContractAt("AuthModule", deployment.address);
 };
 
 describe("AuthModule", function() {

@@ -8,7 +8,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     //const admin = await deployments.get("HexlinkAdmin");
     const account = await deployments.get("Account");
-    const module = await deployments.get("DefaultAuthModule");
+    const module = await deployments.get("AuthModule");
 
     // deploy hexlink implementation
     await deployments.deploy(

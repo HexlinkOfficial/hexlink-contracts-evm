@@ -23,15 +23,8 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
         address indexed account
     );
 
-    error InvalidNameType();
-
     address public immutable accountBase;
     address public immutable defaultAuthModule;
-
-    // keccak256("mailto");
-    bytes32 public constant MAILTO = 0xa494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96e;
-    // keccak256("tel");
-    bytes32 public constant TEL = 0xeeef3d88e44720eeae328f3cead00ac0a41c6a29bad00b2cdf1b4cdb919afe81;
 
     constructor(
         address accountBase_,
@@ -76,7 +69,7 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
         );
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            _getAuthModule(nameType),
+            defaultAuthModule,
             moduleData
         );
         IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
@@ -96,13 +89,5 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
         bytes32 name
     ) internal pure returns(bytes32) {
         return keccak256(abi.encode(nameType, name));
-    }
-
-    function _getAuthModule(bytes32 nameType) internal view returns(address) {
-        if (nameType == MAILTO || nameType == TEL) {
-            return defaultAuthModule;
-        } else {
-            revert InvalidNameType();
-        }
     }
 }

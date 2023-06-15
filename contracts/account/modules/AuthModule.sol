@@ -23,8 +23,13 @@ library ERC4972Storage {
     }
 }
 
-contract DefaultAuthModule is IAuthModule {
+contract AuthModule is IAuthModule {
     using ECDSA for bytes32;
+
+    // keccak256("mailto");
+    bytes32 public constant MAILTO = 0xa494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96e;
+    // keccak256("tel");
+    bytes32 public constant TEL = 0xeeef3d88e44720eeae328f3cead00ac0a41c6a29bad00b2cdf1b4cdb919afe81;
 
     address public immutable validator;
 
@@ -33,6 +38,7 @@ contract DefaultAuthModule is IAuthModule {
     }
 
     function setName(bytes32 nameType, bytes32 name) external {
+        require(nameType == MAILTO || nameType == TEL, "unsupported name type");
         ERC4972Storage.Layout storage s = ERC4972Storage.layout();
         s.nameType = nameType;
         s.name = name;

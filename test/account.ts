@@ -1,41 +1,113 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
-import { ethers, deployments, getNamedAccounts, run, artifacts } from "hardhat";
-import { Contract } from "ethers";
-import { buildAuthProof } from "../tasks/utils";
-import { senderName, senderNameHash, receiverNameHash} from "./testers";
+import { ethers, deployments, getNamedAccounts, run } from "hardhat";
+import { Contract, BigNumberish } from "ethers";
+import { EMAIL_NAME_TYPE, SENDER_NAME_HASH, RECEIVER_NAME_HASH} from "./testers";
+import { UserOperationStruct } from '@account-abstraction/contracts'
+import { resolveProperties } from 'ethers/lib/utils'
+import { genInitCode } from "./hexlink";
 
-export const buildAccountInitData = async (owner: string) => {
-  const artifact = await artifacts.readArtifact("Account");
-  const iface = new ethers.utils.Interface(artifact.abi);
-  return iface.encodeFunctionData("init", [owner]);
-}
-
-const deploySender = async (
-  hexlink: Contract,
-  owner: string
-) : Promise<Contract> => {
-
-  const accountAddr = await hexlink.ownedAccount(senderNameHash);
-  const data = await buildAccountInitData(owner);
-  const proof = await buildAuthProof(
-    hre,
-    senderNameHash,
-    data,
-    "validator",
-    hexlink.address
-  );
+const deploySender = async (hexlink: Contract) : Promise<Contract> => {
+  const accountAddr = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   await expect(
-    hexlink.deploy(senderName, data, proof)
+    hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
   ).to.emit(hexlink, "Deployed").withArgs(
-    senderNameHash, accountAddr
+    EMAIL_NAME_TYPE, SENDER_NAME_HASH, accountAddr
   );
   return await ethers.getContractAt("Account", accountAddr);
 }
 
+export const buildAccountExecData = async (
+  target: string,
+  value?: BigNumberish,
+  data?: string
+) => {
+  const artifact = await hre.artifacts.readArtifact("Account");
+  const iface = new ethers.utils.Interface(artifact.abi);
+  return iface.encodeFunctionData("exec", [target, value ?? 0, data ?? []]);
+}
+
+const getNonce = async (sender: string) => {
+  const account = await ethers.getContractAt("Account", sender);
+  if (await ethers.provider.getCode(sender) === "0x") {
+    return 0;
+  }
+  return account.getNonce();
+}
+
+export const call = async (
+  sender: string,
+  initCode: string | [],
+  callData: string | [],
+  entrypoint: Contract
+) => {
+  const {deployer, validator} = await hre.ethers.getNamedSigners();
+  const fee = await ethers.provider.getFeeData();
+  const userOp: UserOperationStruct = {
+    sender,
+    nonce: await getNonce(sender),
+    initCode,
+    callData,
+    callGasLimit: 500000,
+    verificationGasLimit: 2000000,
+    preVerificationGas: 0,
+    maxFeePerGas: fee.maxFeePerGas?.toNumber() ?? 0,
+    maxPriorityFeePerGas: fee.maxPriorityFeePerGas?.toNumber() ?? 0,
+    paymasterAndData: [],
+    signature: [],
+  };
+  const op = await resolveProperties(userOp);
+  const opHash = ethers.utils.keccak256(
+    ethers.utils.defaultAbiCoder.encode(
+      [
+        'address',
+        'uint256',
+        'bytes32',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'bytes32',
+      ],
+      [
+        op.sender,
+        op.nonce,
+        ethers.utils.keccak256(op.initCode),
+        ethers.utils.keccak256(op.callData),
+        op.callGasLimit,
+        op.verificationGasLimit,
+        op.preVerificationGas,
+        op.maxFeePerGas,
+        op.maxPriorityFeePerGas,
+        ethers.utils.keccak256(op.paymasterAndData)
+      ]
+    )
+  );
+  const chainId = await hre.getChainId();
+  const userOpHash = ethers.utils.keccak256(
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "address", "uint256"],
+      [opHash, entrypoint.address, chainId]
+    )
+  );
+  const message = ethers.utils.keccak256(
+    ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "bytes32", "bytes32"],
+      [EMAIL_NAME_TYPE, SENDER_NAME_HASH, userOpHash]
+    )
+  );
+  const signature = await validator.signMessage(
+    ethers.utils.arrayify(message)
+  );
+  const signed = { ...userOp, signature, };
+  await entrypoint.handleOps([signed], deployer.address);
+}
+
 describe("Hexlink Account", function () {
   let hexlink: Contract;
-  let admin: string;
+  let entrypoint: Contract;
   let sender: string;
   let receiver: string;
 
@@ -43,14 +115,23 @@ describe("Hexlink Account", function () {
     await deployments.fixture(["TEST"]);
     const hexlinkProxy = await run("deployHexlinkProxy", {});
     hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
-    admin = (await deployments.get("HexlinkAdmin")).address
-    sender = await hexlink.ownedAccount(senderNameHash);
-    receiver = await hexlink.ownedAccount(receiverNameHash);
+    sender = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    receiver = await hexlink.ownedAccount(EMAIL_NAME_TYPE, RECEIVER_NAME_HASH);
+    entrypoint = await ethers.getContractAt(
+      "EntryPoint",
+      (await deployments.get("EntryPoint")).address
+    );
+    // deposit eth before account created
+    const { deployer } = await hre.ethers.getNamedSigners();
+    await deployer.sendTransaction({
+      to: sender,
+      value: ethers.utils.parseEther("1.0")
+    });
   });
 
   it("Should upgrade successfully", async function () {
     const { deployer } = await getNamedAccounts();
-    let account = await deploySender(hexlink, deployer);
+    let account = await deploySender(hexlink);
     const impl2 = await deployments.deploy(
       "AccountV2ForTest",
       {
@@ -71,8 +152,13 @@ describe("Hexlink Account", function () {
       account.upgradeTo(ethers.constants.AddressZero)
     ).to.be.reverted;
 
-    const tx = await account.upgradeTo(impl2.address);
-    await tx.wait();
+    await expect(
+      account.upgradeTo(impl2.address)
+    ).to.be.reverted;
+
+    const callData = account.interface.encodeFunctionData(
+      "upgradeTo", [impl2.address]);
+    await call(sender, [], callData, entrypoint);
     expect(await account.implementation()).to.eq(impl2.address);
   });
 
@@ -90,8 +176,9 @@ describe("Hexlink Account", function () {
       .withArgs(deployer.address, sender, 5000);
     expect(await token.balanceOf(sender)).to.eq(5000);
 
-    // deploy account contract
-    await deploySender(hexlink, deployer.address);
+    // deploy sender
+    const initCode = await genInitCode(hexlink);
+    await call(sender, initCode, [], entrypoint);
 
     // receive tokens after account created
     await expect(
@@ -100,17 +187,12 @@ describe("Hexlink Account", function () {
       .withArgs(deployer.address, sender, 5000);
     expect(await token.balanceOf(sender)).to.eq(10000);
 
-    const senderAcc = await ethers.getContractAt("Account", sender);
-    // send tokens with owner
-    expect(await token.balanceOf(sender)).to.eq(10000);
-    await senderAcc.connect(deployer).exec(
-      token.address,
-      0,
-      token.interface.encodeFunctionData(
-        "transfer",
-        [receiver, 5000]
-      )
+    const erc20Data = token.interface.encodeFunctionData(
+      "transfer",
+      [receiver, 5000]
     );
+    const callData = await buildAccountExecData(token.address, 0, erc20Data);
+    await call(sender, [], callData, entrypoint);
     expect(await token.balanceOf(sender)).to.eq(5000);
     expect(await token.balanceOf(receiver)).to.eq(5000);
   });
@@ -126,10 +208,11 @@ describe("Hexlink Account", function () {
     await tx1.wait();
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.eq(ethers.utils.parseEther("1.0"));
+    ).to.eq(ethers.utils.parseEther("2.0"));
 
-    // create new account contract
-    await deploySender(hexlink, deployer.address);
+    // deploy sender
+    const initCode = await genInitCode(hexlink);
+    await call(sender, initCode, [], entrypoint);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
@@ -139,15 +222,13 @@ describe("Hexlink Account", function () {
     await tx2.wait();
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.eq(ethers.utils.parseEther("2.0"));
+    ).to.gt(ethers.utils.parseEther("2.5"));
 
     // send ETH
-    const senderAcc = await ethers.getContractAt("Account", sender);
-    await senderAcc.connect(deployer).exec(
-      receiver,
-      ethers.utils.parseEther("0.5"),
-      []
+    const callData = await buildAccountExecData(
+      receiver, ethers.utils.parseEther("0.5")
     );
+    await call(sender, [], callData, entrypoint);
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
@@ -174,8 +255,9 @@ describe("Hexlink Account", function () {
       .withArgs(deployer.address, deployer.address, sender, 1, 10);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
 
-    // create new account contract
-    await deploySender(hexlink, deployer.address);
+    // deploy sender
+    const initCode = await genInitCode(hexlink);
+    await call(sender, initCode, [], entrypoint);
 
     // receive erc1155 after account created
     await expect(
@@ -187,15 +269,12 @@ describe("Hexlink Account", function () {
     expect(await erc1155.balanceOf(sender, 1)).to.eq(20);
 
     // send erc1155
-    const senderAcc = await ethers.getContractAt("Account", sender);
-    await senderAcc.connect(deployer).exec(
-      erc1155.address,
-      0,
-      erc1155.interface.encodeFunctionData(
-        "safeTransferFrom",
-        [sender, receiver, 1, 10, []]
-      )
+    const erc1155Data = erc1155.interface.encodeFunctionData(
+      "safeTransferFrom",
+      [sender, receiver, 1, 10, []]
     );
+    const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
+    await call(sender, [], callData, entrypoint);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });

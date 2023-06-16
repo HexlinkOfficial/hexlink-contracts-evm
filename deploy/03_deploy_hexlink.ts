@@ -1,16 +1,21 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
+import { getEntryPoint } from "../tasks/deploy";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
     const {deployer} = await getNamedAccounts();
+
+    //const admin = await deployments.get("HexlinkAdmin");
+    const account = await deployments.get("Account");
+    const module = await deployments.get("AuthModule");
 
     // deploy hexlink implementation
     await deployments.deploy(
         "Hexlink",
         {
             from: deployer,
-            args: [],
+            args: [account.address, module.address],
             log: true,
             autoMine: true
         }
@@ -18,7 +23,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // deploy contract factory
     const {factoryDeployer} = await getNamedAccounts();
-    console.log(factoryDeployer);
     await deployments.deploy(
         "HexlinkContractFactory", {
             from: factoryDeployer,

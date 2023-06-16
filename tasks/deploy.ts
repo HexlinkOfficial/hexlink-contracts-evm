@@ -18,6 +18,15 @@ async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
     return false;
 }
 
+export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
+    let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (hre.network.name === 'hardhat') {
+        const deployed = await hre.deployments.get("EntryPoint");
+        entrypoint = deployed.address;
+    }
+    return entrypoint;
+}
+
 task("deployHexlinkProxy", "deploy hexlink related contracts")
     .setAction(async (_args, hre: HardhatRuntimeEnvironment) => {
         const { ethers } = hre;
@@ -44,19 +53,15 @@ task("deployHexlinkProxy", "deploy hexlink related contracts")
         let hexlink = await hre.ethers.getContractAt("IHexlinkERC1967Proxy", erc1967Proxy);
         if (await hexlink.implementation() === ethers.constants.AddressZero) {
             const admin = await hre.deployments.get("HexlinkAdmin");
-            const registry = await hre.deployments.get("EmailNameRegistry");
-            const accountImpl = await hre.deployments.get("Account");
             const hexlinkImpl = await getDeployedContract(hre, "Hexlink");
             const data = hexlinkImpl.interface.encodeFunctionData(
-                "init", [admin.address, accountImpl.address, [registry.address]]
-            )
+                "initialize", [admin.address]
+            );
             await hexlink.initProxy(hexlinkImpl.address, data);
             console.log(
                 `HexlinkProxy initiated with ` +
                 `implementation=${hexlinkImpl.address}, ` +
-                `owner=${admin.address}, ` +
-                `accountImplementation=${accountImpl.address}, ` + 
-                `registries=${registry.address}`
+                `owner=${admin.address}, `
             );
         }
 

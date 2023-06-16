@@ -6,103 +6,85 @@ pragma solidity ^0.8.12;
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
-import "../account/IHexlinkAccount.sol";
-import "./IHexlink.sol";
-import "../registry/INameRegistry.sol";
-import "../registry/RegistryStorage.sol";
+import "./IERC4972.sol";
+import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
+import "../account/Account.sol";
+import "../utils/EntryPointStaker.sol";
 
-contract Hexlink is IHexlink, Ownable, UUPSUpgradeable {
-    using Address for address;
+contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, UUPSUpgradeable {
+    event Deployed(
+        bytes32 indexed nameType,
+        bytes32 indexed name,
+        address indexed account
+    );
 
-    event Deployed(bytes32 indexed name, address indexed account);
+    address public immutable accountBase;
+    address public immutable defaultAuthModule;
 
-    address public accountImplementation;
+    constructor(address accountBase_, address authModule_) {
+        accountBase = accountBase_;
+        defaultAuthModule = authModule_;
+    }
 
-    function init(
-        address owner,
-        address accountImpl,
-        address[] memory registries
-    ) external {
-        require(_owner() == address(0) && owner != address(0), "invalid init owner");
+    receive() external payable { }
+
+    function initialize(address owner) public initializer {
         _transferOwnership(owner);
-        accountImplementation = accountImpl;
-        for (uint i = 0; i < registries.length; i++) {
-            INameRegistry registry = INameRegistry(registries[i]);
-            RegistryStorage.register(
-                registry.getSchema(),
-                registry.getDomain(),
-                registries[i]
-            );
-        }
     }
 
-    function upgradeAccount(address accountImpl) external onlyOwner {
-        accountImplementation = accountImpl;
-    }
-
-    /** EIP-4972 Functions */
+    /** IERC4972 */
 
     function ownedAccount(
+        bytes32 nameType,
         bytes32 name
     ) external view override returns(address) {
-        return Clones.predictDeterministicAddress(address(this), name);
+        return Clones.predictDeterministicAddress(
+            address(this),
+            _nameHash(nameType, name)
+        );
     }
 
-    /** IAccountFactory Functions */
+    /** IAccountFactory */
 
     function deploy(
-        Name calldata name,
-        bytes memory data,
-        bytes calldata authProof
+        bytes32 nameType,
+        bytes32 name
     ) external override returns(address account) {
-        address registry = getRegistry(name.schema, name.domain);
-        require(registry != address(0), "registry not found");
-
-        bytes32 requestId = keccak256(
-            abi.encode(msg.sig, address(this), block.chainid, data)
+        account = Clones.cloneDeterministic(
+            address(this),
+            _nameHash(nameType, name)
         );
-        bytes32 nameHash = _encodeName(name);
-        uint256 validationData = INameRegistry(
-            registry
-        ).validateName(nameHash, requestId, authProof);
-        require(
-            validationData == 0,
-            string.concat("name validation error ", Strings.toString(validationData))
+        bytes memory moduleData = abi.encodeWithSignature(
+            "setName(bytes32,bytes32)",
+            nameType,
+            name
         );
-
-        account = Clones.cloneDeterministic(address(this), nameHash);
-        IHexlinkERC1967Proxy(payable(account)).initProxy(accountImplementation, data);
-        emit Deployed(nameHash, account);
-    }
-
-    /** name registry functions */
-
-    function setRegistry(address registry) external onlyOwner {
-        INameRegistry nr = INameRegistry(registry);
-        bytes32 schema = nr.getSchema();
-        bytes32 domain = nr.getDomain();
-        RegistryStorage.register(schema, domain, registry);
-    }
-
-    function getRegistry(bytes32 schema, bytes32 domain) public view returns(address) {
-        return RegistryStorage.getRegistry(schema, domain);
-    }
-
-    function _encodeName(Name calldata name) internal pure returns(bytes32) {
-        return keccak256(abi.encode(name.schema, name.domain, name.handle));
+        bytes memory data = abi.encodeWithSelector(
+            Account.initialize.selector,
+            defaultAuthModule,
+            moduleData
+        );
+        IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
+        emit Deployed(nameType, name, account);
     }
 
     /** UUPSUpgradeable */
 
-    function implementation() external view returns (address) {
-        return _getImplementation();
-    }
-
     function _authorizeUpgrade(
         address newImplementation
     ) internal view onlyOwner override { }
+
+    /** utils */
+
+    function _nameHash(
+        bytes32 nameType,
+        bytes32 name
+    ) internal pure returns(bytes32) {
+        return keccak256(abi.encode(nameType, name));
+    }
 }

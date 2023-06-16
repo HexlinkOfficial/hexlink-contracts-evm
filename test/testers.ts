@@ -1,16 +1,7 @@
-import { hash, nameHash } from "../tasks/utils";
+import { hash } from "../tasks/utils";
 
-export const senderName = {
-    schema: hash("mailto"),
-    domain: hash("gmail.com"),
-    handle: hash("sender"),
-};
-  
-export const receiverName = {
-    schema: hash("mailto"),
-    domain: hash("gmail.com"),
-    handle: hash("receiver"),
-};
+export const TEL_NAME_TYPE = hash("tel");
 
-export const senderNameHash = nameHash(senderName);
-export const receiverNameHash = nameHash(receiverName);
+export const EMAIL_NAME_TYPE = hash("mailto");
+export const SENDER_NAME_HASH = hash("sender@gmail.com");
+export const RECEIVER_NAME_HASH = hash("receiver@gmail.com");

@@ -8,7 +8,7 @@ library AuthValidatorStorage {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.auth.provider');
+        keccak256('hexlink.account.auth.validator');
 
     struct AuthProvider {
         bytes32 authProvider;

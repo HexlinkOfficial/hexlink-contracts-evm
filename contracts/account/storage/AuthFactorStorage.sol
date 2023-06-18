@@ -2,10 +2,7 @@
 
 pragma solidity ^0.8.12;
 
-struct AuthFactor {
-    bytes32 name;
-    bytes32 nameType;
-}
+import "../../utils/AuthFactorStruct.sol";
 
 library AuthFactorStorage {
     bytes32 internal constant STORAGE_SLOT =
@@ -29,16 +26,12 @@ library AuthFactorStorage {
     }
 
     function _encode(AuthFactor memory factor) private pure returns(bytes32) {
-        return keccak256(abi.encode(factor.name, factor.nameType));
-    }
-
-    function getAuthFactors() internal view returns(AuthFactor[] memory factors) {
-        return layout().factors;
+        return keccak256(abi.encode(factor.name, factor.provider));
     }
 
     function isFirstFactor(AuthFactor memory factor) internal view returns(bool) {
         AuthFactor memory first = layout().factors[0];
-        return first.name == factor.name && first.nameType == factor.nameType;
+        return first.name == factor.name && first.provider == factor.provider;
     }
 
     function isSecondFactor(AuthFactor memory factor) internal view returns(bool) {

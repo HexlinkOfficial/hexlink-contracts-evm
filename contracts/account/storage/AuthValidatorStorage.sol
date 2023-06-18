@@ -2,80 +2,60 @@
 
 pragma solidity ^0.8.12;
 
-/* solhint-disable avoid-low-level-calls */
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 library AuthValidatorStorage {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.auth.validator');
+        keccak256('hexlink.account.auth.provider');
 
-    address constant VOID = address(0);
-    address constant START = address(1);
-    address constant END = address(2);
-
-    struct Layout {
-        // auth provider => linkded list starting from address(1)
-        mapping(bytes32 => mapping(address => address)) validators;
+    struct AuthProvider {
+        bytes32 authProvider;
+        address defaultValidator;
     }
 
-    function layout() internal pure returns(Layout storage l) {
+    struct Layout {
+        mapping(bytes32 => EnumerableSet.AddressSet) validators;
+    }
+
+    function layout() internal pure returns (Layout storage l) {
         bytes32 slot = STORAGE_SLOT;
         assembly {
             l.slot := slot
         }
     }
 
-    function getValidatorsPaginated(
-        bytes32 authProvider,
-        address start,
-        uint256 pageSize
-    ) internal view returns(address[] memory result) {
-        mapping(address => address) storage s = layout().validators[authProvider];
-        result = new address[](pageSize);
-        address next = s[start];
-        if (start == START && next == VOID) { return result; }
-        require(next != VOID, "start node not set");
-        for (uint i = 0; i < pageSize && next != END; i++) {
-            result[i] = next;
-            next = s[next];
-        }
-        return result;
-    }
-
-    function addValidators(
-        bytes32 authProvider,
+    function add(
+        bytes32 provider,
         address[] memory validators
     ) internal {
-        mapping(address => address) storage s = layout().validators[authProvider];
-        address first = s[START];
         for (uint256 i = 0; i < validators.length; i++) {
-            address validator = validators[i];
-            require(s[validator] == address(0), "already added");
-            if (i == 0) {
-                s[START] = validator;
-            }
-            if (i == validators.length - 1) {
-                s[validator] = first == VOID ? END : first;
-            } else {
-                s[validator] = validators[i + 1];
-            }
+            layout().validators[provider].add(validators[i]);
         }
     }
 
-    function removeValidator(
-        bytes32 authProvider,
-        address prevKey,
-        address key
+    function remove(
+        bytes32 provider,
+        address[] memory validators
     ) internal {
-        mapping(address => address) storage s = layout().validators[authProvider];
-        require(s[prevKey] == key && key != END, "invalid input");
-        s[prevKey] = s[key];
-        s[key] = VOID;
+        for (uint256 i = 0; i < validators.length; i++) {
+            layout().validators[provider].remove(validators[i]);
+        }
     }
 
-    function isValidatorEnabled(
-        bytes32 authType,
+    function contains(
+        bytes32 providerKey,
         address validator
     ) internal view returns(bool) {
-        return layout().validators[authType][validator] != VOID;
+        return layout().validators[providerKey].contains(validator);
+    }
+
+    function getAll(bytes32 providerKey)
+        internal
+        view
+        returns(address[] memory)
+    {
+        return layout().validators[providerKey].values();
     }
 }

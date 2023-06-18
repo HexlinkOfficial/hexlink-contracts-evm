@@ -13,8 +13,8 @@ contract EnsAuthProvider is IAuthProvider {
         return 0x7d09ba11344100c97442ec3c4a4116e0008183bebb4b5428f3b58acd62cb7de8;
     }
 
-    function isSupported(bytes32 nameType) external pure returns(bool) {
-        return nameType == ENS
+    function getNameType() external pure override returns(bytes32) {
+        return ENS;
     }
 
     function getDefaultValidator() external pure override returns(address) {

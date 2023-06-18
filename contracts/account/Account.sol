@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
 import "./AuthFactorManager.sol";
-import "./auth/IAuthFactor.sol";
+import "../utils/AuthFactorStruct.sol";
 
 contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, UUPSUpgradeable {
     using Address for address;
@@ -32,8 +32,8 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         _entryPoint = IEntryPoint(entryPoint_);
     }
 
-    function initialize(address factor, bytes32 name) public initializer {
-        _addAuthFactor(0, factor, name, new address[](0));
+    function initialize(bytes32 name, address provider) public initializer {
+        _updateFirstFactor(AuthFactor(name, provider));
     }
 
     /** IExectuable */

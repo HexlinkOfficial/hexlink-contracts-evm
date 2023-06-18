@@ -8,9 +8,9 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./storage/AuthFactorStorage.sol";
-import "./AuthProviderManager.sol";
+import "./AuthValidatorManager.sol";
 
-abstract contract AuthFactorManager is AuthProviderManager {
+abstract contract AuthFactorManager is AuthValidatorManager {
     using Address for address;
     using ECDSA for bytes32;
 
@@ -29,6 +29,14 @@ abstract contract AuthFactorManager is AuthProviderManager {
     event SecondFactorRemoved(AuthFactor indexe);
     event SecondFactorDisabled();
     event SecondFactorEnabled();
+
+    function getAuthFactors()
+        external
+        view
+        returns(AuthFactor[] memory factors)
+    {
+        return AuthFactorStorage.layout().factors;
+    }
 
     function _updateFirstFactor(AuthFactor memory factor) internal {
         AuthFactorStorage.updateFirstFactor(factor);
@@ -77,7 +85,7 @@ abstract contract AuthFactorManager is AuthProviderManager {
                 "not valid first factor"
             );
             validationData = _validate(
-                auth.first.factor,
+                auth.second.factor,
                 userOpHash,
                 auth.second.signature
             );

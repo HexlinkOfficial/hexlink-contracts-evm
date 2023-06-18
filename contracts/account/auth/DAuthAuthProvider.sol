@@ -4,9 +4,8 @@
 pragma solidity ^0.8.12;
 
 import "./IAuthProvider.sol";
-import "../../utils/Constants.sol";
 
-abstract contract DAuthAuthProvider is IAuthProvider, Constants {
+abstract contract DAuthAuthProvider is IAuthProvider {
     address public immutable _defaultValidator;
 
     constructor(address defaultValidator_) {
@@ -15,10 +14,6 @@ abstract contract DAuthAuthProvider is IAuthProvider, Constants {
 
     function getDefaultValidator() external view override returns(address) {
         return _defaultValidator;
-    }
-
-    function isSupported(bytes32 nameType) external pure returns(bool) {
-        return nameType == MAILTO || nameType == TEL;
     }
 
     function getKey() external pure override returns(bytes32) {

@@ -4,7 +4,7 @@
 pragma solidity ^0.8.12;
 
 interface IAuthProvider {
-    function isSupported(bytes32 nameType) external view returns(bool);
+    function getNameType() external view returns(bytes32);
 
     function getKey() external view returns(bytes32);
 

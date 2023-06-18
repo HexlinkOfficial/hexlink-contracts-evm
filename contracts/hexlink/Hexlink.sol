@@ -15,8 +15,9 @@ import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
+import "../utils/Constants.sol";
 
-contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, UUPSUpgradeable {
+contract Hexlink is IAccountFactory, IERC4972, Constants, Initializable, EntryPointStaker, UUPSUpgradeable {
     event Deployed(
         bytes32 indexed nameType,
         bytes32 indexed name,
@@ -72,10 +73,10 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
         emit Deployed(nameType, name, account);
     }
 
-    function _getDefaultAuthFactor(bytes32 nameType) internal returns(address) {
-        if (nameType == IAuthFactor(defaultEmailAuthFactor).getNameType()) {
+    function _getDefaultAuthFactor(bytes32 nameType) internal view returns(address) {
+        if (nameType == MAILTO) {
             return defaultEmailAuthFactor;
-        } else if (nameType == IAuthFactor(defaultTelAuthFactor).getNameType()) {
+        } else if (nameType == TEL) {
             return defaultTelAuthFactor;
         } else {
             revert("unsupported name type");

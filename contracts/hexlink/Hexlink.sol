@@ -24,14 +24,18 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
     );
 
     address public immutable accountBase;
-    address public immutable defaultAuthModule;
+    address public immutable defaultEmailAuthFactor;
+    address public immutable defaultTelAuthFactor;
 
-    constructor(address accountBase_, address authModule_) {
+    constructor(
+        address accountBase_,
+        address emailAuthFactor_,
+        address telAuthFactor_
+    ) {
         accountBase = accountBase_;
-        defaultAuthModule = authModule_;
+        defaultEmailAuthFactor = emailAuthFactor_;
+        defaultTelAuthFactor = telAuthFactor_;
     }
-
-    receive() external payable { }
 
     function initialize(address owner) public initializer {
         _transferOwnership(owner);
@@ -59,18 +63,23 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
             address(this),
             _nameHash(nameType, name)
         );
-        bytes memory moduleData = abi.encodeWithSignature(
-            "setName(bytes32,bytes32)",
-            nameType,
-            name
-        );
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            defaultAuthModule,
-            moduleData
+            _getDefaultAuthFactor(nameType),
+            name
         );
         IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
         emit Deployed(nameType, name, account);
+    }
+
+    function _getDefaultAuthFactor(bytes32 nameType) internal returns(address) {
+        if (nameType == IAuthFactor(defaultEmailAuthFactor).getNameType()) {
+            return defaultEmailAuthFactor;
+        } else if (nameType == IAuthFactor(defaultTelAuthFactor).getNameType()) {
+            return defaultTelAuthFactor;
+        } else {
+            revert("unsupported name type");
+        }
     }
 
     /** UUPSUpgradeable */

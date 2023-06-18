@@ -16,12 +16,14 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // deploy contract factory
     const validator = await getValidator(hre);
+
+    const admin = await hre.deployments.get("HexlinkAdmin");
     await deployments.deploy(
         "AuthModule",
         {
             from: deployer,
             contract: "AuthModule",
-            args: [validator],
+            args: [admin.address, validator],
             log: true,
             autoMine: true
         }

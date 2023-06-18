@@ -24,8 +24,20 @@ const processArgs = async function(
     ];
 }
 
+const searchContract = async (contract: String, hre : HardhatRuntimeEnvironment) => {
+    if (contract === 'AuthModule') {
+        const module = await hre.deployments.get("AuthModule")
+        return module.address;
+    } else if (contract === 'Hexlink') {
+        const hexlink = await getHexlink(hre);
+        return hexlink.address;
+    } else {
+        throw new Error(`contract ${contract} not found`)
+    }
+}
+
 task("admin_check", "check if has role")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const admin = await getAdmin(hre, undefined);
         const minDelay = await admin.getMinDelay();
         console.log("admin is " + admin.address + ", with min delay as " + minDelay);
@@ -189,26 +201,55 @@ task("set_registry", "set name registry")
         }
     });
 
-task("add_stake")
-    .addFlag("nowait")
+task("address_of")
+    .addParam("contract", "which contract to stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = await getHexlink(hre);
+        const contract = await searchContract(args.contract, hre);
+        console.log(contract);
+        return contract;
+    });
+
+task("check_deposit")
+    .addParam("contract", "which contract to stake")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const contract = await searchContract(args.contract, hre);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
         );
-        const data = hexlink.interface.encodeFunctionData(
-            'exec', [
+        const info = await entrypoint.getDepositInfo(contract);
+        console.log({
+            deposit: ethers.utils.formatEther(info.deposit),
+            stake: ethers.utils.formatEther(info.stake),
+            unstakeDelaySec: info.unstakeDelaySec,
+            withdrawTime: new Date(info.withdrawTime).toISOString(),
+        });
+        return info;
+    });
+
+task("add_stake")
+    .addParam("contract", "which contract to stake")
+    .addFlag("nowait")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const contract = await searchContract(args.contract, hre);
+        const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
+        const iface = new ethers.utils.Interface(artifact.abi);
+        const entrypoint = await hre.ethers.getContractAt(
+            "EntryPoint",
+            "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+        );
+        const data = iface.encodeFunctionData(
+            'addStake', [
                 entrypoint.address,
                 ethers.utils.parseEther("0.05"),
-                entrypoint.interface.encodeFunctionData("addStake", [86400])
+                86400
             ]
         )
         console.log("Add stake 0.05 ETH to " + entrypoint.address);
         if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
+            await hre.run("admin_schedule_or_exec", { target: contract, data });
         } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+            await hre.run("admin_schedule_and_exec", { target: contract, data });
         }
     });
 

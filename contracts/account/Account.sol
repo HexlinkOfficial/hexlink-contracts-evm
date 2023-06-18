@@ -9,10 +9,10 @@ import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
-import "./ModuleManager.sol";
-import "./modules/IAuthModule.sol";
+import "./AuthFactorManager.sol";
+import "./auth/IAuthFactor.sol";
 
-contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPSUpgradeable {
+contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, UUPSUpgradeable {
     using Address for address;
 
     event ModuleSet(bytes32 key, address module);
@@ -32,12 +32,8 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
         _entryPoint = IEntryPoint(entryPoint_);
     }
 
-    function initialize(
-        address authModule,
-        bytes memory data
-    ) public initializer {
-        _setModule(AUTH_MODULE, authModule);
-        _call(authModule, 0, data);
+    function initialize(address factor, bytes32 name) public initializer {
+        _addAuthFactor(0, factor, name, new address[](0));
     }
 
     /** IExectuable */
@@ -74,6 +70,10 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
 
     /** Paymaster */
 
+    function version() public pure returns(uint256) {
+        return 1;
+    }
+
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
     }
@@ -95,9 +95,11 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256) {
-        address authModule = getModule(AUTH_MODULE);
-        return IAuthModule(authModule).validate(userOpHash, userOp.signature);
+        return _validateAuthFactors(userOpHash, userOp.signature);
     }
+
+    /** AuthFactor settings */
+
 
     /** UUPSUpgradeable */
 
@@ -109,20 +111,6 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
         address /* newImplementation */
     ) internal view override {
          _validateCaller();
-    }
-
-    /** ModuleManager */
-
-    function setModule(bytes32 key, address module) external {
-        _validateCaller();
-        _setModule(key, module);
-        emit ModuleSet(key, module);
-    }
-
-    function execModule(bytes32 key, uint256 value, bytes memory data) external {
-        _validateCaller();
-        address module = getModule(key);
-        _call(module, value, data);
     }
 
     /** utils */

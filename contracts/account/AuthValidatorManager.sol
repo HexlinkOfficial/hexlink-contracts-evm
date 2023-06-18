@@ -16,7 +16,6 @@ abstract contract AuthValidatorManager is Constants {
 
     event ValidatorsAdded(bytes32 indexed key, address[] validators);
     event ValidatorsRemoved(bytes32 indexed key, address[] validators);
-    event AuthProviderUpdated(bytes32 indexed nameType, address indexed provider);
 
     struct AuthProviderInfo {
         bytes32 nameType;

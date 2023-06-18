@@ -5,15 +5,10 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "./storage/AuthFactorStorage.sol";
 import "./AuthValidatorManager.sol";
 
 abstract contract AuthFactorManager is AuthValidatorManager {
-    using Address for address;
-    using ECDSA for bytes32;
-
     struct AuthInfo {
         AuthFactor factor;
         bytes signature;
@@ -38,12 +33,18 @@ abstract contract AuthFactorManager is AuthValidatorManager {
         return AuthFactorStorage.layout().factors;
     }
 
+    function isSecondFactorEnabled() public view returns(bool) {
+        return AuthFactorStorage.layout().enableSecond;
+    }
+
     function _updateFirstFactor(AuthFactor memory factor) internal {
+        require(factor.provider != address(0), "invalid auth provider");
         AuthFactorStorage.updateFirstFactor(factor);
         emit FirstFactorUpdated(factor);
     }
 
     function _addSecondFactor(AuthFactor memory factor) internal {
+        require(factor.provider != address(0), "invalid auth provider");
         AuthFactorStorage.addSecondFactor(factor);
         emit SecondFactorUpdated(factor);
     }
@@ -54,6 +55,10 @@ abstract contract AuthFactorManager is AuthValidatorManager {
     }
 
     function _enableSecondFactor() internal {
+        require(
+            AuthFactorStorage.layout().factors.length > 1,
+            "no second factor set"
+        );
         AuthFactorStorage.layout().enableSecond = true;
         emit SecondFactorEnabled();
     }
@@ -79,7 +84,7 @@ abstract contract AuthFactorManager is AuthValidatorManager {
             auth.first.signature
         );
         // validate second factor
-        if (validationData == 0 && AuthFactorStorage.layout().enableSecond) {
+        if (validationData == 0 && isSecondFactorEnabled()) {
             require(
                 AuthFactorStorage.isSecondFactor(auth.second.factor),
                 "not valid first factor"

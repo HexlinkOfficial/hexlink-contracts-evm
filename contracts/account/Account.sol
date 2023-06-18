@@ -100,6 +100,46 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
 
     /** AuthFactor settings */
 
+    function updateFirstFactor(AuthFactor memory factor) external {
+        _validateCaller();
+        _updateFirstFactor(factor);
+    }
+
+    function addSecondFactor(AuthFactor memory factor) external {
+        _validateCaller();
+        _addSecondFactor(factor);
+    }
+
+    function removeSecondFactor(AuthFactor memory factor) external {
+        _validateCaller();
+        _removeSecondFactor(factor);
+    }
+
+    function enableSecondFactor() external {
+        _validateCaller();
+        _enableSecondFactor();
+    }
+
+    function disableSecondFactor() external {
+        _validateCaller();
+        _disableSecondFactor();
+    }
+
+    function addValidatorsToAuthProvider(
+        bytes32 key,
+        address[] memory validators
+    ) internal {
+        _validateCaller();
+        _addValidators(key, validators);
+    }
+
+    function removeValidatorsFromAuthProvider(
+        bytes32 key,
+        address[] memory validators
+    ) internal {
+        _validateCaller();
+        _removeValidators(key, validators);
+    }
 
     /** UUPSUpgradeable */
 

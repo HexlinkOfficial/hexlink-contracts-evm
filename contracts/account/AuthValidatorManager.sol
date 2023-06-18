@@ -10,18 +10,13 @@ import "./storage/AuthValidatorStorage.sol";
 import "../utils/Constants.sol";
 import "./auth/IAuthProvider.sol";
 import "../utils/AuthFactorStruct.sol";
+import "../utils/AuthProviderInfoStruct.sol";
 
 abstract contract AuthValidatorManager is Constants {
     using ECDSA for bytes32;
 
     event ValidatorsAdded(bytes32 indexed key, address[] validators);
     event ValidatorsRemoved(bytes32 indexed key, address[] validators);
-
-    struct AuthProviderInfo {
-        bytes32 nameType;
-        bytes32 key;
-        address defaultValidator;
-    }
 
     function getAuthProviderInfo(
         address provider

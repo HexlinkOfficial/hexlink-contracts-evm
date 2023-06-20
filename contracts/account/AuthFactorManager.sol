@@ -32,7 +32,7 @@ abstract contract AuthFactorManager {
     }
 
     function isSecondFactorEnabled() public view returns(bool) {
-        return AuthFactorStorage.layout().enableSecond;
+        return AuthFactorStorage.layout().factors.length > 1;
     }
 
     function _updateFirstFactor(AuthFactor memory factor) internal {
@@ -50,20 +50,6 @@ abstract contract AuthFactorManager {
     function _removeSecondFactor(AuthFactor memory factor) internal {
         AuthFactorStorage.removeSecondFactor(factor);
         emit SecondFactorRemoved(factor);
-    }
-
-    function _enableSecondFactor() internal {
-        require(
-            AuthFactorStorage.layout().factors.length > 1,
-            "no second factor set"
-        );
-        AuthFactorStorage.layout().enableSecond = true;
-        emit SecondFactorEnabled();
-    }
-
-    function _disableSecondFactor() internal {
-        AuthFactorStorage.layout().enableSecond = false;
-        emit SecondFactorDisabled();
     }
 
     /** validation logic */

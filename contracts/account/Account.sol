@@ -109,16 +109,6 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         _removeSecondFactor(factor);
     }
 
-    function enableSecondFactor() external {
-        _validateCaller();
-        _enableSecondFactor();
-    }
-
-    function disableSecondFactor() external {
-        _validateCaller();
-        _disableSecondFactor();
-    }
-
     /** UUPSUpgradeable */
 
     function implementation() external view returns (address) {

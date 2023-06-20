@@ -31,7 +31,6 @@ library AuthFactorStorage {
         // (if enabled) to authenticate the user
         AuthFactor[] factors;
         mapping(bytes32 => uint256) indexes;
-        bool enableSecond;
         mapping(address => EnumerableSet.AddressSet) cachedValidators;
         // context of current user op
         AuthContexts contexts;

@@ -4,20 +4,36 @@
 pragma solidity ^0.8.12;
 
 import "./IAuthProvider.sol";
+import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
 
 contract EnsAuthProvider is IAuthProvider {
-    bytes32 constant ENS = keccak256('ens');
+    bytes32 constant ENS_NAME_TYPE = keccak256('ens');
 
-    function getKey() external pure override returns(bytes32) {
-        // keccak256('hexlink.account.auth.provider.ens');
-        return 0x7d09ba11344100c97442ec3c4a4116e0008183bebb4b5428f3b58acd62cb7de8;
+    ENS immutable ens;
+
+    constructor(address ens_) {
+        ens = ENS(ens_);
     }
 
     function getNameType() external pure override returns(bytes32) {
-        return ENS;
+        return ENS_NAME_TYPE;
     }
 
-    function getDefaultValidator() external pure override returns(address) {
-        return address(0);
+    function isDefaultValidator(address) external pure override returns(bool) {
+        return false;
+    }
+
+    function checkValidator(
+        bytes32 name,
+        address validator
+    ) external view override returns(bool) {
+        return getValidator(name) == validator;
+    }
+
+    // return validator given name
+    function getValidator(
+        bytes32 name
+    ) public view override returns(address) {
+        return ens.owner(name);
     }
 }

@@ -17,7 +17,14 @@ import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
 import "../utils/Constants.sol";
 
-contract Hexlink is IAccountFactory, IERC4972, Constants, Initializable, EntryPointStaker, UUPSUpgradeable {
+contract Hexlink is
+    IAccountFactory,
+    IERC4972,
+    Constants,
+    Initializable,
+    EntryPointStaker,
+    UUPSUpgradeable
+{
     event Deployed(
         bytes32 indexed nameType,
         bytes32 indexed name,

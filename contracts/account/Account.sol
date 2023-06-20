@@ -10,12 +10,10 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
 import "./AuthFactorManager.sol";
-import "../utils/AuthFactorStruct.sol";
+import "./storage/AuthFactorStorage.sol";
 
 contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, UUPSUpgradeable {
     using Address for address;
-
-    event ModuleSet(bytes32 key, address module);
 
     receive() external payable { }
 
@@ -33,7 +31,7 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
     }
 
     function initialize(bytes32 name, address provider) public initializer {
-        _updateFirstFactor(AuthFactor(name, provider));
+        _updateFirstFactor(AuthFactor(name, IAuthProvider(provider)));
     }
 
     /** IExectuable */
@@ -69,10 +67,6 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
     }
 
     /** Paymaster */
-
-    function version() public pure returns(uint256) {
-        return 1;
-    }
 
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
@@ -125,26 +119,14 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         _disableSecondFactor();
     }
 
-    function addValidatorsToAuthProvider(
-        bytes32 key,
-        address[] memory validators
-    ) internal {
-        _validateCaller();
-        _addValidators(key, validators);
-    }
-
-    function removeValidatorsFromAuthProvider(
-        bytes32 key,
-        address[] memory validators
-    ) internal {
-        _validateCaller();
-        _removeValidators(key, validators);
-    }
-
     /** UUPSUpgradeable */
 
     function implementation() external view returns (address) {
         return _getImplementation();
+    }
+
+    function version() external pure returns(uint256) {
+        return 1;
     }
 
     function _authorizeUpgrade(

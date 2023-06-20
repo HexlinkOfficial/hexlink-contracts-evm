@@ -5,19 +5,38 @@ pragma solidity ^0.8.12;
 
 import "./IAuthProvider.sol";
 
+interface IDAuthRegistry {
+    function isValidatorRegistered(address validator) external view returns(bool);
+
+    function getDefaultValidator() external view returns(address);
+
+    // get one validator other than the default one
+    function getOneValidator() external view returns(address);
+}
+
 abstract contract DAuthAuthProvider is IAuthProvider {
+    IDAuthRegistry immutable registry;
     address public immutable _defaultValidator;
 
-    constructor(address defaultValidator_) {
-        _defaultValidator = defaultValidator_;
+    constructor(address dauthRegistry) {
+        registry = IDAuthRegistry(dauthRegistry);
+        _defaultValidator = registry.getDefaultValidator();
     }
 
-    function getDefaultValidator() external view override returns(address) {
-        return _defaultValidator;
+    function isDefaultValidator(address validator) external view override returns(bool) {
+        return _defaultValidator == validator;
     }
 
-    function getKey() external pure override returns(bytes32) {
-        // keccak256('hexlink.account.auth.provider.dauth');
-        return 0x80f61525d15cb1c26df9752b352b3530d4e400ebf5893d90ef306ac5410e9b42;
+    function checkValidator(
+        bytes32 /* name */,
+        address validator
+    ) external view override returns(bool) {
+        return registry.isValidatorRegistered(validator);
+    }
+
+    function getValidator(
+        bytes32 /* name */
+    ) external view override returns(address) {
+        return registry.getOneValidator();
     }
 }

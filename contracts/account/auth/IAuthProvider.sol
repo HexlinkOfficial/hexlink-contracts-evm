@@ -3,12 +3,15 @@
 
 pragma solidity ^0.8.12;
 
-import "../../utils/AuthProviderInfoStruct.sol";
-
 interface IAuthProvider {
     function getNameType() external view returns(bytes32);
 
-    function getKey() external view returns(bytes32);
+    function isDefaultValidator(address validator) external view returns(bool);
 
-    function getDefaultValidator() external view returns(address);
+    function checkValidator(
+        bytes32 name,
+        address validator
+    ) external view returns(bool);
+
+    function getValidator(bytes32 name) external view returns(address);
 }

@@ -6,24 +6,17 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../utils/AuthFactorStruct.sol";
-import "../utils/AuthProviderInfoStruct.sol";
 import "../utils/Constants.sol";
-import "./storage/AuthValidatorStorage.sol";
 import "./storage/AuthFactorStorage.sol";
 import "./auth/IAuthProvider.sol";
 
 abstract contract AuthFactorManager {
     using ECDSA for bytes32;
-
-    struct AuthInfo {
-        AuthFactor factor;
-        bytes signature;
-    }
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     struct AuthInput {
-        AuthInfo first;
-        AuthInfo second;
+        AuthFactor factor;
+        bytes signature;
     }
 
     event FirstFactorUpdated(AuthFactor indexed);
@@ -31,14 +24,10 @@ abstract contract AuthFactorManager {
     event SecondFactorRemoved(AuthFactor indexe);
     event SecondFactorDisabled();
     event SecondFactorEnabled();
-    event ValidatorsAdded(bytes32 indexed key, address[] validators);
-    event ValidatorsRemoved(bytes32 indexed key, address[] validators);
+    event ValidatorAdded(address indexed provider, address validator);
+    event ValidatorRemoved(address indexed provider, address validator);
 
-    function getAuthFactors()
-        external
-        view
-        returns(AuthFactor[] memory factors)
-    {
+    function getAuthFactors() external view returns(AuthFactor[] memory factors) {
         return AuthFactorStorage.layout().factors;
     }
 
@@ -46,36 +35,14 @@ abstract contract AuthFactorManager {
         return AuthFactorStorage.layout().enableSecond;
     }
 
-    function getAuthProviderInfo(
-        address provider
-    ) public view returns(AuthProviderInfo memory info) {
-        IAuthProvider authProvider = IAuthProvider(provider);
-        info.nameType = authProvider.getNameType();
-        info.key = authProvider.getKey();
-        info.defaultValidator = authProvider.getDefaultValidator();
-    }
-
-    function isValidatorEnabled(
-        bytes32 key,
-        address validator
-    ) public view returns(bool) {
-        return AuthValidatorStorage.contains(key, validator);
-    }
-
-    function getValidators(
-        bytes32 key
-    ) external view returns(address[] memory) {
-        return AuthValidatorStorage.getAll(key);
-    }
-
     function _updateFirstFactor(AuthFactor memory factor) internal {
-        require(factor.provider != address(0), "invalid auth provider");
+        require(address(factor.provider) != address(0), "invalid auth provider");
         AuthFactorStorage.updateFirstFactor(factor);
         emit FirstFactorUpdated(factor);
     }
 
     function _addSecondFactor(AuthFactor memory factor) internal {
-        require(factor.provider != address(0), "invalid auth provider");
+        require(address(factor.provider) != address(0), "invalid auth provider");
         AuthFactorStorage.addSecondFactor(factor);
         emit SecondFactorUpdated(factor);
     }
@@ -99,48 +66,112 @@ abstract contract AuthFactorManager {
         emit SecondFactorDisabled();
     }
 
-    function _addValidators(
-        bytes32 key,
-        address[] memory validators
-    ) internal {
-        AuthValidatorStorage.add(key, validators);
-        emit ValidatorsAdded(key, validators);
+    /** validation logic */
+
+    modifier onlyValidSigner() {
+        AuthContext memory ctx1 = AuthFactorStorage.layout().contexts.first;
+        uint256 status = setValidator(ctx1.signer, ctx1.index);
+        require(status < 4, "invalid signer");
+        if (status <= 2 && isSecondFactorEnabled()) {
+            AuthContext memory ctx2 = AuthFactorStorage.layout().contexts.second;
+            status = setValidator(ctx2.signer, ctx2.index);
+            require(status < 4, "invalid signer");
+            if (status <= 2) {
+                _;
+            }
+        }
     }
 
-    function _removeValidators(
-        bytes32 provider,
-        address[] memory validators
+    function setValidator(address validator, uint96 index) public returns(uint256) {
+        AuthFactor storage factor = AuthFactorStorage.getAuthFactor(index);
+        IAuthProvider provider = factor.provider;
+        if (provider.isDefaultValidator(validator)) {
+            return 0; // signer valid and is default;
+        }
+        bytes32 name = factor.name;
+        bool isValid = provider.checkValidator(name, validator);
+        bool isCached = isCachedValdiator(address(provider), validator);
+        if (isValid) {
+            if (isCached) {
+                return 1; // signer valid and cached
+            } else {
+                _cacheValidator(address(provider), validator);
+                return 2; // signer valid but not cached
+            }
+        } else {
+            address toCache = provider.getValidator(name);
+            _cacheValidator(address(provider), toCache);
+            if (isCached) {
+                _removeValidator(address(provider), validator);
+                return 3; // signer not valid but cached
+            } else {
+                return 4; // signer not valid and not cached
+            }
+        }
+    }
+
+    function isCachedValdiator(
+        address provider,
+        address validator
+    ) public view returns(bool) {
+        return AuthFactorStorage.layout().cachedValidators[
+            provider
+        ].contains(validator);
+    }
+
+    function getAllCachedValidators(
+        address provider
+    ) external view returns(address[] memory) {
+        return AuthFactorStorage.layout().cachedValidators[provider].values();
+    }
+
+    function _cacheValidator(
+        address provider,
+        address validator
     ) internal {
-        AuthValidatorStorage.remove(provider, validators);
-        emit ValidatorsRemoved(provider, validators);
+        AuthFactorStorage.layout().cachedValidators[provider].add(validator);
+        emit ValidatorAdded(provider, validator);
+    }
+
+    function _removeValidator(
+        address provider,
+        address validator
+    ) internal {
+        AuthFactorStorage.layout().cachedValidators[provider].remove(validator);
+        emit ValidatorRemoved(provider, validator);
     }
 
     function _validateAuthFactors(
         bytes32 userOpHash,
         bytes memory signature
-    ) internal view returns(uint256 validationData) {
-        AuthInput memory auth = abi.decode(signature, (AuthInput));
+    ) internal returns(uint256) {
+        AuthInput[] memory auth = abi.decode(signature, (AuthInput[]));
         // validate first factor
         require(
-            AuthFactorStorage.isFirstFactor(auth.first.factor),
-            "not valid first factor"
+            AuthFactorStorage.getAuthFactorIndex(auth[0].factor) == 1,
+            "first factor not found"
         );
-        validationData = _validate(
-            auth.first.factor,
+        (uint validationData1, address signer1) = _validate(
+            auth[0].factor,
             userOpHash,
-            auth.first.signature
+            auth[0].signature
         );
+        AuthFactorStorage.layout().contexts.first = AuthContext(signer1, 0);
         // validate second factor
-        if (validationData == 0 && isSecondFactorEnabled()) {
-            require(
-                AuthFactorStorage.isSecondFactor(auth.second.factor),
-                "not valid first factor"
-            );
-            validationData = _validate(
-                auth.second.factor,
+        if (validationData1 == 0 && isSecondFactorEnabled()) {
+            uint256 factorIndex =
+                AuthFactorStorage.getAuthFactorIndex(auth[1].factor);
+            require(factorIndex > 1, "second factor not found");
+            (uint validationData2, address signer2) = _validate(
+                auth[1].factor,
                 userOpHash,
-                auth.second.signature
+                auth[1].signature
             );
+            AuthFactorStorage.layout().contexts.second =
+                AuthContext(signer2, uint96(factorIndex));
+            return validationData2;
+        } else {
+            return validationData1;
         }
     }
 
@@ -148,13 +179,18 @@ abstract contract AuthFactorManager {
         AuthFactor memory factor,
         bytes32 message,
         bytes memory signature
-    ) internal view returns(uint256) {
-        AuthProviderInfo memory info = getAuthProviderInfo(factor.provider);
-        bytes32 signed = keccak256(abi.encode(info.nameType, factor.name, message));
+    ) internal view returns(uint256, address) {
+        bytes32 nameType = factor.provider.getNameType();
+        bytes32 signed = keccak256(abi.encode(nameType, factor.name, message));
         address signer = signed.toEthSignedMessageHash().recover(signature);
-        if (info.defaultValidator != address(0) && signer == info.defaultValidator) {
-            return 0;
+
+        if (factor.provider.isDefaultValidator(signer)) {
+            return (0, signer);
         }
-        return isValidatorEnabled(info.key, signer) ? 0 : 1;
+        uint256 numOfCachedValidators =
+            AuthFactorStorage.layout().cachedValidators[address(factor.provider)].length();
+        return numOfCachedValidators == 0 || isCachedValdiator(address(factor.provider), signer)
+            ? (0, signer)
+            : (1, signer);
     }
 }

@@ -6,16 +6,22 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "../utils/Constants.sol";
 import "./storage/AuthFactorStorage.sol";
 import "./auth/IAuthProvider.sol";
+import "./AccountModuleBase.sol";
 
-abstract contract AuthFactorManager {
+abstract contract AuthFactorManager is AccountModuleBase {
     using ECDSA for bytes32;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SignatureChecker for address;
+
+    error InvalidSigner();
 
     struct AuthInput {
         AuthFactor factor;
+        address signer;
         bytes signature;
     }
 
@@ -35,19 +41,23 @@ abstract contract AuthFactorManager {
         return AuthFactorStorage.layout().factors.length > 1;
     }
 
+    function updateFirstFactor(AuthFactor memory factor) onlySelf external {
+        _updateFirstFactor(factor);
+    }
+
     function _updateFirstFactor(AuthFactor memory factor) internal {
         require(address(factor.provider) != address(0), "invalid auth provider");
         AuthFactorStorage.updateFirstFactor(factor);
         emit FirstFactorUpdated(factor);
     }
 
-    function _addSecondFactor(AuthFactor memory factor) internal {
+    function addSecondFactor(AuthFactor memory factor) onlySelf external {
         require(address(factor.provider) != address(0), "invalid auth provider");
         AuthFactorStorage.addSecondFactor(factor);
         emit SecondFactorUpdated(factor);
     }
 
-    function _removeSecondFactor(AuthFactor memory factor) internal {
+    function removeSecondFactor(AuthFactor memory factor) onlySelf external {
         AuthFactorStorage.removeSecondFactor(factor);
         emit SecondFactorRemoved(factor);
     }
@@ -57,46 +67,41 @@ abstract contract AuthFactorManager {
     modifier onlyValidSigner() {
         AuthContext memory ctx1 = AuthFactorStorage.layout().contexts.first;
         uint256 status = setValidator(ctx1.signer, ctx1.index);
-        require(status < 4, "invalid signer");
         if (status <= 2 && isSecondFactorEnabled()) {
             AuthContext memory ctx2 = AuthFactorStorage.layout().contexts.second;
             status = setValidator(ctx2.signer, ctx2.index);
-            require(status < 4, "invalid signer");
             if (status <= 2) {
                 _;
             }
         }
     }
 
-    function setValidator(address validator, uint96 index) public returns(uint256) {
-        AuthFactor storage factor = AuthFactorStorage.getAuthFactor(index);
-        IAuthProvider provider = factor.provider;
-        if (provider.isDefaultValidator(validator)) {
+    function setValidator(address signer, uint96 index) public returns(uint256) {
+        AuthFactor memory factor = AuthFactorStorage.getAuthFactor(index);
+        uint256 validationData = factor.provider.checkValidator(factor.name, signer);
+        if (validationData == 0) {
             return 0; // signer valid and is default;
         }
-        bytes32 name = factor.name;
-        bool isValid = provider.checkValidator(name, validator);
-        bool isCached = isCachedValdiator(address(provider), validator);
-        if (isValid) {
+        address provider = address(factor.provider);
+        bool isCached = isCachedValidator(provider, signer);
+        if (validationData == 1) {
             if (isCached) {
                 return 1; // signer valid and cached
             } else {
-                _cacheValidator(address(provider), validator);
+                _cacheValidator(provider, signer);
                 return 2; // signer valid but not cached
             }
         } else {
-            address toCache = provider.getValidator(name);
-            _cacheValidator(address(provider), toCache);
             if (isCached) {
-                _removeValidator(address(provider), validator);
+                _removeValidator(provider, signer);
                 return 3; // signer not valid but cached
             } else {
-                return 4; // signer not valid and not cached
+                revert InvalidSigner(); // signer not valid and not cached
             }
         }
     }
 
-    function isCachedValdiator(
+    function isCachedValidator(
         address provider,
         address validator
     ) public view returns(bool) {
@@ -130,53 +135,70 @@ abstract contract AuthFactorManager {
     function _validateAuthFactors(
         bytes32 userOpHash,
         bytes memory signature
-    ) internal returns(uint256) {
+    ) internal returns(uint256 validationData) {
         AuthInput[] memory auth = abi.decode(signature, (AuthInput[]));
+        uint256 expectedNumOfAuthInput = isSecondFactorEnabled() ? 2 : 1;
+        require(
+            auth.length == expectedNumOfAuthInput,
+            "invalid auth input length"
+        );
+
         // validate first factor
         require(
             AuthFactorStorage.getAuthFactorIndex(auth[0].factor) == 1,
             "first factor not found"
         );
-        (uint validationData1, address signer1) = _validate(
-            auth[0].factor,
-            userOpHash,
-            auth[0].signature
+        validationData = _validateAuthInput(
+            auth[0],
+            userOpHash
         );
-        AuthFactorStorage.layout().contexts.first = AuthContext(signer1, 0);
+        if (validationData == 0) {
+            AuthFactorStorage.layout().contexts.first
+                = AuthContext(auth[0].signer, 0);
+        }
+
         // validate second factor
-        if (validationData1 == 0 && isSecondFactorEnabled()) {
+        if (validationData == 0 && expectedNumOfAuthInput == 2) {
+            require(auth.length == 2, "invalid auth input");
             uint256 factorIndex =
                 AuthFactorStorage.getAuthFactorIndex(auth[1].factor);
             require(factorIndex > 1, "second factor not found");
-            (uint validationData2, address signer2) = _validate(
-                auth[1].factor,
-                userOpHash,
-                auth[1].signature
+            validationData = _validateAuthInput(
+                auth[1],
+                userOpHash
             );
-            AuthFactorStorage.layout().contexts.second =
-                AuthContext(signer2, uint96(factorIndex));
-            return validationData2;
-        } else {
-            return validationData1;
+            if (validationData == 0) {
+                AuthFactorStorage.layout().contexts.second =
+                    AuthContext(auth[1].signer, uint96(factorIndex));
+            }
         }
     }
 
-    function _validate(
-        AuthFactor memory factor,
-        bytes32 message,
-        bytes memory signature
-    ) internal view returns(uint256, address) {
+    function _validateAuthInput(
+        AuthInput memory auth,
+        bytes32 message
+    ) internal view returns(uint256) {
+        AuthFactor memory factor = auth.factor;
         bytes32 nameType = factor.provider.getNameType();
-        bytes32 signed = keccak256(abi.encode(nameType, factor.name, message));
-        address signer = signed.toEthSignedMessageHash().recover(signature);
+        bytes32 toSign = keccak256(abi.encode(nameType, auth.factor.name, message));
 
-        if (factor.provider.isDefaultValidator(signer)) {
-            return (0, signer);
+        address defaultValidator = factor.provider.getDefaultValidator();
+        address provider = address(factor.provider);
+        if (defaultValidator != address(0)) {
+            if (defaultValidator == auth.signer) {
+                return auth.signer.isValidSignatureNow(toSign, auth.signature) ? 0 : 1;
+            } else {
+                uint256 numOfCachedValidators =
+                    AuthFactorStorage.layout().cachedValidators[provider].length();
+                if (numOfCachedValidators == 0) {
+                    return auth.signer.isValidSignatureNow(toSign, auth.signature) ? 0 : 1;
+                }
+            }
         }
-        uint256 numOfCachedValidators =
-            AuthFactorStorage.layout().cachedValidators[address(factor.provider)].length();
-        return numOfCachedValidators == 0 || isCachedValdiator(address(factor.provider), signer)
-            ? (0, signer)
-            : (1, signer);
+        if (isCachedValidator(provider, auth.signer)) {
+            return auth.signer.isValidSignatureNow(toSign, auth.signature) ? 0 : 1;
+        } else {
+            return 1;
+        }
     }
 }

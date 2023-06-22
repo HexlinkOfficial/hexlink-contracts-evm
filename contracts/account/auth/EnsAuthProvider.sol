@@ -19,21 +19,14 @@ contract EnsAuthProvider is IAuthProvider {
         return ENS_NAME_TYPE;
     }
 
-    function isDefaultValidator(address) external pure override returns(bool) {
-        return false;
+    function getDefaultValidator() external pure override returns(address) {
+        return address(0);
     }
 
     function checkValidator(
         bytes32 name,
-        address validator
-    ) external view override returns(bool) {
-        return getValidator(name) == validator;
-    }
-
-    // return validator given name
-    function getValidator(
-        bytes32 name
-    ) public view override returns(address) {
-        return ens.owner(name);
+        address signer
+    ) external view override returns(uint256) {
+        return ens.owner(name) == signer ? 1 : 2;
     }
 }

@@ -10,33 +10,31 @@ interface IDAuthRegistry {
 
     function getDefaultValidator() external view returns(address);
 
-    // get one validator other than the default one
+    // get one random validator other than the default one
     function getOneValidator() external view returns(address);
 }
 
 abstract contract DAuthAuthProvider is IAuthProvider {
     IDAuthRegistry immutable registry;
-    address public immutable _defaultValidator;
 
     constructor(address dauthRegistry) {
         registry = IDAuthRegistry(dauthRegistry);
-        _defaultValidator = registry.getDefaultValidator();
     }
 
-    function isDefaultValidator(address validator) external view override returns(bool) {
-        return _defaultValidator == validator;
+    function getDefaultValidator() public view override returns(address) {
+        return registry.getDefaultValidator();
     }
 
     function checkValidator(
         bytes32 /* name */,
-        address validator
-    ) external view override returns(bool) {
-        return registry.isValidatorRegistered(validator);
-    }
-
-    function getValidator(
-        bytes32 /* name */
-    ) external view override returns(address) {
-        return registry.getOneValidator();
+        address signer
+    ) external view override returns(uint256) {
+        if (signer == getDefaultValidator()) {
+            return 0;
+        } else if (registry.isValidatorRegistered(signer)) {
+            return 1;
+        } else {
+            return 2;
+        }
     }
 }

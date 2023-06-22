@@ -11,9 +11,22 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
 import "./AuthFactorManager.sol";
 import "./storage/AuthFactorStorage.sol";
+import "./AccountModuleBase.sol";
 
-contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, UUPSUpgradeable {
+contract Account is
+    Initializable,
+    IExectuable,
+    AccountModuleBase,
+    BaseAccount,
+    AuthFactorManager,
+    UUPSUpgradeable
+{
     using Address for address;
+
+    modifier onlyEntryPoint() {
+        require(msg.sender == address(entryPoint()), "invalid caller");
+        _;
+    }
 
     receive() external payable { }
 
@@ -22,8 +35,6 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         return abi.encode(msg.sig);
     }
 
-    /** keccak256("hexlink.account.module.auth") */
-    bytes32 public constant AUTH_MODULE = 0x049ca10d833db85bbd7d7e16d3a37e9cf04b6c799ef2e1a180966a9ebabd57b3;
     IEntryPoint private immutable _entryPoint; 
 
     constructor(address entryPoint_) {
@@ -40,8 +51,7 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         address dest,
         uint256 value,
         bytes calldata func
-    ) external payable override {
-        _validateCaller();
+    ) onlyEntryPoint onlyValidSigner external payable override {
         _call(dest, value, func);
     }
 
@@ -49,8 +59,7 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         address[] calldata dest,
         uint256[] calldata values,
         bytes[] calldata func
-    ) external payable override {
-        _validateCaller();
+    ) onlyEntryPoint onlyValidSigner external payable override {
         require(dest.length == func.length, "wrong array lengths");
         for (uint256 i = 0; i < dest.length; i++) {
             _call(dest[i], values[i], func[i]);
@@ -76,8 +85,7 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         entryPoint().depositTo{value : msg.value}(address(this));
     }
 
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public {
-        _validateCaller();
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) onlySelf public {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
@@ -92,23 +100,6 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
         return _validateAuthFactors(userOpHash, userOp.signature);
     }
 
-    /** AuthFactor settings */
-
-    function updateFirstFactor(AuthFactor memory factor) external {
-        _validateCaller();
-        _updateFirstFactor(factor);
-    }
-
-    function addSecondFactor(AuthFactor memory factor) external {
-        _validateCaller();
-        _addSecondFactor(factor);
-    }
-
-    function removeSecondFactor(AuthFactor memory factor) external {
-        _validateCaller();
-        _removeSecondFactor(factor);
-    }
-
     /** UUPSUpgradeable */
 
     function implementation() external view returns (address) {
@@ -121,16 +112,5 @@ contract Account is Initializable, IExectuable, AuthFactorManager, BaseAccount, 
 
     function _authorizeUpgrade(
         address /* newImplementation */
-    ) internal view override {
-         _validateCaller();
-    }
-
-    /** utils */
-
-    function _validateCaller() internal view virtual {
-        require(
-            msg.sender == address(entryPoint()) || msg.sender == address(this),
-            "invalid caller"
-        );
-    }
+    ) onlySelf internal view override { }
 }

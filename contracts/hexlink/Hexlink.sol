@@ -32,17 +32,10 @@ contract Hexlink is
     );
 
     address public immutable accountBase;
-    address public immutable defaultEmailAuthProvider;
-    address public immutable defaultTelAuthProvider;
+    mapping(bytes32 => address) internal defaultProviders;
 
-    constructor(
-        address accountBase_,
-        address emailAuthProvider_,
-        address telAuthProvider_
-    ) {
+    constructor(address accountBase_) {
         accountBase = accountBase_;
-        defaultEmailAuthProvider = emailAuthProvider_;
-        defaultTelAuthProvider = telAuthProvider_;
     }
 
     function initialize(address owner) public initializer {
@@ -71,23 +64,27 @@ contract Hexlink is
             address(this),
             _nameHash(nameType, name)
         );
+        address provider = getDefaultProvider(nameType);
+        require(provider != address(0), "name type not supported");
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            _getDefaultAuthProvider(nameType),
+            provider,
             name
         );
         IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
         emit Deployed(nameType, name, account);
     }
 
-    function _getDefaultAuthProvider(bytes32 nameType) internal view returns(address) {
-        if (nameType == MAILTO) {
-            return defaultEmailAuthProvider;
-        } else if (nameType == TEL) {
-            return defaultTelAuthProvider;
-        } else {
-            revert("unsupported name type");
+    function setDefaultAuthProviders(address[] memory providers) external {
+        for (uint256 i = 0; i < providers.length; i++) {
+            address provider = providers[i];
+            bytes32 nameType = IAuthProvider(provider).getNameType();
+            defaultProviders[nameType] = provider;
         }
+    }
+
+    function getDefaultProvider(bytes32 nameType) public view returns(address) {
+        return defaultProviders[nameType];
     }
 
     /** UUPSUpgradeable */

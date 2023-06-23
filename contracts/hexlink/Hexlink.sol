@@ -15,8 +15,16 @@ import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
+import "../utils/Constants.sol";
 
-contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, UUPSUpgradeable {
+contract Hexlink is
+    IAccountFactory,
+    IERC4972,
+    Constants,
+    Initializable,
+    EntryPointStaker,
+    UUPSUpgradeable
+{
     event Deployed(
         bytes32 indexed nameType,
         bytes32 indexed name,
@@ -24,14 +32,18 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
     );
 
     address public immutable accountBase;
-    address public immutable defaultAuthModule;
+    address public immutable defaultEmailAuthProvider;
+    address public immutable defaultTelAuthProvider;
 
-    constructor(address accountBase_, address authModule_) {
+    constructor(
+        address accountBase_,
+        address emailAuthProvider_,
+        address telAuthProvider_
+    ) {
         accountBase = accountBase_;
-        defaultAuthModule = authModule_;
+        defaultEmailAuthProvider = emailAuthProvider_;
+        defaultTelAuthProvider = telAuthProvider_;
     }
-
-    receive() external payable { }
 
     function initialize(address owner) public initializer {
         _transferOwnership(owner);
@@ -59,18 +71,23 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
             address(this),
             _nameHash(nameType, name)
         );
-        bytes memory moduleData = abi.encodeWithSignature(
-            "setName(bytes32,bytes32)",
-            nameType,
-            name
-        );
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            defaultAuthModule,
-            moduleData
+            _getDefaultAuthProvider(nameType),
+            name
         );
         IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
         emit Deployed(nameType, name, account);
+    }
+
+    function _getDefaultAuthProvider(bytes32 nameType) internal view returns(address) {
+        if (nameType == MAILTO) {
+            return defaultEmailAuthProvider;
+        } else if (nameType == TEL) {
+            return defaultTelAuthProvider;
+        } else {
+            revert("unsupported name type");
+        }
     }
 
     /** UUPSUpgradeable */

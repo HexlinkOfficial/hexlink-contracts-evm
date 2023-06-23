@@ -9,13 +9,23 @@ import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
-import "./ModuleManager.sol";
-import "./modules/IAuthModule.sol";
+import "./AccountModuleBase.sol";
+import "./AuthPolicyManager.sol";
 
-contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPSUpgradeable {
+contract Account is
+    Initializable,
+    IExectuable,
+    AccountModuleBase,
+    BaseAccount,
+    AuthPolicyManager,
+    UUPSUpgradeable
+{
     using Address for address;
 
-    event ModuleSet(bytes32 key, address module);
+    modifier onlyEntryPoint() {
+        require(msg.sender == address(entryPoint()), "invalid caller");
+        _;
+    }
 
     receive() external payable { }
 
@@ -24,47 +34,45 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
         return abi.encode(msg.sig);
     }
 
-    /** keccak256("hexlink.account.module.auth") */
-    bytes32 public constant AUTH_MODULE = 0x049ca10d833db85bbd7d7e16d3a37e9cf04b6c799ef2e1a180966a9ebabd57b3;
     IEntryPoint private immutable _entryPoint; 
 
     constructor(address entryPoint_) {
         _entryPoint = IEntryPoint(entryPoint_);
     }
 
-    function initialize(
-        address authModule,
-        bytes memory data
-    ) public initializer {
-        _setModule(AUTH_MODULE, authModule);
-        _call(authModule, 0, data);
+    function initialize(bytes32 name, address authProvider) public initializer {
+        _updateFirstFactor(AuthFactor(name, authProvider, 2));
     }
 
     /** IExectuable */
 
     function exec(
-        address dest,
-        uint256 value,
-        bytes calldata func
-    ) external payable override {
-        _validateCaller();
-        _call(dest, value, func);
+        UserRequest calldata request,
+        RequestContext calldata ctx
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        _call(request, ctx);
     }
 
     function execBatch(
-        address[] calldata dest,
-        uint256[] calldata values,
-        bytes[] calldata func
-    ) external payable override {
-        _validateCaller();
-        require(dest.length == func.length, "wrong array lengths");
-        for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], values[i], func[i]);
+        UserRequest[] calldata requests,
+        RequestContext[] calldata ctxes
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(requests.length == ctxes.length, "wrong array lengths");
+        for (uint256 i = 0; i < requests.length; i++) {
+            _call(requests[i], ctxes[i]);
         }
     }
 
-    function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value : value}(data);
+    function _call(
+        UserRequest calldata request,
+        RequestContext calldata ctx
+    ) internal {
+        bytes32 requestHash = keccak256(
+            abi.encode(block.chainid, address(this), getNonce(), request)
+        );
+        _stepUp(request, requestHash, ctx);
+        (bool success, bytes memory result) =
+            request.target.call{value : request.value}(request.data);
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
@@ -82,8 +90,7 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
         entryPoint().depositTo{value : msg.value}(address(this));
     }
 
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public {
-        _validateCaller();
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) onlySelf public {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
@@ -95,8 +102,7 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256) {
-        address authModule = getModule(AUTH_MODULE);
-        return IAuthModule(authModule).validate(userOpHash, userOp.signature);
+        return _validateFirstFactor(userOpHash, userOp.signature);
     }
 
     /** UUPSUpgradeable */
@@ -105,32 +111,11 @@ contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPS
         return _getImplementation();
     }
 
+    function version() external pure returns(uint256) {
+        return 1;
+    }
+
     function _authorizeUpgrade(
         address /* newImplementation */
-    ) internal view override {
-         _validateCaller();
-    }
-
-    /** ModuleManager */
-
-    function setModule(bytes32 key, address module) external {
-        _validateCaller();
-        _setModule(key, module);
-        emit ModuleSet(key, module);
-    }
-
-    function execModule(bytes32 key, uint256 value, bytes memory data) external {
-        _validateCaller();
-        address module = getModule(key);
-        _call(module, value, data);
-    }
-
-    /** utils */
-
-    function _validateCaller() internal view virtual {
-        require(
-            msg.sender == address(entryPoint()) || msg.sender == address(this),
-            "invalid caller"
-        );
-    }
+    ) onlySelf internal view override { }
 }

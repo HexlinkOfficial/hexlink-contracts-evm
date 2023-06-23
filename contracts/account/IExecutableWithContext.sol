@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 
 import "./structs.sol";
 
-interface IExectuable {
+interface IExecutableWithContext {
     function exec(
         UserRequest memory request,
         RequestContext calldata ctx

@@ -7,9 +7,8 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../utils/Constants.sol";
 import "./auth/provider/IAuthProvider.sol";
-import "./AccountModuleBase.sol";
+import "./base/AccountModuleBase.sol";
 import "./structs.sol";
 
 library AuthFactorStorage {
@@ -33,10 +32,6 @@ library AuthFactorStorage {
 abstract contract AuthFactorManager is AccountModuleBase {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SignatureChecker for address;
-
-    event FirstFactorUpdated(AuthFactor indexed);
-    event CachedValidatorAdded(address validator);
-    event CachedValidatorRemoved(address validator);
 
     modifier onlyValidSigner() {
         address currentSigner = AuthFactorStorage.layout().currentSigner;
@@ -63,18 +58,6 @@ abstract contract AuthFactorManager is AccountModuleBase {
         return AuthFactorStorage.layout().cachedValidators.contains(validator);
     }
 
-    function updateFirstFactor(AuthFactor memory factor) onlySelf external {
-        if (factor.providerType == 2) {
-            bytes32 nameType = IAuthProvider(factor.provider).getNameType();
-            require(
-                hexlink.ownedAccount(nameType, factor.name) == address(this),
-                "invalid name"
-            );
-        }
-        _updateFirstFactor(factor);
-        emit FirstFactorUpdated(factor);
-    }
-
     function _updateFirstFactor(AuthFactor memory factor) internal {
         AuthFactorStorage.layout().factor = factor;
     }
@@ -88,27 +71,17 @@ abstract contract AuthFactorManager is AccountModuleBase {
             if (isCachedValidator(signer)) {
                 return 1; // signer valid and cached
             } else {
-                _cacheValidator(signer);
+                AuthFactorStorage.layout().cachedValidators.add(signer);
                 return 2; // signer valid but not cached
             }
         } else {
             if (isCachedValidator(signer)) {
-                _removeValidator(address(0));
+                AuthFactorStorage.layout().cachedValidators.remove(signer);
                 return 3; // signer not valid but cached
             } else {
                 return 4; // signer not valid and not cached
             }
         }
-    }
-
-    function _cacheValidator(address validator) internal {
-        AuthFactorStorage.layout().cachedValidators.add(validator);
-        emit CachedValidatorAdded(validator);
-    }
-
-    function _removeValidator(address validator) internal {
-        AuthFactorStorage.layout().cachedValidators.remove(validator);
-        emit CachedValidatorRemoved(validator);
     }
 
     function _validateFirstFactor(
@@ -117,28 +90,33 @@ abstract contract AuthFactorManager is AccountModuleBase {
     ) internal returns(uint256) {
         (address signer, bytes memory sig) = abi.decode(signature, (address, bytes));
         AuthFactor memory factor = AuthFactorStorage.layout().factor;
-        if (factor.providerType <= 1) {
-            bytes32 toSign = keccak256(abi.encode(bytes32(0), bytes32(0), userOpHash));
-            if (!signer.isValidSignatureNow(toSign, sig)) {
-                return 1; // fail if signature doesn't match signer
-            }
-            return signer == factor.provider ? 0 : 1;            
+        if (factor.providerType == 1) {
+            return signer.isValidSignatureNow(userOpHash, sig)
+                && signer == factor.provider ? 0 : 1;            
         } else {
             IAuthProvider provider = IAuthProvider(factor.provider);
             bytes32 nameType = provider.getNameType();
-            bytes32 toSign = keccak256(abi.encode(nameType, factor.name, userOpHash));
-            if (!signer.isValidSignatureNow(toSign, sig)) {
-                return 1; // fail if signature doesn't match signer
+            bytes32 message = keccak256(abi.encode(nameType, factor.name, userOpHash));
+            if (!signer.isValidSignatureNow(message, sig)) {
+                return 1;
             }
             if (_getNumOfCachedValidators() == 0 || isCachedValidator(signer)) {
                 AuthFactorStorage.layout().currentSigner = signer;
                 return 0;
             }
-            return 1; // fail otherwise
+            return 1;
         }
     }
 
     function _getNumOfCachedValidators() internal view returns(uint256) {
         return AuthFactorStorage.layout().cachedValidators.length();
+    }
+
+    function _getName() internal view returns(bytes32, bytes32) {
+        AuthFactor memory factor = AuthFactorStorage.layout().factor;
+        if (factor.providerType == 1) {
+            return (bytes32(0), bytes32(0));
+        }
+        return (IAuthProvider(factor.provider).getNameType(), factor.name);
     }
 }

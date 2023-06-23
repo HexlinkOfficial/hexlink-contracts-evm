@@ -8,7 +8,7 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./auth/provider/IAuthProvider.sol";
-import "./AccountModuleBase.sol";
+import "./base/AccountModuleBase.sol";
 import "./structs.sol";
 
 library SecondFactorStorage {
@@ -94,7 +94,7 @@ abstract contract SecondFactorManager is AccountModuleBase {
         );
         uint256 index = SecondFactorStorage.getIndex(auth.factor);
         require(index > 0, "second factor not found");
-        if (auth.factor.providerType <= 1) {
+        if (auth.factor.providerType == 1) {
             require(auth.factor.provider == auth.signer, "invalid signer");
         } else {
             require(

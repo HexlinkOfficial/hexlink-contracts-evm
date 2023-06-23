@@ -7,9 +7,8 @@ pragma solidity ^0.8.12;
 struct AuthFactor {
     bytes32 name;
     address provider;
-    // 1: EOA check
-    // 2: IERC1271 check
-    // 3: IAuthProvider check
+    // 0: IAuthProvider
+    // 1: EOA or IERC1271
     uint8 providerType;
 }
 

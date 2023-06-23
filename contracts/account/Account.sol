@@ -5,42 +5,25 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@account-abstraction/contracts/core/BaseAccount.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./IExectuable.sol";
-import "./AccountModuleBase.sol";
+import "./IExecutableWithContext.sol";
+import "./base/ERC4337Account.sol";
 import "./AuthFactorManager.sol";
 import "./AuthPolicyManager.sol";
 
 contract Account is
     Initializable,
-    IExectuable,
-    AccountModuleBase,
-    BaseAccount,
+    IExecutableWithContext,
+    ERC4337Account,
     AuthFactorManager,
-    AuthPolicyManager,
-    UUPSUpgradeable
+    AuthPolicyManager
 {
     using Address for address;
 
-    modifier onlyEntryPoint() {
-        require(msg.sender == address(entryPoint()), "invalid caller");
-        _;
-    }
-
-    receive() external payable { }
-
-    fallback(bytes calldata) external returns (bytes memory) {
-        // for ERC1155 and ERC3525
-        return abi.encode(msg.sig);
-    }
-
-    IEntryPoint private immutable _entryPoint; 
-
-    constructor(address entryPoint_, address hexlink) AccountModuleBase(hexlink) {
-        _entryPoint = IEntryPoint(entryPoint_);
-    }
+    constructor(
+        address entryPoint_,
+        address hexlink
+    ) ERC4337Account(entryPoint_, hexlink) {}
 
     function initialize(bytes32 name, address authProvider) public initializer {
         _updateFirstFactor(AuthFactor(name, authProvider, 2));
@@ -52,7 +35,7 @@ contract Account is
         UserRequest calldata request,
         RequestContext calldata ctx
     ) onlyEntryPoint onlyValidSigner external payable override {
-        _call(request, ctx);
+        _callWithContext(request, ctx);
     }
 
     function execBatch(
@@ -61,11 +44,11 @@ contract Account is
     ) onlyEntryPoint onlyValidSigner external payable override {
         require(requests.length == ctxes.length, "wrong array lengths");
         for (uint256 i = 0; i < requests.length; i++) {
-            _call(requests[i], ctxes[i]);
+            _callWithContext(requests[i], ctxes[i]);
         }
     }
 
-    function _call(
+    function _callWithContext(
         UserRequest calldata request,
         RequestContext calldata ctx
     ) internal {
@@ -82,42 +65,14 @@ contract Account is
         }
     }
 
-    /** Paymaster */
-
-    function getDeposit() public view returns (uint256) {
-        return entryPoint().balanceOf(address(this));
-    }
-
-    function addDeposit() public payable {
-        entryPoint().depositTo{value : msg.value}(address(this));
-    }
-
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) onlySelf public {
-        entryPoint().withdrawTo(withdrawAddress, amount);
-    }
-
-    /** ERC4337 BaseAccount */
-
-    function entryPoint() public view override returns(IEntryPoint) {
-        return _entryPoint;
-    }
+    /** ERC4337 Validation */
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256) {
         return _validateFirstFactor(userOpHash, userOp.signature);
     }
 
-    /** UUPSUpgradeable */
-
-    function implementation() external view returns (address) {
-        return _getImplementation();
+    function getName() public view override returns(bytes32, bytes32) {
+        return _getName();
     }
-
-    function version() external pure returns(uint256) {
-        return 1;
-    }
-
-    function _authorizeUpgrade(
-        address /* newImplementation */
-    ) onlySelf internal view override { }
 }

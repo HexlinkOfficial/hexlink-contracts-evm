@@ -16,12 +16,18 @@ import "../utils/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
 import "../utils/Constants.sol";
+import "./IAccountFactory.sol";
+
+struct NameInfo {
+    address impl;
+    address provider;
+}
 
 library HexlinkStorage {
     bytes32 internal constant STORAGE_SLOT = keccak256('hexlink.main');
 
     struct Layout {
-        mapping(bytes32 => address) providers;
+        mapping(bytes32 => NameInfo) info;
         mapping(bytes32 => mapping(bytes32 => address)) accounts;
     }
 
@@ -35,7 +41,6 @@ library HexlinkStorage {
 
 contract Hexlink is
     IAccountFactory,
-    IERC4972,
     Constants,
     Initializable,
     EntryPointStaker,
@@ -52,31 +57,34 @@ contract Hexlink is
         address indexed account
     );
 
-    address public immutable accountBase;
-
-
-    constructor(address accountBase_) {
-        accountBase = accountBase_;
-    }
-
     function initialize(address owner) public initializer {
         _transferOwnership(owner);
     }
 
     /** Default Auth Provider */
 
-    function setDefaultAuthProviders(address[] memory providers) external onlyOwner {
-        mapping(bytes32 => address) storage defaultProviders =
-            HexlinkStorage.layout().providers;
+    function setNameInfo(
+        address[] memory providers,
+        address[] memory impls
+    ) external onlyOwner {
+        require(providers.length == impls.length, "array length mismatch");
+        mapping(bytes32 => NameInfo) storage info =
+            HexlinkStorage.layout().info;
         for (uint256 i = 0; i < providers.length; i++) {
             address provider = providers[i];
             bytes32 nameType = IAuthProvider(provider).getNameType();
-            defaultProviders[nameType] = provider;
+            info[nameType] = NameInfo(provider, impls[i]);
         }
     }
 
-    function getDefaultProvider(bytes32 nameType) public view returns(address) {
-        return HexlinkStorage.layout().providers[nameType];
+    function getNameInfo(bytes32 nameType) public view returns(NameInfo memory) {
+        return HexlinkStorage.layout().info[nameType];
+    }
+
+    function getAccountImplementation(
+        bytes32 nameType
+    ) public view override returns(address) {
+        return HexlinkStorage.layout().info[nameType].impl;
     }
 
     /** IERC4972 */
@@ -96,36 +104,24 @@ contract Hexlink is
         }
     }
 
-    function updateOwnedAccount(
-        bytes32 nameType1,
-        bytes32 name1,
-        bytes32 nameType2,
-        bytes32 name2
-    ) external {
-        _validateNameType(nameType1);
-        _validateNameType(nameType2);
-        require(ownedAccount(nameType1, name1) == msg.sender, "invalid caller");
-        address account = ownedAccount(nameType2, name2);
-        HexlinkStorage.layout().accounts[nameType1][name1] = account;
-        emit AccountUpdated(nameType1, name1, account);
-    }
-
     /** IAccountFactory */
 
     function deploy(
         bytes32 nameType,
         bytes32 name
     ) external override returns(address account) {
-        _validateNameType(nameType);
         account = ownedAccount(nameType, name);
-        address provider = getDefaultProvider(nameType);
-        require(provider != address(0), "name type not supported");
+        NameInfo memory info = getNameInfo(nameType);
+        require(
+            info.provider != address(0) && info.impl != address(0),
+            "name type not supported"
+        );
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            provider,
+            info.provider,
             name
         );
-        IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
+        IHexlinkERC1967Proxy(account).initProxy(info.impl, data);
         emit AccountDeployed(nameType, name, account);
     }
 
@@ -142,10 +138,5 @@ contract Hexlink is
         bytes32 name
     ) internal pure returns(bytes32) {
         return keccak256(abi.encode(nameType, name));
-    }
-
-    function _validateNameType(bytes32 nameType) internal view {
-        address provider = HexlinkStorage.layout().providers[nameType];
-        require(provider != address(0), "unsupported name type");
     }
 }

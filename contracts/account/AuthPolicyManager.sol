@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.12;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "./AuthFactorManager.sol";
 import "./auth/risk/IRiskEngine.sol";
 import "./structs.sol";
@@ -25,9 +23,6 @@ library AuthPolicyStorage {
 }
 
 abstract contract AuthPolicyManager is AuthFactorManager {
-    using ECDSA for bytes32;
-    using SignatureChecker for address;
-
     function setRiskEngine(address riskEngine) external onlySelf {
         AuthPolicyStorage.layout().riskEngine = riskEngine;
     }

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.12;
 
-import "./AuthFactorManager.sol";
+import "./SecondFactorManager.sol";
 import "./auth/risk/IRiskEngine.sol";
 import "./structs.sol";
 
@@ -22,7 +22,7 @@ library AuthPolicyStorage {
     }
 }
 
-abstract contract AuthPolicyManager is AuthFactorManager {
+abstract contract AuthPolicyManager is SecondFactorManager {
     function setRiskEngine(address riskEngine) external onlySelf {
         AuthPolicyStorage.layout().riskEngine = riskEngine;
     }

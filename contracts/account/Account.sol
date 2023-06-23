@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./IExectuable.sol";
 import "./AccountModuleBase.sol";
+import "./AuthFactorManager.sol";
 import "./AuthPolicyManager.sol";
 
 contract Account is
@@ -17,6 +18,7 @@ contract Account is
     IExectuable,
     AccountModuleBase,
     BaseAccount,
+    AuthFactorManager,
     AuthPolicyManager,
     UUPSUpgradeable
 {
@@ -36,7 +38,7 @@ contract Account is
 
     IEntryPoint private immutable _entryPoint; 
 
-    constructor(address entryPoint_) {
+    constructor(address entryPoint_, address hexlink) AccountModuleBase(hexlink) {
         _entryPoint = IEntryPoint(entryPoint_);
     }
 

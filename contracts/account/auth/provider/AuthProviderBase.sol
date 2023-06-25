@@ -20,23 +20,4 @@ abstract contract AuthProviderBase is IAuthProvider, Constants {
         bytes32 name,
         address signer
     ) public view virtual returns(bool);
-
-    function validateSignature(
-        bytes32 nameType,
-        bytes32 name,
-        bytes32 requestHash,
-        address signer,
-        bytes memory signature
-    ) external view override returns(uint256) {
-        if (!isSupportedNameType(nameType)) {
-            return 1;
-        }
-        if (!isValidSigner(name, nameType, signer)) {
-            return 2;
-        }
-        if (!signer.isValidSignatureNow(requestHash, signature)) {
-            return 3;
-        }
-        return 0;
-    }
 }

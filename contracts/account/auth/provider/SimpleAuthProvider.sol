@@ -27,9 +27,9 @@ contract SimpleAuthProvider is AuthProviderBase {
     }
 
     function isSupportedNameType(
-        bytes32 nameType
+        bytes32 /* nameType */
     ) public pure override returns(bool) {
-        return nameType != ENS_NAME;
+        return true;
     }
 
     function isValidSigner(

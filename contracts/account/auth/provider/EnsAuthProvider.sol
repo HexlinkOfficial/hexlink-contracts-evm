@@ -20,10 +20,10 @@ contract EnsAuthProvider is AuthProviderBase {
     }
 
     function isValidSigner(
-        bytes32 /* nameType */,
+        bytes32 nameType,
         bytes32 name,
         address signer
     ) public view override returns(bool) {
-        return ens.owner(name) == signer;
+        return isSupportedNameType(nameType) && ens.owner(name) == signer;
     }
 }

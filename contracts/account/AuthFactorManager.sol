@@ -152,13 +152,12 @@ abstract contract AuthFactorManager is AccountModuleBase {
         if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
             return 1; // signature invalid
         }
-        address provider = auth.factor.provider.provider;
         if (auth.factor.provider.providerType == 0) {
             AuthFactorStorage.layout().signer = auth.signer;
             bool cacheEmpty = AuthFactorStorage.layout().cached.length() == 0;
             return (cacheEmpty || isCachedValidator(auth.signer)) ? 0 : 2;
         } else {
-            return provider == auth.signer ? 0 : 2;
+            return auth.factor.provider.provider == auth.signer ? 0 : 2;
         }
     }
 
@@ -210,21 +209,22 @@ abstract contract AuthFactorManager is AccountModuleBase {
             AuthFactorStorage.layout().second.contains(encoded),
             "invalid second factor"
         );
-        address provider = auth.factor.provider.provider;
+        require(
+            auth.signer.isValidSignatureNow(requestHash, auth.signature),
+            "invalid signature"
+        );
         if (auth.factor.provider.providerType == 0) {
-            IAuthProvider(provider).validateSignature(
-                auth.factor.nameType,
-                auth.factor.name,
-                requestHash,
-                auth.signer,
-                auth.signature
+            IAuthProvider provider = IAuthProvider(auth.factor.provider.provider);
+            require(
+                provider.isValidSigner(
+                    auth.factor.nameType,
+                    auth.factor.name,
+                    auth.signer
+                ),
+                "invalid signer"
             );
         } else {
-            require(provider == auth.signer, "invalid signer");
-            require(
-                auth.signer.isValidSignatureNow(requestHash, auth.signature),
-                "invalid signature"
-            );
+            require(auth.factor.provider.provider == auth.signer, "invalid signer");
         }
     }
 }

@@ -18,17 +18,12 @@ import "../utils/EntryPointStaker.sol";
 import "../utils/Constants.sol";
 import "./IAccountFactory.sol";
 
-struct NameInfo {
-    address impl;
-    address provider;
-}
-
 library HexlinkStorage {
     bytes32 internal constant STORAGE_SLOT = keccak256('hexlink.main');
 
     struct Layout {
-        mapping(bytes32 => NameInfo) info;
-        mapping(bytes32 => mapping(bytes32 => address)) accounts;
+        address accountImplementation;
+        mapping(bytes32 => address) providers;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -63,28 +58,28 @@ contract Hexlink is
 
     /** Default Auth Provider */
 
-    function setNameInfo(
-        address[] memory providers,
-        address[] memory impls
+    function setAuthProviders(
+        bytes32[] memory nameTypes,
+        address[] memory providers
     ) external onlyOwner {
-        require(providers.length == impls.length, "array length mismatch");
-        mapping(bytes32 => NameInfo) storage info =
-            HexlinkStorage.layout().info;
+        require(providers.length == nameTypes.length, "array length mismatch");
         for (uint256 i = 0; i < providers.length; i++) {
-            address provider = providers[i];
-            bytes32 nameType = IAuthProvider(provider).getNameType();
-            info[nameType] = NameInfo(provider, impls[i]);
+            HexlinkStorage.layout().providers[nameTypes[i]] = providers[i];
         }
     }
 
-    function getNameInfo(bytes32 nameType) public view returns(NameInfo memory) {
-        return HexlinkStorage.layout().info[nameType];
-    }
-
-    function getAccountImplementation(
+    function getAuthProvider(
         bytes32 nameType
     ) public view override returns(address) {
-        return HexlinkStorage.layout().info[nameType].impl;
+        return HexlinkStorage.layout().providers[nameType];
+    }
+
+    function setAccountImplementation(address impl) external onlyOwner {
+        HexlinkStorage.layout().accountImplementation = impl;
+    }
+
+    function getAccountImplementation() public view override returns(address) {
+        return HexlinkStorage.layout().accountImplementation;
     }
 
     /** IERC4972 */
@@ -93,15 +88,10 @@ contract Hexlink is
         bytes32 nameType,
         bytes32 name
     ) public view override returns(address) {
-        address account = HexlinkStorage.layout().accounts[nameType][name];
-        if (account == address(0)) {
-            return Clones.predictDeterministicAddress(
-                address(this),
-                _nameHash(nameType, name)
-            );
-        } else {
-            return account;
-        }
+        return Clones.predictDeterministicAddress(
+            address(this),
+            _nameHash(nameType, name)
+        );
     }
 
     /** IAccountFactory */
@@ -111,17 +101,16 @@ contract Hexlink is
         bytes32 name
     ) external override returns(address account) {
         account = ownedAccount(nameType, name);
-        NameInfo memory info = getNameInfo(nameType);
-        require(
-            info.provider != address(0) && info.impl != address(0),
-            "name type not supported"
-        );
+        address provider = getAuthProvider(nameType);
+        require(provider != address(0), "name type not supported");
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            info.provider,
-            name
+            name,
+            nameType,
+            provider
         );
-        IHexlinkERC1967Proxy(account).initProxy(info.impl, data);
+        address impl = getAccountImplementation();
+        IHexlinkERC1967Proxy(account).initProxy(impl, data);
         emit AccountDeployed(nameType, name, account);
     }
 

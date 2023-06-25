@@ -66,12 +66,9 @@ abstract contract ERC4337Account is
     function _authorizeUpgrade(
         address newImplementation
     ) onlySelf internal view override {
-        (bytes32 nameType,) = getName();
         require(
-            newImplementation == hexlink.getAccountImplementation(nameType),
-            "unsupported implementation"
+            newImplementation == hexlink.getAccountImplementation(),
+            "invalid implementation"
         );
     }
-
-    function getName() public view virtual returns(bytes32, bytes32);
 }

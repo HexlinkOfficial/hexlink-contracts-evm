@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.12;
 
-import "./SecondFactorManager.sol";
+import "./AuthFactorManager.sol";
 import "./auth/risk/IRiskEngine.sol";
 import "./structs.sol";
 
@@ -22,12 +22,12 @@ library AuthPolicyStorage {
     }
 }
 
-abstract contract AuthPolicyManager is SecondFactorManager {
+abstract contract AuthPolicyManager is AuthFactorManager {
     function setRiskEngine(address riskEngine) external onlySelf {
         AuthPolicyStorage.layout().riskEngine = riskEngine;
     }
 
-    function getRiskEngine() external view returns(address) {
+    function getRiskEngine() public view returns(address) {
         return AuthPolicyStorage.layout().riskEngine;
     }
 
@@ -37,11 +37,10 @@ abstract contract AuthPolicyManager is SecondFactorManager {
         RequestContext calldata ctx
     ) internal {
         address engine = AuthPolicyStorage.layout().riskEngine;
-        if (engine != address(0)) {
-            bool requireStepUp = IRiskEngine(engine).assess(request, requestHash, ctx.risk);
-            if (requireStepUp && _isSecondFactorEnabled()) {
-                _validateSecondFactor(requestHash, ctx.auth);
-            }
+        require(engine != address(0), "risk engine not set");
+        bool requireStepUp = IRiskEngine(engine).assess(request, requestHash, ctx.risk);
+        if (requireStepUp && _isSecondFactorEnabled()) {
+            _validateSecondFactor(requestHash, ctx.auth);
         }
     }
 }

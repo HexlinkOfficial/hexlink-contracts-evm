@@ -3,13 +3,10 @@
 
 pragma solidity ^0.8.12;
 
-// name should be bytes(0) if provider is a simple EOA
 struct AuthFactor {
+    bytes32 nameType;
     bytes32 name;
     address provider;
-    // 0: IAuthProvider
-    // 1: EOA or IERC1271
-    uint8 providerType;
 }
 
 struct AuthInput {
@@ -19,7 +16,7 @@ struct AuthInput {
 }
 
 struct RiskAssertion {
-    bool pass;
+    uint256 score;
     uint256 validUtil;
     address signer;
     bytes signature;

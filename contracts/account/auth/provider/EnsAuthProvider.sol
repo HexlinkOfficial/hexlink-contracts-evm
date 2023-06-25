@@ -3,26 +3,27 @@
 
 pragma solidity ^0.8.12;
 
-import "./IAuthProvider.sol";
 import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
+import "./AuthProviderBase.sol";
 
-contract EnsAuthProvider is IAuthProvider {
-    bytes32 constant ENS_NAME_TYPE = keccak256('ens');
-
+contract EnsAuthProvider is AuthProviderBase {
     ENS immutable ens;
 
     constructor(address ens_) {
         ens = ENS(ens_);
     }
 
-    function getNameType() external pure override returns(bytes32) {
-        return ENS_NAME_TYPE;
+    function isSupportedNameType(
+        bytes32 nameType
+    ) public pure override returns(bool) {
+        return nameType == ENS_NAME;
     }
 
-    function isRegistered(
+    function isValidSigner(
         bytes32 name,
+        bytes32 /* nameType */,
         address signer
-    ) external view override returns(bool) {
+    ) public view override returns(bool) {
         return ens.owner(name) == signer;
     }
 }

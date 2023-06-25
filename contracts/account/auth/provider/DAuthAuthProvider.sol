@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.12;
 
-import "./IAuthProvider.sol";
+import "./AuthProviderBase.sol";
 
 interface IDAuthRegistry {
     function isValidatorRegistered(address validator) external view returns(bool);
@@ -12,17 +12,24 @@ interface IDAuthRegistry {
     function getOneValidator() external view returns(address);
 }
 
-abstract contract DAuthAuthProvider is IAuthProvider {
+abstract contract DAuthAuthProvider is AuthProviderBase {
     IDAuthRegistry immutable registry;
 
     constructor(address dauthRegistry) {
         registry = IDAuthRegistry(dauthRegistry);
     }
 
-    function isRegistered(
+    function isSupportedNameType(
+        bytes32 nameType
+    ) public pure override returns(bool) {
+        return nameType == MAILTO || nameType == TEL;
+    }
+
+    function isValidSigner(
         bytes32 /* name */,
+        bytes32 /* nameType */,
         address signer
-    ) external view override returns(bool) {
+    ) public view override returns(bool) {
         return registry.isValidatorRegistered(signer);
     }
 }

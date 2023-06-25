@@ -6,16 +6,16 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./IExecutableWithContext.sol";
+import "./interfaces/IExecutable.sol";
+import "./interfaces/IExecutableWithContext.sol";
 import "./base/ERC4337Account.sol";
-import "./AuthFactorManager.sol";
 import "./AuthPolicyManager.sol";
 
 contract Account is
     Initializable,
+    IExecutable,
     IExecutableWithContext,
     ERC4337Account,
-    AuthFactorManager,
     AuthPolicyManager
 {
     using Address for address;
@@ -25,20 +25,52 @@ contract Account is
         address hexlink
     ) ERC4337Account(entryPoint_, hexlink) {}
 
-    function initialize(bytes32 name, address authProvider) public initializer {
-        _updateFirstFactor(AuthFactor(name, authProvider, 2));
+    function initialize(
+        bytes32 nameType,
+        bytes32 name,
+        address authProvider
+    ) public initializer {
+        _initFirstFactor(AuthFactor(nameType, name, authProvider));
     }
 
     /** IExectuable */
 
-    function exec(
+    function execute(
+        UserRequest calldata request
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(getRiskEngine() == address(0), "must call with context");
+        _call(request);
+    }
+
+    function executeBatch(
+        UserRequest[] calldata requests
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(getRiskEngine() == address(0), "must call with context");
+        for (uint256 i = 0; i < requests.length; i++) {
+            _call(requests[i]);
+        }
+    }
+
+    function _call(UserRequest calldata request) internal {
+        (bool success, bytes memory result) =
+            request.target.call{value : request.value}(request.data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
+    }
+
+    /** IExectuableWithContext */
+
+    function executeWithContext(
         UserRequest calldata request,
         RequestContext calldata ctx
     ) onlyEntryPoint onlyValidSigner external payable override {
         _callWithContext(request, ctx);
     }
 
-    function execBatch(
+    function executeBatchWithContext(
         UserRequest[] calldata requests,
         RequestContext[] calldata ctxes
     ) onlyEntryPoint onlyValidSigner external payable override {
@@ -56,13 +88,7 @@ contract Account is
             abi.encode(block.chainid, address(this), getNonce(), request)
         );
         _stepUp(request, requestHash, ctx);
-        (bool success, bytes memory result) =
-            request.target.call{value : request.value}(request.data);
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
+        _call(request);
     }
 
     /** ERC4337 Validation */
@@ -70,9 +96,5 @@ contract Account is
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256) {
         return _validateFirstFactor(userOpHash, userOp.signature);
-    }
-
-    function getName() public view override returns(bytes32, bytes32) {
-        return _getName();
     }
 }

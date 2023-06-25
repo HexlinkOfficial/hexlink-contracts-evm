@@ -13,12 +13,13 @@ import "./structs.sol";
 
 library AuthFactorStorage {
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.auth.factor.first');
+        keccak256('hexlink.account.auth.factor');
  
     struct Layout {
-        AuthFactor factor;
-        EnumerableSet.AddressSet cachedValidators;
-        address currentSigner;
+        AuthFactor first;
+        EnumerableSet.AddressSet second;
+        EnumerableSet.AddressSet cached;
+        address signer;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -33,50 +34,58 @@ abstract contract AuthFactorManager is AccountModuleBase {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SignatureChecker for address;
 
+    event FirstFactorProviderUpdated(address indexed, address indexed);
+    event SecondFactorUpdated(address indexed);
+    event SecondFactorRemoved(address indexed);
+
     modifier onlyValidSigner() {
-        address currentSigner = AuthFactorStorage.layout().currentSigner;
-        if (currentSigner != address(0)) {
-            uint256 status = cacheValidator(currentSigner);
-            AuthFactorStorage.layout().currentSigner = address(0);
-            if (status <= 2) {
-                _;
-            }
-        } else {
+        address currentSigner = AuthFactorStorage.layout().signer;
+        uint256 status = cacheValidator(currentSigner);
+        if (status <= 2) {
             _;
         }
     }
 
     function getFirstFactor() external view returns(AuthFactor memory factor) {
-        return AuthFactorStorage.layout().factor;
+        return AuthFactorStorage.layout().first;
+    }
+
+    function updateFirstFactorProvider(address newProvider) external onlySelf {
+        bytes32 nameType = AuthFactorStorage.layout().first.nameType;
+        require(
+            IAuthProvider(newProvider).isSupportedNameType(nameType),
+            "name type not supported"
+        );
+        address old = AuthFactorStorage.layout().first.provider;
+        AuthFactorStorage.layout().first.provider = newProvider;
+        emit FirstFactorProviderUpdated(old, newProvider);
     }
 
     function getAllCachedValidators() public view returns(address[] memory) {
-        return AuthFactorStorage.layout().cachedValidators.values();
+        return AuthFactorStorage.layout().cached.values();
     }
 
     function isCachedValidator(address validator) public view returns(bool) {
-        return AuthFactorStorage.layout().cachedValidators.contains(validator);
+        return AuthFactorStorage.layout().cached.contains(validator);
     }
 
-    function _updateFirstFactor(AuthFactor memory factor) internal {
-        AuthFactorStorage.layout().factor = factor;
+    function _initFirstFactor(AuthFactor memory factor) internal {
+        AuthFactorStorage.layout().first = factor;
     }
 
     function cacheValidator(address signer) public returns(uint256) {
-        AuthFactor memory factor = AuthFactorStorage.layout().factor;
-        if (factor.providerType < 2) {
-            return 0; // provider is validator, no need to cache
-        }
-        if (IAuthProvider(factor.provider).isRegistered(factor.name, signer)) {
+        AuthFactor memory factor = AuthFactorStorage.layout().first;
+        IAuthProvider provider = IAuthProvider(factor.provider);
+        if (provider.isValidSigner(factor.name, factor.nameType, signer)) {
             if (isCachedValidator(signer)) {
                 return 1; // signer valid and cached
             } else {
-                AuthFactorStorage.layout().cachedValidators.add(signer);
+                AuthFactorStorage.layout().cached.add(signer);
                 return 2; // signer valid but not cached
             }
         } else {
             if (isCachedValidator(signer)) {
-                AuthFactorStorage.layout().cachedValidators.remove(signer);
+                AuthFactorStorage.layout().cached.remove(signer);
                 return 3; // signer not valid but cached
             } else {
                 return 4; // signer not valid and not cached
@@ -88,35 +97,66 @@ abstract contract AuthFactorManager is AccountModuleBase {
         bytes32 userOpHash,
         bytes calldata signature
     ) internal returns(uint256) {
-        (address signer, bytes memory sig) = abi.decode(signature, (address, bytes));
-        AuthFactor memory factor = AuthFactorStorage.layout().factor;
-        if (factor.providerType == 1) {
-            return signer.isValidSignatureNow(userOpHash, sig)
-                && signer == factor.provider ? 0 : 1;            
-        } else {
-            IAuthProvider provider = IAuthProvider(factor.provider);
-            bytes32 nameType = provider.getNameType();
-            bytes32 message = keccak256(abi.encode(nameType, factor.name, userOpHash));
-            if (!signer.isValidSignatureNow(message, sig)) {
-                return 1;
-            }
-            if (_getNumOfCachedValidators() == 0 || isCachedValidator(signer)) {
-                AuthFactorStorage.layout().currentSigner = signer;
-                return 0;
-            }
-            return 1;
+        AuthInput memory auth = abi.decode(signature, (AuthInput));
+        require(
+            _encode(auth.factor) == _encode(AuthFactorStorage.layout().first),
+            "auth factor not set"
+        );
+        bytes32 message = keccak256(abi.encode(auth.factor, userOpHash));
+        if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
+            return 1; // signature invalid
         }
+        if (_getNumOfCachedValidators() == 0 || isCachedValidator(auth.signer)) {
+            AuthFactorStorage.layout().signer = auth.signer;
+            return 0;
+        }
+        return 2; // signer invalid
     }
 
     function _getNumOfCachedValidators() internal view returns(uint256) {
-        return AuthFactorStorage.layout().cachedValidators.length();
+        return AuthFactorStorage.layout().cached.length();
     }
 
-    function _getName() internal view returns(bytes32, bytes32) {
-        AuthFactor memory factor = AuthFactorStorage.layout().factor;
-        if (factor.providerType == 1) {
-            return (bytes32(0), bytes32(0));
-        }
-        return (IAuthProvider(factor.provider).getNameType(), factor.name);
+    function _encode(AuthFactor memory factor) internal pure returns(bytes32) {
+        return keccak256(abi.encode(factor));
+    }
+
+    /** second factors */
+
+    function getSecondFactors() external view returns(address[] memory) {
+        return AuthFactorStorage.layout().second.values();
+    }
+
+    function addSecondFactor(address factor) onlySelf external {
+        bytes32 nameType = AuthFactorStorage.layout().first.nameType;
+        require(nameType != ENS_NAME, "second factor not supported");
+        AuthFactorStorage.layout().second.add(factor);
+        emit SecondFactorUpdated(factor);
+    }
+
+    function removeSecondFactor(address factor) onlySelf external {
+        AuthFactorStorage.layout().second.remove(factor);
+        emit SecondFactorRemoved(factor);
+    }
+
+    function _isSecondFactorEnabled() internal view returns(bool) {
+        return AuthFactorStorage.layout().second.length() > 0;
+    }
+
+    function _validateSecondFactor(
+        bytes32 requestHash,
+        AuthInput memory auth
+    ) internal view {
+        require(
+            AuthFactorStorage.layout().second.contains(auth.factor.provider),
+            "factor not set"
+        );
+        IAuthProvider(auth.factor.provider).validateSignature(
+            auth.factor.name,
+            auth.factor.nameType,
+            requestHash,
+            auth.signer,
+            auth.signature
+        );
     }
 }

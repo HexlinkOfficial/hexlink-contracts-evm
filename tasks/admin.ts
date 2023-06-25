@@ -194,18 +194,19 @@ task("set_auth_providers")
     });
 
 task("upgrade_account")
+    .addOptionalParam("account", "the account implementation")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         // set auth providers if not set
         let hexlink = await getHexlink(hre);
         const existing = await hexlink.getAccountImplementation();
-        const latest = await hre.deployments.get("Account");
-        if (existing == latest.address) {
+        const latest = args.account || (await hre.deployments.get("Account")).address;
+        if (existing == latest) {
             console.log("no need to upgrade account");
             return;
         }
         const data = hexlink.interface.encodeFunctionData(
             "setAccountImplementation",
-            [latest.address],
+            [latest],
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });

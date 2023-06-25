@@ -6,6 +6,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./auth/provider/IAuthProvider.sol";
@@ -55,6 +56,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using SignatureChecker for address;
+    using ECDSA for bytes32;
 
     event FirstFactorProviderUpdated(AuthProvider indexed, AuthProvider indexed);
     event SecondFactorUpdated(AuthProvider indexed);
@@ -146,7 +148,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
             _encode(auth.factor) == _encode(AuthFactorStorage.layout().first),
             "invalid first factor"
         );
-        bytes32 message = keccak256(abi.encode(auth.factor, userOpHash));
+        bytes32 message = userOpHash.toEthSignedMessageHash();
         if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
             return 1; // signature invalid
         }
@@ -207,8 +209,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
             AuthFactorStorage.layout().second.contains(encoded),
             "invalid second factor"
         );
+        bytes32 message = requestHash.toEthSignedMessageHash();
         require(
-            auth.signer.isValidSignatureNow(requestHash, auth.signature),
+            auth.signer.isValidSignatureNow(message, auth.signature),
             "invalid signature"
         );
         if (auth.factor.provider.providerType == 0) {

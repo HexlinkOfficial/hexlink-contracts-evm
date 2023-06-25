@@ -48,11 +48,16 @@ contract Account is
     }
 
     function _call(UserRequest calldata request) internal {
-        (bool success, bytes memory result) =
+        (bool success, bytes memory returndata) =
             request.target.call{value : request.value}(request.data);
         if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
+            if (returndata.length > 0) {
+                assembly {
+                    let returndata_size := mload(returndata)
+                    revert(add(32, returndata), returndata_size)
+                }
+            } else {
+                revert("low level call failed");
             }
         }
     }
@@ -90,7 +95,7 @@ contract Account is
     /** ERC4337 Validation */
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256) {
-        return _validateFirstFactor(userOpHash, userOp.signature);
+    internal override virtual returns (uint256 validationData) {
+        validationData = _validateFirstFactor(userOpHash, userOp.signature);
     }
 }

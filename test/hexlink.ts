@@ -1,18 +1,15 @@
 import { expect } from "chai";
 import { ethers, deployments, run } from "hardhat";
+import * as hre from "hardhat";
 import { Contract } from "ethers";
-import { EMAIL_NAME_TYPE, SENDER_NAME_HASH } from "./testers";
-import { buildAccountExecData, callWithEntryPoint } from "./account";
-
-export const genInitCode = async (hexlink: Contract) => {
-  const initData = hexlink.interface.encodeFunctionData(
-    "deploy", [EMAIL_NAME_TYPE, SENDER_NAME_HASH]
-  );
-  return ethers.utils.solidityPack(
-    ["address", "bytes"],
-    [hexlink.address, initData]
-  );
-}
+import {
+  EMAIL_NAME_TYPE,
+  SENDER_NAME_HASH,
+  buildAccountExecData,
+  callWithEntryPoint,
+  genInitCode
+} from "./testers";
+import { getHexlink } from "../tasks/utils";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -21,8 +18,9 @@ describe("Hexlink", function() {
 
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
-    const hexlinkProxy = await run("deployHexlinkProxy", {});
-    hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
+    hexlink = await getHexlink(hre);
+    await hre.run("set_auth_providers", []);
+    await hre.run("upgrade_account", []);
     admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   });
@@ -30,11 +28,9 @@ describe("Hexlink", function() {
   it("should upgrade successfully", async function() {
     // deploy new hexlink impl
     const {deployer} = await ethers.getNamedSigners();
-    const account = await deployments.get("Account");
-    const authModule = await deployments.get("AuthModule");
     const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
       from: deployer.address,
-      args: [account.address, authModule.address],
+      args: [],
       log: true,
       autoMine: true,
     });
@@ -73,17 +69,17 @@ describe("Hexlink", function() {
     const { deployer } = await ethers.getNamedSigners();
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
 
-    //deploy account contract
+    // deploy account contract
     await expect(
       hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
-    ).to.emit(hexlink, "Deployed").withArgs(
+    ).to.emit(hexlink, "AccountDeployed").withArgs(
       EMAIL_NAME_TYPE, SENDER_NAME_HASH, sender
     );
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
 
     // redeploy should throw
     await expect(
-      hexlink.connect(deployer).deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+      hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
     ).to.be.revertedWith("ERC1167: create2 failed");
   });
 
@@ -105,7 +101,12 @@ describe("Hexlink", function() {
       deployer.address,
       ethers.utils.parseEther("0.5"),
     );
-    await callWithEntryPoint(sender, initCode, callData, entrypoint);
+    const factor = {
+      nameType: EMAIL_NAME_TYPE,
+      name: SENDER_NAME_HASH,
+      provider: await hexlink.getAuthProvider(EMAIL_NAME_TYPE)
+    };
+    await callWithEntryPoint(factor, sender, initCode, callData, entrypoint);
     // check account
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(

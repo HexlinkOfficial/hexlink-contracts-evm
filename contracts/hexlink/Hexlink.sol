@@ -7,15 +7,11 @@ import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./IERC4972.sol";
-import "./IAccountFactory.sol";
 import "../utils/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
-import "../utils/Constants.sol";
 import "./IAccountFactory.sol";
 
 library HexlinkStorage {
@@ -36,17 +32,11 @@ library HexlinkStorage {
 
 contract Hexlink is
     IAccountFactory,
-    Constants,
     Initializable,
     EntryPointStaker,
     UUPSUpgradeable
 {
     event AccountDeployed(
-        bytes32 indexed nameType,
-        bytes32 indexed name,
-        address indexed account
-    );
-    event AccountUpdated(
         bytes32 indexed nameType,
         bytes32 indexed name,
         address indexed account
@@ -70,8 +60,8 @@ contract Hexlink is
 
     function getAuthProvider(
         bytes32 nameType
-    ) public view override returns(address) {
-        return HexlinkStorage.layout().providers[nameType];
+    ) public view override returns(AuthProvider memory) {
+        return AuthProvider(HexlinkStorage.layout().providers[nameType], 0);
     }
 
     function setAccountImplementation(address impl) external onlyOwner {
@@ -100,13 +90,15 @@ contract Hexlink is
         bytes32 nameType,
         bytes32 name
     ) external override returns(address account) {
-        account = ownedAccount(nameType, name);
-        address provider = getAuthProvider(nameType);
-        require(provider != address(0), "unsupported name type");
-        AuthProvider memory authProvider = AuthProvider(provider, 0);
+        account = Clones.cloneDeterministic(
+            address(this),
+            _nameHash(nameType, name)
+        );
+        AuthProvider memory provider = getAuthProvider(nameType);
+        require(provider.provider != address(0), "unsupported name type");
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            AuthFactor(nameType, name, authProvider)
+            AuthFactor(nameType, name, provider)
         );
         address impl = getAccountImplementation();
         IHexlinkERC1967Proxy(account).initProxy(impl, data);

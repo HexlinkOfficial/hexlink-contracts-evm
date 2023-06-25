@@ -8,8 +8,8 @@ import "./structs.sol";
 
 library AuthPolicyStorage {
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.auth.policy');
- 
+        keccak256("hexlink.account.auth.policy");
+
     struct Layout {
         address riskEngine;
     }
@@ -27,7 +27,7 @@ abstract contract AuthPolicyManager is AuthFactorManager {
         AuthPolicyStorage.layout().riskEngine = riskEngine;
     }
 
-    function getRiskEngine() public view returns(address) {
+    function getRiskEngine() public view returns (address) {
         return AuthPolicyStorage.layout().riskEngine;
     }
 
@@ -36,11 +36,14 @@ abstract contract AuthPolicyManager is AuthFactorManager {
         bytes32 requestHash,
         RequestContext calldata ctx
     ) internal {
-        address engine = AuthPolicyStorage.layout().riskEngine;
-        require(engine != address(0), "risk engine not set");
-        bool requireStepUp = IRiskEngine(engine).assess(request, requestHash, ctx.risk);
-        if (requireStepUp && _isSecondFactorEnabled()) {
-            _validateSecondFactor(requestHash, ctx.auth);
+        if (_isSecondFactorEnabled()) {
+            address engine = AuthPolicyStorage.layout().riskEngine;
+            if (
+                engine == address(0) ||
+                IRiskEngine(engine).assess(request, requestHash, ctx.risk)
+            ) {
+                _validateSecondFactor(requestHash, ctx.auth);
+            }
         }
     }
 }

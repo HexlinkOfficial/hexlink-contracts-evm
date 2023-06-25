@@ -21,9 +21,9 @@ contract Account is
     using Address for address;
 
     constructor(
-        address entryPoint_,
+        address entryPoint,
         address hexlink
-    ) ERC4337Account(entryPoint_, hexlink) {}
+    ) ERC4337Account(entryPoint, hexlink) {}
 
     function initialize(AuthFactor memory factor) public initializer {
         _initFirstFactor(factor);

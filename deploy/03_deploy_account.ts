@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { getEntryPoint } from "../tasks/deploy";
+import { getEntryPoint, getHexlink } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
@@ -17,11 +17,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     }
 
     const entrypoint = await getEntryPoint(hre);
+    const hexlink = await getHexlink(hre);
     await deployments.deploy(
         "Account",
         {
             from: deployer,
-            args: [entrypoint],
+            args: [entrypoint.address, hexlink.address],
             log: true,
             autoMine: true
         }

@@ -7,13 +7,10 @@ import "./AuthProviderBase.sol";
 
 interface IDAuthRegistry {
     function isValidatorRegistered(address validator) external view returns(bool);
-
-    // get one random validator other than the default one
-    function getOneValidator() external view returns(address);
 }
 
-abstract contract DAuthAuthProvider is AuthProviderBase {
-    IDAuthRegistry immutable registry;
+contract DAuthAuthProvider is AuthProviderBase {
+    IDAuthRegistry public immutable registry;
 
     constructor(address dauthRegistry) {
         registry = IDAuthRegistry(dauthRegistry);

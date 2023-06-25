@@ -35,7 +35,7 @@ const getNonce = async (sender: string) => {
   return account.getNonce();
 }
 
-export const call = async (
+export const callWithEntryPoint = async (
   sender: string,
   initCode: string | [],
   callData: string | [],
@@ -158,7 +158,7 @@ describe("Hexlink Account", function () {
 
     const callData = account.interface.encodeFunctionData(
       "upgradeTo", [impl2.address]);
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await account.implementation()).to.eq(impl2.address);
   });
 
@@ -178,7 +178,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive tokens after account created
     await expect(
@@ -192,7 +192,7 @@ describe("Hexlink Account", function () {
       [receiver, 5000]
     );
     const callData = await buildAccountExecData(token.address, 0, erc20Data);
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await token.balanceOf(sender)).to.eq(5000);
     expect(await token.balanceOf(receiver)).to.eq(5000);
   });
@@ -212,7 +212,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
@@ -228,7 +228,7 @@ describe("Hexlink Account", function () {
     const callData = await buildAccountExecData(
       receiver, ethers.utils.parseEther("0.5")
     );
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
@@ -257,7 +257,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive erc1155 after account created
     await expect(
@@ -274,7 +274,7 @@ describe("Hexlink Account", function () {
       [sender, receiver, 1, 10, []]
     );
     const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });

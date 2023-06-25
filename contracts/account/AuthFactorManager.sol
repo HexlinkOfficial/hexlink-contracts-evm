@@ -61,14 +61,11 @@ abstract contract AuthFactorManager is AccountModuleBase {
     event SecondFactorRemoved(AuthProvider indexed);
 
     modifier onlyValidSigner() {
-        AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
-        if (provider.providerType == 0) {
-            address currentSigner = AuthFactorStorage.layout().signer;
-            uint256 status = _cacheValidator(
-                IAuthProvider(provider.provider),
-                currentSigner
-            );
-            if (status < 3) {
+        AuthProvider memory authProvider = AuthFactorStorage.layout().first.provider;
+        if (authProvider.providerType == 0) {
+            address signer = AuthFactorStorage.layout().signer;
+            IAuthProvider provider = IAuthProvider(authProvider.provider);
+            if (_cacheValidator(provider, signer) < 3) {
                 _;
             }
         } else {
@@ -111,15 +108,16 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthFactorStorage.layout().first = factor;
     }
 
-    function cacheValidator(address signer) public returns(uint256) {
+    function cacheValidator(address signer) public {
         AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
-        if (provider.providerType == 0) {
-            return 0; // provider is EOA
-        }
-        return _cacheValidator(IAuthProvider(provider.provider), signer);
+        require(provider.providerType == 0, "invalid provider type");
+        _cacheValidator(IAuthProvider(provider.provider), signer);
     }
 
-    function _cacheValidator(IAuthProvider provider, address signer) internal returns(uint256) {
+    function _cacheValidator(
+        IAuthProvider provider,
+        address signer
+    ) internal returns(uint256) {
         bytes32 name = AuthFactorStorage.layout().first.name;
         bytes32 nameType = AuthFactorStorage.layout().first.nameType;
         if (provider.isValidSigner(nameType, name, signer)) {
@@ -214,9 +212,8 @@ abstract contract AuthFactorManager is AccountModuleBase {
             "invalid signature"
         );
         if (auth.factor.provider.providerType == 0) {
-            IAuthProvider provider = IAuthProvider(auth.factor.provider.provider);
             require(
-                provider.isValidSigner(
+                IAuthProvider(auth.factor.provider.provider).isValidSigner(
                     auth.factor.nameType,
                     auth.factor.name,
                     auth.signer
@@ -224,7 +221,10 @@ abstract contract AuthFactorManager is AccountModuleBase {
                 "invalid signer"
             );
         } else {
-            require(auth.factor.provider.provider == auth.signer, "invalid signer");
+            require(
+                auth.factor.provider.provider == auth.signer,
+                "invalid signer"
+            );
         }
     }
 }

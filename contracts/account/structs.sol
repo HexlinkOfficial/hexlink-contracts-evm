@@ -3,10 +3,18 @@
 
 pragma solidity ^0.8.12;
 
+struct AuthProvider {
+    address provider;
+    // 0: IAuthProvider
+    // 1: EOA
+    // 2: IERC1271
+    uint8 providerType;
+}
+
 struct AuthFactor {
     bytes32 nameType;
     bytes32 name;
-    address provider;
+    AuthProvider provider;
 }
 
 struct AuthInput {

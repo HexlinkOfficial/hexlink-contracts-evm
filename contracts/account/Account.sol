@@ -25,12 +25,8 @@ contract Account is
         address hexlink
     ) ERC4337Account(entryPoint_, hexlink) {}
 
-    function initialize(
-        bytes32 nameType,
-        bytes32 name,
-        address authProvider
-    ) public initializer {
-        _initFirstFactor(AuthFactor(nameType, name, authProvider));
+    function initialize(AuthFactor memory factor) public initializer {
+        _initFirstFactor(factor);
     }
 
     /** IExectuable */

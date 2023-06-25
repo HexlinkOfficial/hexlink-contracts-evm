@@ -102,12 +102,11 @@ contract Hexlink is
     ) external override returns(address account) {
         account = ownedAccount(nameType, name);
         address provider = getAuthProvider(nameType);
-        require(provider != address(0), "name type not supported");
+        require(provider != address(0), "unsupported name type");
+        AuthProvider memory authProvider = AuthProvider(provider, 0);
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
-            name,
-            nameType,
-            provider
+            AuthFactor(nameType, name, authProvider)
         );
         address impl = getAccountImplementation();
         IHexlinkERC1967Proxy(account).initProxy(impl, data);

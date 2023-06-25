@@ -35,7 +35,7 @@ abstract contract AuthProviderBase is IAuthProvider, Constants {
             return 2;
         }
         if (!signer.isValidSignatureNow(requestHash, signature)) {
-            return 2; // invalid signature
+            return 3; // invalid signature
         }
         return 0;
     }

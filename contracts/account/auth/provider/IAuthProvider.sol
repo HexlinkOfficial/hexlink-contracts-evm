@@ -5,16 +5,16 @@ pragma solidity ^0.8.12;
 
 interface IAuthProvider {
     function validateSignature(
-        bytes32 name,
         bytes32 nameType,
+        bytes32 name,
         bytes32 message,
         address signer,
         bytes calldata signature
     ) external view returns(uint256);
 
     function isValidSigner(
-        bytes32 name,
         bytes32 nameType,
+        bytes32 name,
         address signer
     ) external view returns(bool);
 

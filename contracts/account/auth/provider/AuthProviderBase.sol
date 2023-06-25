@@ -16,14 +16,14 @@ abstract contract AuthProviderBase is IAuthProvider, Constants {
     ) public view virtual returns(bool);
 
     function isValidSigner(
-        bytes32 name,
         bytes32 nameType,
+        bytes32 name,
         address signer
     ) public view virtual returns(bool);
 
     function validateSignature(
-        bytes32 name,
         bytes32 nameType,
+        bytes32 name,
         bytes32 requestHash,
         address signer,
         bytes memory signature
@@ -34,11 +34,7 @@ abstract contract AuthProviderBase is IAuthProvider, Constants {
         if (!isValidSigner(name, nameType, signer)) {
             return 2;
         }
-        bytes32 message = keccak256(abi.encode(
-            AuthFactor(name, nameType, address(this)),
-            requestHash
-        ));
-        if (!signer.isValidSignatureNow(message, signature)) {
+        if (!signer.isValidSignatureNow(requestHash, signature)) {
             return 2; // invalid signature
         }
         return 0;

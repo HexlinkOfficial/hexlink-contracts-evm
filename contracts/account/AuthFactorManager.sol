@@ -5,6 +5,7 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./auth/provider/IAuthProvider.sol";
@@ -31,6 +32,7 @@ library AuthFactorStorage {
 }
 
 abstract contract AuthFactorManager is AccountModuleBase {
+    using Address for address;
     using EnumerableSet for EnumerableSet.AddressSet;
     using SignatureChecker for address;
 
@@ -39,9 +41,14 @@ abstract contract AuthFactorManager is AccountModuleBase {
     event SecondFactorRemoved(address indexed);
 
     modifier onlyValidSigner() {
-        address currentSigner = AuthFactorStorage.layout().signer;
-        uint256 status = cacheValidator(currentSigner);
-        if (status <= 2) {
+        address provider = AuthFactorStorage.layout().first.provider;
+        if (provider.code.length > 0) {
+            address currentSigner = AuthFactorStorage.layout().signer;
+            uint256 status = _cacheValidator(IAuthProvider(provider), currentSigner);
+            if (status <= 2) {
+                _;
+            }
+        } else {
             _;
         }
     }
@@ -50,7 +57,10 @@ abstract contract AuthFactorManager is AccountModuleBase {
         return AuthFactorStorage.layout().first;
     }
 
-    function updateFirstFactorProvider(address newProvider) external onlySelf {
+    function updateFirstFactorProvider(
+        address newProvider,
+        bytes memory data
+    ) external onlySelf {
         bytes32 nameType = AuthFactorStorage.layout().first.nameType;
         require(
             IAuthProvider(newProvider).isSupportedNameType(nameType),
@@ -58,6 +68,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
         );
         address old = AuthFactorStorage.layout().first.provider;
         AuthFactorStorage.layout().first.provider = newProvider;
+        if (data.length > 0) {
+            newProvider.functionCall(data);
+        }
         emit FirstFactorProviderUpdated(old, newProvider);
     }
 
@@ -74,9 +87,17 @@ abstract contract AuthFactorManager is AccountModuleBase {
     }
 
     function cacheValidator(address signer) public returns(uint256) {
-        AuthFactor memory factor = AuthFactorStorage.layout().first;
-        IAuthProvider provider = IAuthProvider(factor.provider);
-        if (provider.isValidSigner(factor.name, factor.nameType, signer)) {
+        address provider = AuthFactorStorage.layout().first.provider;
+        if (provider.code.length == 0) {
+            return 0; // provider is not a valid auth provider
+        }
+        return _cacheValidator(IAuthProvider(provider), signer);
+    }
+    
+    function _cacheValidator(IAuthProvider provider, address signer) internal returns(uint256) {
+        bytes32 name = AuthFactorStorage.layout().first.name;
+        bytes32 nameType = AuthFactorStorage.layout().first.nameType;
+        if (provider.isValidSigner(nameType, name, signer)) {
             if (isCachedValidator(signer)) {
                 return 1; // signer valid and cached
             } else {
@@ -106,11 +127,18 @@ abstract contract AuthFactorManager is AccountModuleBase {
         if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
             return 1; // signature invalid
         }
-        if (_getNumOfCachedValidators() == 0 || isCachedValidator(auth.signer)) {
-            AuthFactorStorage.layout().signer = auth.signer;
-            return 0;
+        if (auth.factor.provider.code.length == 0) {
+            if (auth.factor.provider == auth.signer) {
+                return 0;
+            }
+            return 1; // signer invalid
+        } else {
+            if (_getNumOfCachedValidators() == 0 || isCachedValidator(auth.signer)) {
+                AuthFactorStorage.layout().signer = auth.signer;
+                return 0;
+            }
+            return 2; // signer invalid
         }
-        return 2; // signer invalid
     }
 
     function _getNumOfCachedValidators() internal view returns(uint256) {
@@ -127,10 +155,14 @@ abstract contract AuthFactorManager is AccountModuleBase {
         return AuthFactorStorage.layout().second.values();
     }
 
-    function addSecondFactor(address factor) onlySelf external {
+    function addSecondFactor(
+        address factor,
+        bytes memory data
+    ) onlySelf external {
         bytes32 nameType = AuthFactorStorage.layout().first.nameType;
         require(nameType != ENS_NAME, "second factor not supported");
         AuthFactorStorage.layout().second.add(factor);
+        factor.functionCall(data);
         emit SecondFactorUpdated(factor);
     }
 
@@ -151,12 +183,17 @@ abstract contract AuthFactorManager is AccountModuleBase {
             AuthFactorStorage.layout().second.contains(auth.factor.provider),
             "factor not set"
         );
-        IAuthProvider(auth.factor.provider).validateSignature(
-            auth.factor.name,
-            auth.factor.nameType,
-            requestHash,
-            auth.signer,
-            auth.signature
-        );
+        if (auth.factor.provider.code.length == 0) {
+            IAuthProvider(auth.factor.provider).validateSignature(
+                auth.factor.nameType,
+                auth.factor.name,
+                requestHash,
+                auth.signer,
+                auth.signature
+            );
+        } else {
+            require(auth.factor.provider == auth.signer, "invalid signer");
+            require(auth.signer.isValidSignatureNow(requestHash, auth.signature), "invalid signature");
+        }
     }
 }

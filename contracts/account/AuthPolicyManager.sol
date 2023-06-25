@@ -36,14 +36,13 @@ abstract contract AuthPolicyManager is AuthFactorManager {
         bytes32 requestHash,
         RequestContext calldata ctx
     ) internal {
-        if (_isSecondFactorEnabled()) {
-            address engine = AuthPolicyStorage.layout().riskEngine;
-            if (
-                engine == address(0) ||
-                IRiskEngine(engine).assess(request, requestHash, ctx.risk)
-            ) {
-                _validateSecondFactor(requestHash, ctx.auth);
-            }
+        require(_isSecondFactorEnabled(), "no step up enabled");
+        address engine = AuthPolicyStorage.layout().riskEngine;
+        if (
+            engine == address(0) ||
+            IRiskEngine(engine).assess(request, requestHash, ctx.risk)
+        ) {
+            _validateSecondFactor(requestHash, ctx.auth);
         }
     }
 }

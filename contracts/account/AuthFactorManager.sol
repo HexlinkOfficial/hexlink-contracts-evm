@@ -13,13 +13,17 @@ import "./base/AccountModuleBase.sol";
 import "./structs.sol";
 
 library AuthProviderEncoder {
-    function encode(AuthProvider memory provider) internal pure returns(bytes32) {
+    function encode(
+        AuthProvider memory provider
+    ) internal pure returns(bytes32) {
         uint256 part1 = uint256(uint160(provider.provider)) << 96;
-        uint256 part2 = uint256(provider.providerType << 88);
+        uint256 part2 = uint256(provider.providerType) << 88;
         return bytes32(part1 + part2);
     }
 
-    function decode(bytes32 provider) internal pure returns(AuthProvider memory) {
+    function decode(
+        bytes32 provider
+    ) internal pure returns(AuthProvider memory) {
         return AuthProvider(
             address(bytes20(provider)),
             uint8(provider[20])
@@ -64,7 +68,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
                 IAuthProvider(provider.provider),
                 currentSigner
             );
-            if (status <= 2) {
+            if (status < 3) {
                 _;
             }
         } else {
@@ -86,12 +90,12 @@ abstract contract AuthFactorManager is AccountModuleBase {
                 IAuthProvider(provider.provider).isSupportedNameType(nameType),
                 "name type not supported"
             );
-            if (data.length > 0) {
-                provider.provider.functionCall(data);
-            }
         }
         AuthProvider memory old = AuthFactorStorage.layout().first.provider;
         AuthFactorStorage.layout().first.provider = provider;
+        if (data.length > 0) {
+            provider.provider.functionCall(data);
+        }
         emit FirstFactorProviderUpdated(old, provider);
     }
 
@@ -142,18 +146,19 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthInput memory auth = abi.decode(signature, (AuthInput));
         require(
             _encode(auth.factor) == _encode(AuthFactorStorage.layout().first),
-            "auth factor not set"
+            "invalid first factor"
         );
         bytes32 message = keccak256(abi.encode(auth.factor, userOpHash));
         if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
             return 1; // signature invalid
         }
+        address provider = auth.factor.provider.provider;
         if (auth.factor.provider.providerType == 0) {
             AuthFactorStorage.layout().signer = auth.signer;
             bool cacheEmpty = AuthFactorStorage.layout().cached.length() == 0;
             return (cacheEmpty || isCachedValidator(auth.signer)) ? 0 : 2;
         } else {
-            return auth.factor.provider.provider == auth.signer ? 0 : 2;
+            return provider == auth.signer ? 0 : 2;
         }
     }
 
@@ -180,7 +185,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
         require(nameType != ENS_NAME, "second factor not supported");
         bytes32 encoded = AuthProviderEncoder.encode(provider);
         AuthFactorStorage.layout().second.add(encoded);
-        provider.provider.functionCall(data);
+        if (data.length > 0) {
+            provider.provider.functionCall(data);
+        }
         emit SecondFactorUpdated(provider);
     }
 
@@ -203,8 +210,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
             AuthFactorStorage.layout().second.contains(encoded),
             "invalid second factor"
         );
+        address provider = auth.factor.provider.provider;
         if (auth.factor.provider.providerType == 0) {
-            IAuthProvider(auth.factor.provider.provider).validateSignature(
+            IAuthProvider(provider).validateSignature(
                 auth.factor.nameType,
                 auth.factor.name,
                 requestHash,
@@ -212,7 +220,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
                 auth.signature
             );
         } else {
-            require(auth.factor.provider.provider == auth.signer, "invalid signer");
+            require(provider == auth.signer, "invalid signer");
             require(
                 auth.signer.isValidSignatureNow(requestHash, auth.signature),
                 "invalid signature"

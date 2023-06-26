@@ -60,7 +60,7 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 export async function getDAuthRegistry(hre: HardhatRuntimeEnvironment) {
   if (hre.network.name === 'hardhat') {
       const deployed = await hre.deployments.get("DAuthRegistryTest");
-      return hre.ethers.getContractAt("IDAuthRegistry", deployed.address);
+      return hre.ethers.getContractAt("IValidatorRegistry", deployed.address);
   } else {
     throw new Error("not supported");
   }

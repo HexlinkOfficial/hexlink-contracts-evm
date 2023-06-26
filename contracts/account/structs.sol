@@ -5,9 +5,10 @@ pragma solidity ^0.8.12;
 
 struct AuthProvider {
     address provider;
-    // 0: IAuthProvider
-    // 1: EOA
-    // 2: IERC1271
+    // 0: IStaticAuthProvider
+    // 1: IDynamicAuthProvider
+    // 2: EOA
+    // 3: IERC1271
     uint8 providerType;
 }
 

@@ -9,7 +9,8 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "./auth/provider/IAuthProvider.sol";
+import "./auth/provider/IStaticAuthProvider.sol";
+import "./auth/provider/IDynamicAuthProvider.sol";
 import "./base/AccountModuleBase.sol";
 import "./structs.sol";
 
@@ -65,9 +66,20 @@ abstract contract AuthFactorManager is AccountModuleBase {
     modifier onlyValidSigner() {
         AuthProvider memory authProvider = AuthFactorStorage.layout().first.provider;
         if (authProvider.providerType == 0) {
+            IStaticAuthProvider staticProvider
+                = IStaticAuthProvider(authProvider.provider);
+            address next = staticProvider.getNextProvider();
+            if (next == address(0)) {
+                _;
+            } else {
+                // rotate to next
+                AuthFactorStorage.layout().first.provider.provider = next;
+            }
+        } else if (authProvider.providerType == 1) {
             address signer = AuthFactorStorage.layout().signer;
-            IAuthProvider provider = IAuthProvider(authProvider.provider);
-            if (_cacheValidator(provider, signer) < 3) {
+            IDynamicAuthProvider dynamicProvider
+                = IDynamicAuthProvider(authProvider.provider);
+            if (_cacheDynamicValidator(dynamicProvider, signer) < 3) {
                 _;
             }
         } else {
@@ -83,7 +95,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthProvider memory provider,
         bytes memory data
     ) external onlySelf {
-        if (provider.providerType == 0) {
+        if (provider.providerType <= 1) {
             bytes32 nameType = AuthFactorStorage.layout().first.nameType;
             require(
                 IAuthProvider(provider.provider).isSupportedNameType(nameType),
@@ -110,14 +122,22 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthFactorStorage.layout().first = factor;
     }
 
-    function cacheValidator(address signer) public {
+    function rotateStaticProvider() public {
         AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
         require(provider.providerType == 0, "invalid provider type");
-        _cacheValidator(IAuthProvider(provider.provider), signer);
+        address next = IStaticAuthProvider(provider.provider).getNextProvider();
+        require(next != address(0), "no need to rotate");
+        AuthFactorStorage.layout().first.provider.provider = next;
     }
 
-    function _cacheValidator(
-        IAuthProvider provider,
+    function cacheDynamicValidator(address signer) public {
+        AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
+        require(provider.providerType == 1, "invalid provider type");
+        _cacheDynamicValidator(IDynamicAuthProvider(provider.provider), signer);
+    }
+
+    function _cacheDynamicValidator(
+        IDynamicAuthProvider provider,
         address signer
     ) internal returns(uint256) {
         bytes32 name = AuthFactorStorage.layout().first.name;
@@ -152,7 +172,13 @@ abstract contract AuthFactorManager is AccountModuleBase {
         if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
             return 1; // signature invalid
         }
+
         if (auth.factor.provider.providerType == 0) {
+            address validator = IStaticAuthProvider(
+                auth.factor.provider.provider
+            ).getValidator();
+            return validator == auth.signer ? 0 : 1;
+        } else if (auth.factor.provider.providerType == 1) {
             AuthFactorStorage.layout().signer = auth.signer;
             bool cacheEmpty = AuthFactorStorage.layout().cached.length() == 0;
             return (cacheEmpty || isCachedValidator(auth.signer)) ? 0 : 2;
@@ -179,7 +205,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
     function addSecondFactor(
         AuthProvider memory provider,
         bytes memory data
-    ) onlySelf external {
+    ) onlySelf public {
         bytes32 nameType = AuthFactorStorage.layout().first.nameType;
         require(nameType != ENS_NAME, "second factor not supported");
         bytes32 encoded = AuthProviderEncoder.encode(provider);
@@ -190,7 +216,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
         emit SecondFactorUpdated(provider);
     }
 
-    function removeSecondFactor(AuthProvider memory provider) onlySelf external {
+    function removeSecondFactor(AuthProvider memory provider) onlySelf public {
         bytes32 encoded = AuthProviderEncoder.encode(provider);
         AuthFactorStorage.layout().second.remove(encoded);
         emit SecondFactorRemoved(provider);
@@ -203,7 +229,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
     function _validateSecondFactor(
         bytes32 requestHash,
         AuthInput memory auth
-    ) internal view {
+    ) internal {
         bytes32 encoded = AuthProviderEncoder.encode(auth.factor.provider);
         require(
             AuthFactorStorage.layout().second.contains(encoded),
@@ -215,8 +241,19 @@ abstract contract AuthFactorManager is AccountModuleBase {
             "invalid signature"
         );
         if (auth.factor.provider.providerType == 0) {
+            IStaticAuthProvider provider = IStaticAuthProvider(auth.factor.provider.provider);
+            address next = provider.getNextProvider();
+            if (next == address(0)) {
+                require(auth.signer == provider.getValidator(), "invalid signer");
+            } else {
+                address validator = IStaticAuthProvider(next).getValidator();
+                require(auth.signer == validator, "invalid signer");
+                removeSecondFactor(auth.factor.provider);
+                addSecondFactor(AuthProvider(next, 0), "");
+            }
+        } else if (auth.factor.provider.providerType == 1) {
             require(
-                IAuthProvider(auth.factor.provider.provider).isValidSigner(
+                IDynamicAuthProvider(auth.factor.provider.provider).isValidSigner(
                     auth.factor.nameType,
                     auth.factor.name,
                     auth.signer

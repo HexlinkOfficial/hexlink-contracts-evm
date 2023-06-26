@@ -3,20 +3,18 @@
 
 pragma solidity ^0.8.12;
 
-import "../account/auth/provider/DAuthAuthProvider.sol";
+import "../account/auth/provider/IAuthProvider.sol";
 
-contract DAuthRegistryTest is IDAuthRegistry {
-    address internal immutable _validator;
+contract DAuthRegistryTest is IValidatorRegistry {
+    mapping(address => bool) internal _validators;
 
-    constructor(address validator) {
-        _validator = validator;
-    }
-
-    function getValidator() external view returns(address) {
-        return _validator;
+    constructor(address[] memory validators) {
+        for (uint i = 0; i < validators.length; i++) {
+            _validators[validators[i]] = true;
+        }
     }
 
     function isValidatorRegistered(address validator) external view returns(bool) {
-        return _validator == validator;
+        return _validators[validator];
     }
 }

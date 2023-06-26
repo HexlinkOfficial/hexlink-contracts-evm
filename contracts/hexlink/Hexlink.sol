@@ -61,7 +61,11 @@ contract Hexlink is
     function getAuthProvider(
         bytes32 nameType
     ) public view override returns(AuthProvider memory) {
-        return AuthProvider(HexlinkStorage.layout().providers[nameType], 0);
+        address provider = HexlinkStorage.layout().providers[nameType];
+        return AuthProvider(
+            provider,
+            IAuthProvider(provider).getProviderType()
+        );
     }
 
     function setAccountImplementation(address impl) external onlyOwner {

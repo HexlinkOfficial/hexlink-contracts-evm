@@ -20,7 +20,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         await hre.deployments.deploy(
             "DAuthRegistryTest", {
                 from: deployer,
-                args: [validator],
+                args: [[validator, deployer]],
                 log: true,
             }
         );
@@ -32,7 +32,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         "DAuthAuthProvider",
         {
             from: deployer,
-            args: [dAuth.address],
+            args: [deployer, validator, dAuth.address],
             log: true,
             autoMine: true
         }

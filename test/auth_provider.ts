@@ -43,29 +43,61 @@ describe("AuthProviderTest", function() {
     expect(decode2.providerType).to.eq(1);
   });
 
-  it("test dauth auth provider", async function() {    
+  it("test dauth auth provider", async function() {
+    const {deployer, validator} = await hre.getNamedAccounts();
     const provider = await getDeployedContract(hre, 'DAuthAuthProvider');
+
     const registry = await hre.ethers.getContractAt(
       "DAuthRegistryTest",
-      provider.registry()
+      await provider.getRegistry()
     );
-
-    const validator = await registry.getValidator();
     expect(await registry.isValidatorRegistered(validator)).to.be.true;
-    expect(
-      await provider.isValidSigner(EMAIL_NAME_TYPE, SENDER_NAME_HASH, validator)
-    ).to.be.true;
-    expect(
-      await provider.isValidSigner(
-        EMAIL_NAME_TYPE,
-        SENDER_NAME_HASH,
-        ethers.constants.AddressZero
-      )
-    ).to.be.false;
-  
+    expect(await registry.isValidatorRegistered(deployer)).to.be.true;
+
+    expect(await provider.getValidator()).to.eq(validator);
+    expect(await provider.getProviderType()).to.eq(0);
+
     expect(await provider.isSupportedNameType(EMAIL_NAME_TYPE)).to.be.true;
     expect(await provider.isSupportedNameType(TEL_NAME_TYPE)).to.be.true;
     expect(await provider.isSupportedNameType(hash("ens"))).to.be.false;
     expect(await provider.isSupportedNameType(ethers.constants.HashZero)).to.be.false;
+  
+    // set next provider
+    expect(await provider.getNextProvider()).to.eq(ethers.constants.AddressZero);
+    const signers = await hre.ethers.getNamedSigners();
+    const invalid1 = await hre.deployments.deploy("EnsAuthProvider", {
+      from: deployer,
+      args: [registry.address],
+      log: true,
+      autoMine: true,
+    });
+    await expect(
+      provider.connect(signers.deployer).setNextProvider(invalid1.address)
+    ).to.be.revertedWith("invalid provider type");
+
+    const invalid2 = await hre.deployments.deploy(
+      "DAuthAuthProviderTest1", {
+        from: deployer,
+        contract: "DAuthAuthProvider",
+        args: [deployer, ethers.constants.AddressZero, registry.address],
+        log: true,
+        autoMine: true,
+      }
+    );
+    await expect(
+      provider.connect(signers.deployer).setNextProvider(invalid2.address)
+    ).to.be.revertedWith("invalid next validator");
+
+    const valid = await hre.deployments.deploy(
+      "DAuthAuthProviderTest2", {
+        from: deployer,
+        contract: "DAuthAuthProvider",
+        args: [deployer, deployer, registry.address],
+        log: true,
+        autoMine: true,
+      }
+    );
+    await provider.connect(signers.deployer).setNextProvider(valid.address);
+    expect(await provider.getNextProvider()).to.eq(valid.address);
   });
 });

@@ -105,12 +105,7 @@ describe("Hexlink", function() {
       deployer.address,
       ethers.utils.parseEther("0.5"),
     );
-    const factor = {
-      nameType: EMAIL_NAME_TYPE,
-      name: SENDER_NAME_HASH,
-      provider: await hexlink.getAuthProvider(EMAIL_NAME_TYPE)
-    };
-    await callWithEntryPoint(factor, sender, initCode, callData, entrypoint);
+    await callWithEntryPoint(sender, initCode, callData, entrypoint);
     // check account
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(

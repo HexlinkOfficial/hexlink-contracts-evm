@@ -35,7 +35,6 @@ export const buildAccountExecData = async (
 }
 
 export const callWithEntryPoint = async (
-    factor: any,
     sender: string,
     initCode: string | [],
     callData: string | [],
@@ -95,10 +94,9 @@ export const callWithEntryPoint = async (
     const signature = await validator.signMessage(
       ethers.utils.arrayify(userOpHash)
     );
-    const authInput = await buildAuthInput(
-      factor,
-      validator.address,
-      signature
+    const authInput = ethers.utils.defaultAbiCoder.encode(
+      ["address", "bytes"],
+      [validator.address, signature]
     );
     const signed = { ...userOp, signature: authInput, };
     await entrypoint.handleOps([signed], deployer.address);

@@ -163,32 +163,23 @@ abstract contract AuthFactorManager is AccountModuleBase {
         bytes32 userOpHash,
         bytes calldata signature
     ) internal returns(uint256) {
-        AuthInput memory auth = abi.decode(signature, (AuthInput));
-        require(
-            _encode(auth.factor) == _encode(AuthFactorStorage.layout().first),
-            "invalid first factor"
-        );
+        (address signer, bytes memory sig)= abi.decode(signature, (address, bytes));
+        AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
         bytes32 message = userOpHash.toEthSignedMessageHash();
-        if (!auth.signer.isValidSignatureNow(message, auth.signature)) {
+        if (!signer.isValidSignatureNow(message, sig)) {
             return 1; // signature invalid
         }
 
-        if (auth.factor.provider.providerType == 0) {
-            address validator = IStaticAuthProvider(
-                auth.factor.provider.provider
-            ).getValidator();
-            return validator == auth.signer ? 0 : 1;
-        } else if (auth.factor.provider.providerType == 1) {
-            AuthFactorStorage.layout().signer = auth.signer;
+        if (provider.providerType == 0) {
+            address validator = IStaticAuthProvider(provider.provider).getValidator();
+            return validator == signer ? 0 : 1;
+        } else if (provider.providerType == 1) {
+            AuthFactorStorage.layout().signer = signer;
             bool cacheEmpty = AuthFactorStorage.layout().cached.length() == 0;
-            return (cacheEmpty || isCachedValidator(auth.signer)) ? 0 : 2;
+            return (cacheEmpty || isCachedValidator(signer)) ? 0 : 2;
         } else {
-            return auth.factor.provider.provider == auth.signer ? 0 : 2;
+            return provider.provider == signer ? 0 : 2;
         }
-    }
-
-    function _encode(AuthFactor memory factor) internal pure returns(bytes32) {
-        return keccak256(abi.encode(factor));
     }
 
     /** second factors */

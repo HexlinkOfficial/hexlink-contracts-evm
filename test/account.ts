@@ -27,7 +27,6 @@ describe("Hexlink Account", function () {
   let entrypoint: Contract;
   let sender: string;
   let receiver: string;
-  let factor: any;
 
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
@@ -47,12 +46,6 @@ describe("Hexlink Account", function () {
       to: sender,
       value: ethers.utils.parseEther("1.0")
     });
-  
-    factor = {
-      nameType: EMAIL_NAME_TYPE,
-      name: SENDER_NAME_HASH,
-      provider: await hexlink.getAuthProvider(EMAIL_NAME_TYPE)
-    };
   });
 
   it("Should upgrade successfully", async function () {
@@ -92,12 +85,12 @@ describe("Hexlink Account", function () {
     );
     // cannot upgrade to impl2 since impl2 is not set at hexlink
     // this will not revert because handleOps will catch the exception
-    await callWithEntryPoint(factor, sender, [], callData, entrypoint)
+    await callWithEntryPoint(sender, [], callData, entrypoint)
     expect(await account.implementation()).to.not.eq(impl2.address);
 
     // update account implementation and upgrade
     await hre.run("upgrade_account", {account: impl2.address});
-    await callWithEntryPoint(factor, sender, [], callData, entrypoint)
+    await callWithEntryPoint(sender, [], callData, entrypoint)
     expect(await account.implementation()).to.eq(impl2.address);
   });
 
@@ -117,7 +110,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(factor, sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive tokens after account created
     await expect(
@@ -131,7 +124,7 @@ describe("Hexlink Account", function () {
       [receiver, 5000]
     );
     const callData = await buildAccountExecData(token.address, 0, erc20Data);
-    await callWithEntryPoint(factor, sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await token.balanceOf(sender)).to.eq(5000);
     expect(await token.balanceOf(receiver)).to.eq(5000);
   });
@@ -151,7 +144,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(factor, sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
@@ -167,7 +160,7 @@ describe("Hexlink Account", function () {
     const callData = await buildAccountExecData(
       receiver, ethers.utils.parseEther("0.5")
     );
-    await callWithEntryPoint(factor, sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
@@ -196,7 +189,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(factor, sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive erc1155 after account created
     await expect(
@@ -213,7 +206,7 @@ describe("Hexlink Account", function () {
       [sender, receiver, 1, 10, []]
     );
     const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
-    await callWithEntryPoint(factor, sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });

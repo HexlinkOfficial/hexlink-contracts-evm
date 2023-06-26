@@ -68,12 +68,11 @@ abstract contract AuthFactorManager is AccountModuleBase {
         if (authProvider.providerType == 0) {
             IStaticAuthProvider staticProvider
                 = IStaticAuthProvider(authProvider.provider);
-            address next = staticProvider.getNextProvider();
-            if (next == address(0)) {
+            address successor = staticProvider.getSuccessor();
+            if (successor == address(0)) {
                 _;
             } else {
-                // rotate to next
-                AuthFactorStorage.layout().first.provider.provider = next;
+                AuthFactorStorage.layout().first.provider.provider = successor;
             }
         } else if (authProvider.providerType == 1) {
             address signer = AuthFactorStorage.layout().signer;
@@ -125,9 +124,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
     function rotateStaticProvider() public {
         AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
         require(provider.providerType == 0, "invalid provider type");
-        address next = IStaticAuthProvider(provider.provider).getNextProvider();
-        require(next != address(0), "no need to rotate");
-        AuthFactorStorage.layout().first.provider.provider = next;
+        address successor = IStaticAuthProvider(provider.provider).getSuccessor();
+        require(successor != address(0), "no need to rotate");
+        AuthFactorStorage.layout().first.provider.provider = successor;
     }
 
     function cacheDynamicValidator(address signer) public {
@@ -233,14 +232,14 @@ abstract contract AuthFactorManager is AccountModuleBase {
         );
         if (auth.factor.provider.providerType == 0) {
             IStaticAuthProvider provider = IStaticAuthProvider(auth.factor.provider.provider);
-            address next = provider.getNextProvider();
-            if (next == address(0)) {
+            address successor = provider.getSuccessor();
+            if (successor == address(0)) {
                 require(auth.signer == provider.getValidator(), "invalid signer");
             } else {
-                address validator = IStaticAuthProvider(next).getValidator();
+                address validator = IStaticAuthProvider(successor).getValidator();
                 require(auth.signer == validator, "invalid signer");
                 removeSecondFactor(auth.factor.provider);
-                addSecondFactor(AuthProvider(next, 0), "");
+                addSecondFactor(AuthProvider(successor, 0), "");
             }
         } else if (auth.factor.provider.providerType == 1) {
             require(

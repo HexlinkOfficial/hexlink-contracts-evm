@@ -9,7 +9,7 @@ import "./IStaticAuthProvider.sol";
 
 contract DAuthAuthProvider is IStaticAuthProvider, Constants, Ownable {
     address private immutable _validator;
-    address private _nextProvider;
+    address private _successor;
     IValidatorRegistry private immutable _registry;
 
     constructor(address owner, address validator, address registry) {
@@ -36,15 +36,18 @@ contract DAuthAuthProvider is IStaticAuthProvider, Constants, Ownable {
         return _validator;
     }
 
-    function getNextProvider() public view override returns(address) {
-        return _nextProvider;
+    function getSuccessor() public view override returns(address) {
+        return _successor;
     }
 
-    function setNextProvider(address next) external onlyOwner {
-        IStaticAuthProvider provider = IStaticAuthProvider(next);
+    function setSuccessor(address successor) external onlyOwner {
+        IStaticAuthProvider provider = IStaticAuthProvider(successor);
         require(provider.getProviderType() == 0, "invalid provider type");
         address validator = provider.getValidator();
-        require(_registry.isValidatorRegistered(validator), "invalid next validator");
-        _nextProvider = next;
+        require(
+            _registry.isValidatorRegistered(validator),
+            "invalid successor validator"
+        );
+        _successor = successor;
     }
 }

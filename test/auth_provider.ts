@@ -63,7 +63,7 @@ describe("AuthProviderTest", function() {
     expect(await provider.isSupportedNameType(ethers.constants.HashZero)).to.be.false;
   
     // set next provider
-    expect(await provider.getNextProvider()).to.eq(ethers.constants.AddressZero);
+    expect(await provider.getSuccessor()).to.eq(ethers.constants.AddressZero);
     const signers = await hre.ethers.getNamedSigners();
     const invalid1 = await hre.deployments.deploy("EnsAuthProvider", {
       from: deployer,
@@ -72,7 +72,7 @@ describe("AuthProviderTest", function() {
       autoMine: true,
     });
     await expect(
-      provider.connect(signers.deployer).setNextProvider(invalid1.address)
+      provider.connect(signers.deployer).setSuccessor(invalid1.address)
     ).to.be.revertedWith("invalid provider type");
 
     const invalid2 = await hre.deployments.deploy(
@@ -85,8 +85,8 @@ describe("AuthProviderTest", function() {
       }
     );
     await expect(
-      provider.connect(signers.deployer).setNextProvider(invalid2.address)
-    ).to.be.revertedWith("invalid next validator");
+      provider.connect(signers.deployer).setSuccessor(invalid2.address)
+    ).to.be.revertedWith("invalid successor validator");
 
     const valid = await hre.deployments.deploy(
       "DAuthAuthProviderTest2", {
@@ -97,7 +97,7 @@ describe("AuthProviderTest", function() {
         autoMine: true,
       }
     );
-    await provider.connect(signers.deployer).setNextProvider(valid.address);
-    expect(await provider.getNextProvider()).to.eq(valid.address);
+    await provider.connect(signers.deployer).setSuccessor(valid.address);
+    expect(await provider.getSuccessor()).to.eq(valid.address);
   });
 });

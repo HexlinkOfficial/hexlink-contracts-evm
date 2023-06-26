@@ -62,6 +62,9 @@ contract Hexlink is
         bytes32 nameType
     ) public view override returns(AuthProvider memory) {
         address provider = HexlinkStorage.layout().providers[nameType];
+        if (provider == address(0)) {
+            return AuthProvider(provider, 0);
+        }
         return AuthProvider(
             provider,
             IAuthProvider(provider).getProviderType()

@@ -28,11 +28,12 @@ describe("Hexlink", function() {
   it("should upgrade successfully", async function() {
     // deploy new hexlink impl
     const {deployer} = await ethers.getNamedSigners();
-    const newHexlinkImpl = await deployments.deploy("HexlinkV2ForTest", {
-      from: deployer.address,
-      args: [],
-      log: true,
-      autoMine: true,
+    const newHexlinkImpl = await deployments.deploy(
+      "HexlinkV2ForTest", {
+        from: deployer.address,
+        args: [],
+        log: true,
+        autoMine: true,
     });
 
     // upgrade
@@ -48,7 +49,10 @@ describe("Hexlink", function() {
       "upgradeTo",
       [newHexlinkImpl.address]
     );
-    await run("admin_schedule_and_exec", {target: hexlink.address, data, admin});
+    await run(
+      "admin_schedule_and_exec",
+      {target: hexlink.address, data, admin}
+    );
 
     const hexlinkV2 = await ethers.getContractAt(
       "HexlinkV2ForTest",

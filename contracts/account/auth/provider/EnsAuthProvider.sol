@@ -4,7 +4,7 @@
 pragma solidity ^0.8.12;
 
 import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
-import "../../interfaces/IAuthProvider.sol";
+import "../../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
 
 contract EnsAuthProvider is IAuthProvider, Constants {

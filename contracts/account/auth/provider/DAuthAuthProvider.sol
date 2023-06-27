@@ -4,7 +4,7 @@
 pragma solidity ^0.8.12;
 
 import "@solidstate/contracts/access/ownable/Ownable.sol";
-import "../../interfaces/IAuthProvider.sol";
+import "../../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
 
 contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {

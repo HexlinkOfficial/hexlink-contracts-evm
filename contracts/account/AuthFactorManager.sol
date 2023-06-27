@@ -9,9 +9,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "./interfaces/IAuthProvider.sol";
+import "../interfaces/IAuthProvider.sol";
 import "./base/AccountModuleBase.sol";
-import "./structs.sol";
+import "../interfaces/structs.sol";
 
 library AuthProviderEncoder {
     function encode(

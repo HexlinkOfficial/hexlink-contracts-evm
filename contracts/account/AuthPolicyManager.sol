@@ -3,8 +3,7 @@
 pragma solidity ^0.8.12;
 
 import "./AuthFactorManager.sol";
-import "./interfaces/IRiskEngine.sol";
-import "./structs.sol";
+import "../interfaces/IRiskEngine.sol";
 
 library AuthPolicyStorage {
     bytes32 internal constant STORAGE_SLOT =

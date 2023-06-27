@@ -8,11 +8,11 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "./IERC4972.sol";
-import "../utils/IHexlinkERC1967Proxy.sol";
+import "../interfaces/IAccountFactory.sol";
+import "../interfaces/IERC4972.sol";
+import "../interfaces/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
-import "./IAccountFactory.sol";
 
 library HexlinkStorage {
     bytes32 internal constant STORAGE_SLOT = keccak256('hexlink.main');

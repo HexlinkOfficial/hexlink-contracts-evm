@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.12;
 
-import "../account/interfaces/IAuthProvider.sol";
+import "../interfaces/IAuthProvider.sol";
 
 contract DAuthRegistryTest is IValidatorRegistry {
     mapping(address => bool) internal _validators;

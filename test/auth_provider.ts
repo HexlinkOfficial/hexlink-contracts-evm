@@ -5,7 +5,6 @@ import { getDeployedContract, hash} from "../tasks/utils";
 import { ethers } from "ethers";
 
 describe("AuthProviderTest", function() {
-
   beforeEach(async function() {
     await hre.deployments.fixture(["TEST"]);
   });

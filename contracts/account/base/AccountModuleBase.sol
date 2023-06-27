@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.12;
 
-import "../../hexlink/IAccountFactory.sol";
+import "../../interfaces/IAccountFactory.sol";
 import "../../utils/Constants.sol";
 
 abstract contract AccountModuleBase is Constants {

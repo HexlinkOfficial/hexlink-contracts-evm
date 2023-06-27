@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.12;
 
-import "../structs.sol";
+import "./structs.sol";
 
 interface IRiskEngine {
     function assess(

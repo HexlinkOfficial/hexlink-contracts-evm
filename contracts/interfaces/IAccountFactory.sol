@@ -4,7 +4,7 @@
 pragma solidity ^0.8.12;
 
 import "./IERC4972.sol";
-import "../account/structs.sol";
+import "./structs.sol";
 
 interface IAccountFactory is IERC4972 {
     function getAuthProvider(bytes32 nameType) external view returns(AuthProvider memory);

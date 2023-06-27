@@ -3,7 +3,7 @@
 pragma solidity ^0.8.12;
 
 import "./AuthFactorManager.sol";
-import "./auth/risk/IRiskEngine.sol";
+import "./interfaces/IRiskEngine.sol";
 import "./structs.sol";
 
 library AuthPolicyStorage {

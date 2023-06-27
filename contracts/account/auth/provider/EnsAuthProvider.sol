@@ -4,7 +4,7 @@
 pragma solidity ^0.8.12;
 
 import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
-import "./IAuthProvider.sol";
+import "../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
 
 contract EnsAuthProvider is IAuthProvider, Constants {
@@ -25,9 +25,5 @@ contract EnsAuthProvider is IAuthProvider, Constants {
         bytes32 name
     ) public view override returns(address) {
         return isSupportedNameType(nameType) ? ens.owner(name) : address(0);
-    }
-
-    function getProviderType() external pure returns(uint8) {
-        return 1;
     }
 }

@@ -4,8 +4,8 @@
 pragma solidity ^0.8.12;
 
 import "@solidstate/contracts/access/ownable/Ownable.sol";
+import "../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
-import "./IAuthProvider.sol";
 
 contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
     address private _validator;
@@ -25,10 +25,6 @@ contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
         bytes32 nameType
     ) public pure override returns(bool) {
         return nameType == MAILTO || nameType == TEL;
-    }
-
-    function getProviderType() external pure returns(uint8) {
-        return 0;
     }
 
     function getValidator(

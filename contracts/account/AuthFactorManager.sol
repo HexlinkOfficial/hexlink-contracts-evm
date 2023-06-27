@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "./auth/provider/IAuthProvider.sol";
+import "./interfaces/IAuthProvider.sol";
 import "./base/AccountModuleBase.sol";
 import "./structs.sol";
 

@@ -65,10 +65,7 @@ contract Hexlink is
         if (provider == address(0)) {
             return AuthProvider(provider, 0);
         }
-        return AuthProvider(
-            provider,
-            IAuthProvider(provider).getProviderType()
-        );
+        return AuthProvider(provider, 0);
     }
 
     function setAccountImplementation(address impl) external onlyOwner {

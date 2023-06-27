@@ -54,7 +54,14 @@ describe("AuthProviderTest", function() {
     expect(await registry.isValidatorRegistered(validator)).to.be.true;
     expect(await registry.isValidatorRegistered(deployer)).to.be.true;
 
-    expect(await provider.getValidator()).to.eq(validator);
+    expect(await provider.getValidator(
+      hash("ens"),
+      SENDER_NAME_HASH
+    )).to.eq(ethers.constants.AddressZero);
+    expect(await provider.getValidator(
+      EMAIL_NAME_TYPE,
+      SENDER_NAME_HASH
+    )).to.eq(validator);
     expect(await provider.getProviderType()).to.eq(0);
 
     expect(await provider.isSupportedNameType(EMAIL_NAME_TYPE)).to.be.true;
@@ -69,6 +76,6 @@ describe("AuthProviderTest", function() {
     ).to.be.revertedWith("invalid validator");
 
     await provider.connect(signers.deployer).setValidator(deployer);
-    expect(await provider.getValidator()).to.eq(deployer);
+    expect(await provider.getValidator(EMAIL_NAME_TYPE, SENDER_NAME_HASH)).to.eq(deployer);
   });
 });

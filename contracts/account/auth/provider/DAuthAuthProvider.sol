@@ -5,9 +5,9 @@ pragma solidity ^0.8.12;
 
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "../../../utils/Constants.sol";
-import "./IStaticAuthProvider.sol";
+import "./IAuthProvider.sol";
 
-contract DAuthAuthProvider is IStaticAuthProvider, Constants, Ownable {
+contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
     address private _validator;
     IValidatorRegistry private immutable _registry;
 
@@ -31,8 +31,11 @@ contract DAuthAuthProvider is IStaticAuthProvider, Constants, Ownable {
         return 0;
     }
 
-    function getValidator() public view override returns(address) {
-        return _validator;
+    function getValidator(
+        bytes32 nameType,
+        bytes32 /* name */
+    ) external view override returns(address) {
+        return isSupportedNameType(nameType) ? _validator : address(0);
     }
 
     function setValidator(address validator) external onlyOwner {

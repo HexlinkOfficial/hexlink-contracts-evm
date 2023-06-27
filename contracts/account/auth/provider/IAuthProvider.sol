@@ -15,4 +15,9 @@ interface IAuthProvider {
     // 0: static auth provider
     // 1: dynamic auth provider
     function getProviderType() external view returns(uint8);
+
+    function getValidator(
+        bytes32 nameType,
+        bytes32 name
+    ) external view returns(address);
 }

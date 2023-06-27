@@ -38,7 +38,7 @@ library AuthFactorStorage {
  
     struct Layout {
         AuthFactor first;
-        AuthSigner signer;
+        AuthValidator validator;
         EnumerableSet.Bytes32Set second;
     }
 
@@ -66,11 +66,11 @@ abstract contract AuthFactorManager is AccountModuleBase {
             _;
         } else {
             address validator = _getAuthProviderValidator(provider.provider);
-            AuthSigner memory signer = AuthFactorStorage.layout().signer;
+            AuthValidator memory signer = AuthFactorStorage.layout().validator;
             if (signer.signer != validator) {
-                AuthFactorStorage.layout().signer = AuthSigner(validator, false);
+                AuthFactorStorage.layout().validator = AuthValidator(validator, false);
             } else if (signer.isCurrent) {
-                AuthFactorStorage.layout().signer.isCurrent = false;
+                AuthFactorStorage.layout().validator.isCurrent = false;
                 _;
             } else {
                 _;
@@ -88,7 +88,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
     ) external onlySelf {
         if (provider.providerType == 0) {
             address validator = _getAuthProviderValidator(provider.provider);
-            AuthFactorStorage.layout().signer = AuthSigner(validator, false);
+            AuthFactorStorage.layout().validator = AuthValidator(validator, false);
         }
         AuthFactorStorage.layout().first.provider = provider;
         if (data.length > 0) {
@@ -105,7 +105,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
         require(provider.providerType == 0, "invalid provider type");
         address validator = _getAuthProviderValidator(provider.provider);
-        AuthFactorStorage.layout().signer = AuthSigner(validator, false);
+        AuthFactorStorage.layout().validator = AuthValidator(validator, false);
     }
 
     function _validateFirstFactor(
@@ -119,9 +119,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
             return 1; // signature invalid
         }
         if (provider.providerType == 0) {
-            address cached = AuthFactorStorage.layout().signer.signer;
+            address cached = AuthFactorStorage.layout().validator.signer;
             if (cached == address(0)) {
-                AuthFactorStorage.layout().signer = AuthSigner(signer, true);
+                AuthFactorStorage.layout().validator = AuthValidator(signer, true);
             }
             return cached == address(0) || cached == signer ? 0 : 2;
         } else {

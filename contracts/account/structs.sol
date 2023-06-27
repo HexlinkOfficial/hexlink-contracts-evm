@@ -8,7 +8,7 @@ struct AuthProvider {
     uint8 providerType;
 }
 
-struct AuthSigner {
+struct AuthValidator {
     address signer;
     bool isCurrent;
 }

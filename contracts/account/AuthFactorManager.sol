@@ -40,7 +40,7 @@ library AuthFactorStorage {
     struct Layout {
         AuthFactor first;
         EnumerableSet.Bytes32Set second;
-        EnumerableSet.AddressSet cached;
+        EnumerableSet.AddressSet validators;
         address signer;
     }
 
@@ -66,13 +66,15 @@ abstract contract AuthFactorManager is AccountModuleBase {
     modifier onlyValidSigner() {
         AuthProvider memory authProvider = AuthFactorStorage.layout().first.provider;
         if (authProvider.providerType == 0) {
-            IStaticAuthProvider staticProvider
+            IStaticAuthProvider provider
                 = IStaticAuthProvider(authProvider.provider);
-            address successor = staticProvider.getSuccessor();
-            if (successor == address(0)) {
+            address validator = provider.getValidator();
+            address signer = AuthFactorStorage.layout().signer;
+            if (signer != validator) {
+                AuthFactorStorage.layout().signer = validator;
+            }
+            if (signer == address(0) || signer == validator) {
                 _;
-            } else {
-                AuthFactorStorage.layout().first.provider.provider = successor;
             }
         } else if (authProvider.providerType == 1) {
             address signer = AuthFactorStorage.layout().signer;
@@ -94,6 +96,10 @@ abstract contract AuthFactorManager is AccountModuleBase {
         AuthProvider memory provider,
         bytes memory data
     ) external onlySelf {
+        if (provider.providerType == 0) {
+            address validator = IStaticAuthProvider(provider.provider).getValidator();
+            AuthFactorStorage.layout().signer = validator;
+        }
         if (provider.providerType <= 1) {
             bytes32 nameType = AuthFactorStorage.layout().first.nameType;
             require(
@@ -110,23 +116,22 @@ abstract contract AuthFactorManager is AccountModuleBase {
     }
 
     function getAllCachedValidators() public view returns(address[] memory) {
-        return AuthFactorStorage.layout().cached.values();
+        return AuthFactorStorage.layout().validators.values();
     }
 
     function isCachedValidator(address validator) public view returns(bool) {
-        return AuthFactorStorage.layout().cached.contains(validator);
+        return AuthFactorStorage.layout().validators.contains(validator);
     }
 
     function _initFirstFactor(AuthFactor memory factor) internal {
         AuthFactorStorage.layout().first = factor;
     }
 
-    function rotateStaticProvider() public {
+    function resetSigner() public {
         AuthProvider memory provider = AuthFactorStorage.layout().first.provider;
         require(provider.providerType == 0, "invalid provider type");
-        address successor = IStaticAuthProvider(provider.provider).getSuccessor();
-        require(successor != address(0), "no need to rotate");
-        AuthFactorStorage.layout().first.provider.provider = successor;
+        address validator = IStaticAuthProvider(provider.provider).getValidator();
+        AuthFactorStorage.layout().signer = validator;
     }
 
     function cacheDynamicValidator(address signer) public {
@@ -145,12 +150,12 @@ abstract contract AuthFactorManager is AccountModuleBase {
             if (isCachedValidator(signer)) {
                 return 1; // signer valid and cached
             } else {
-                AuthFactorStorage.layout().cached.add(signer);
+                AuthFactorStorage.layout().validators.add(signer);
                 return 2; // signer valid but not cached
             }
         } else {
             if (isCachedValidator(signer)) {
-                AuthFactorStorage.layout().cached.remove(signer);
+                AuthFactorStorage.layout().validators.remove(signer);
                 return 3; // signer not valid but cached
             } else {
                 return 4; // signer not valid and not cached
@@ -170,12 +175,12 @@ abstract contract AuthFactorManager is AccountModuleBase {
         }
 
         if (provider.providerType == 0) {
-            address validator = IStaticAuthProvider(provider.provider).getValidator();
-            return validator == signer ? 0 : 1;
+            address cached = AuthFactorStorage.layout().signer;
+            return cached == address(0) || cached == signer ? 0 : 2;
         } else if (provider.providerType == 1) {
             AuthFactorStorage.layout().signer = signer;
-            bool cacheEmpty = AuthFactorStorage.layout().cached.length() == 0;
-            return (cacheEmpty || isCachedValidator(signer)) ? 0 : 2;
+            uint256 cached = AuthFactorStorage.layout().validators.length();
+            return (cached == 0 || isCachedValidator(signer)) ? 0 : 2;
         } else {
             return provider.provider == signer ? 0 : 2;
         }
@@ -219,7 +224,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
     function _validateSecondFactor(
         bytes32 requestHash,
         AuthInput memory auth
-    ) internal {
+    ) internal view {
         bytes32 encoded = AuthProviderEncoder.encode(auth.factor.provider);
         require(
             AuthFactorStorage.layout().second.contains(encoded),
@@ -232,15 +237,7 @@ abstract contract AuthFactorManager is AccountModuleBase {
         );
         if (auth.factor.provider.providerType == 0) {
             IStaticAuthProvider provider = IStaticAuthProvider(auth.factor.provider.provider);
-            address successor = provider.getSuccessor();
-            if (successor == address(0)) {
-                require(auth.signer == provider.getValidator(), "invalid signer");
-            } else {
-                address validator = IStaticAuthProvider(successor).getValidator();
-                require(auth.signer == validator, "invalid signer");
-                removeSecondFactor(auth.factor.provider);
-                addSecondFactor(AuthProvider(successor, 0), "");
-            }
+            require(auth.signer == provider.getValidator(), "invalid signer");
         } else if (auth.factor.provider.providerType == 1) {
             require(
                 IDynamicAuthProvider(auth.factor.provider.provider).isValidSigner(

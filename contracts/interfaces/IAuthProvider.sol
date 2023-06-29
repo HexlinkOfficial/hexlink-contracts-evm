@@ -8,12 +8,5 @@ interface IValidatorRegistry {
 }
 
 interface IAuthProvider {
-    function isSupportedNameType(
-        bytes32 nameType
-    ) external view returns(bool);
-
-    function getValidator(
-        bytes32 nameType,
-        bytes32 name
-    ) external view returns(address);
+    function getValidator(address account) external view returns(address);
 }

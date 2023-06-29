@@ -78,7 +78,7 @@ contract Hexlink is
 
     /** IERC4972 */
  
-    function ownedAccount(
+    function getOwnedAccount(
         bytes32 nameType,
         bytes32 name
     ) public view override returns(address) {
@@ -101,8 +101,7 @@ contract Hexlink is
         AuthProvider memory provider = getAuthProvider(nameType);
         require(provider.provider != address(0), "unsupported name type");
         bytes memory data = abi.encodeWithSelector(
-            Account.initialize.selector,
-            AuthFactor(nameType, name, provider)
+            Account.initialize.selector, nameType, name, provider
         );
         address impl = getAccountImplementation();
         IHexlinkERC1967Proxy(account).initProxy(impl, data);

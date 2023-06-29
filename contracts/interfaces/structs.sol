@@ -14,13 +14,7 @@ struct AuthValidator {
 }
 
 struct AuthFactor {
-    bytes32 nameType;
-    bytes32 name;
     AuthProvider provider;
-}
-
-struct AuthInput {
-    AuthFactor factor;
     address signer;
     bytes signature;
 }
@@ -33,7 +27,7 @@ struct RiskAssertion {
 }
 
 struct RequestContext {
-    AuthInput auth;
+    AuthFactor auth;
     RiskAssertion risk;
 }
 

@@ -7,10 +7,10 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "./AccountModuleBase.sol";
+import "./ERC4972Account.sol";
 
 abstract contract ERC4337Account is
-    AccountModuleBase,
+    ERC4972Account,
     BaseAccount,
     UUPSUpgradeable
 {
@@ -33,7 +33,7 @@ abstract contract ERC4337Account is
     constructor(
         address entryPoint_,
         address hexlink
-    ) AccountModuleBase(hexlink) {
+    ) ERC4972Account(hexlink) {
         _entryPoint = IEntryPoint(entryPoint_);
     }
 

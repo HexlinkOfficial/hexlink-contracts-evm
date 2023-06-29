@@ -6,6 +6,7 @@ pragma solidity ^0.8.12;
 import '@ensdomains/ens-contracts/contracts/registry/ENS.sol';
 import "../../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
+import "../../../interfaces/IERC4972.sol";
 
 contract EnsAuthProvider is IAuthProvider, Constants {
     ENS immutable ens;
@@ -14,16 +15,10 @@ contract EnsAuthProvider is IAuthProvider, Constants {
         ens = ENS(ens_);
     }
 
-    function isSupportedNameType(
-        bytes32 nameType
-    ) public pure override returns(bool) {
-        return nameType == ENS_NAME;
-    }
-
-    function getValidator(
-        bytes32 nameType,
-        bytes32 name
-    ) public view override returns(address) {
-        return isSupportedNameType(nameType) ? ens.owner(name) : address(0);
+    function getValidator(address account) public view override returns(address) {
+        bytes32 nameType = IERC4972Account(account).getNameType();
+        return nameType == ENS_NAME
+            ? ens.owner(IERC4972Account(account).getName())
+            : address(0);
     }
 }

@@ -1,12 +1,19 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
 import { EMAIL_NAME_TYPE, SENDER_NAME_HASH, TEL_NAME_TYPE } from "./testers";
-import { getDeployedContract, hash} from "../tasks/utils";
-import { ethers } from "ethers";
+import { getDeployedContract, getHexlink, hash} from "../tasks/utils";
+import { Contract, ethers } from "ethers";
 
 describe("AuthProviderTest", function() {
+  let hexlink: Contract;
+  let sender: string;
+
   beforeEach(async function() {
     await hre.deployments.fixture(["TEST"]);
+    hexlink = await getHexlink(hre);
+    await hre.run("set_auth_providers", []);
+    await hre.run("upgrade_account", []);
+    sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   });
 
   it("test encode and decode", async function() {
@@ -52,20 +59,7 @@ describe("AuthProviderTest", function() {
     );
     expect(await registry.isValidatorRegistered(validator)).to.be.true;
     expect(await registry.isValidatorRegistered(deployer)).to.be.true;
-
-    expect(await provider.getValidator(
-      hash("ens"),
-      SENDER_NAME_HASH
-    )).to.eq(ethers.constants.AddressZero);
-    expect(await provider.getValidator(
-      EMAIL_NAME_TYPE,
-      SENDER_NAME_HASH
-    )).to.eq(validator);
-
-    expect(await provider.isSupportedNameType(EMAIL_NAME_TYPE)).to.be.true;
-    expect(await provider.isSupportedNameType(TEL_NAME_TYPE)).to.be.true;
-    expect(await provider.isSupportedNameType(hash("ens"))).to.be.false;
-    expect(await provider.isSupportedNameType(ethers.constants.HashZero)).to.be.false;
+    expect(await provider.getValidator(sender)).to.eq(validator);
   
     // set next provider
     const signers = await hre.ethers.getNamedSigners();
@@ -74,6 +68,6 @@ describe("AuthProviderTest", function() {
     ).to.be.revertedWith("invalid validator");
 
     await provider.connect(signers.deployer).setValidator(deployer);
-    expect(await provider.getValidator(EMAIL_NAME_TYPE, SENDER_NAME_HASH)).to.eq(deployer);
+    expect(await provider.getValidator(sender)).to.eq(deployer);
   });
 });

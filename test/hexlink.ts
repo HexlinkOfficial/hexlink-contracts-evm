@@ -22,7 +22,7 @@ describe("Hexlink", function() {
     await hre.run("set_auth_providers", []);
     await hre.run("upgrade_account", []);
     admin = (await deployments.get("HexlinkAdmin")).address
-    sender = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   });
 
   it("should upgrade successfully", async function() {
@@ -62,7 +62,7 @@ describe("Hexlink", function() {
       await hexlinkProxy.implementation()
     ).to.eq(newHexlinkImpl.address);
     expect(
-      await hexlinkV2.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+      await hexlinkV2.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
     ).to.eq(sender);
     expect(
       await hexlinkV2.name()

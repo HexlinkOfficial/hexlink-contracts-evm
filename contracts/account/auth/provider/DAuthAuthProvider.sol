@@ -7,7 +7,7 @@ import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "../../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
 
-contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
+contract DAuthAuthProvider is IAuthProvider, Ownable {
     event ValidatorUpdated(address indexed validator);
 
     address private _validator;
@@ -23,17 +23,8 @@ contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
         return address(_registry);
     }
 
-    function isSupportedNameType(
-        bytes32 nameType
-    ) public pure override returns(bool) {
-        return nameType == MAILTO || nameType == TEL;
-    }
-
-    function getValidator(
-        bytes32 nameType,
-        bytes32 /* name */
-    ) external view override returns(address) {
-        return isSupportedNameType(nameType) ? _validator : address(0);
+    function getValidator(address /*account*/) external view override returns(address) {
+        return _validator;
     }
 
     function setValidator(address validator) external onlyOwner {

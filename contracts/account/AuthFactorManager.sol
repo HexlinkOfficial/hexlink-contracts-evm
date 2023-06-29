@@ -131,12 +131,11 @@ abstract contract AuthFactorManager is AccountModuleBase {
 
     function _getAuthProviderValidator(
         address provider
-    ) internal view returns(address validator) {
-        validator = IAuthProvider(provider).getValidator(
+    ) internal view returns(address) {
+        return IAuthProvider(provider).getValidator(
             AuthFactorStorage.layout().first.nameType,
             AuthFactorStorage.layout().first.name
         );
-        require(validator != address(0), "validator not set");
     }
 
     /** second factors */
@@ -186,7 +185,9 @@ abstract contract AuthFactorManager is AccountModuleBase {
             "invalid signature"
         );
         if (auth.factor.provider.providerType == 0) {
-            address validator = _getAuthProviderValidator(auth.factor.provider.provider);
+            address validator = IAuthProvider(
+                auth.factor.provider.provider
+            ).getValidator(auth.factor.nameType, auth.factor.name);
             require(auth.signer == validator, "invalid signer");
         } else {
             require(

@@ -22,9 +22,6 @@ library AuthPolicyStorage {
 }
 
 abstract contract AuthPolicyManager is AuthFactorManager {
-    function setRiskEngine(address riskEngine) external onlySelf {
-        AuthPolicyStorage.layout().riskEngine = riskEngine;
-    }
 
     function getRiskEngine() public view returns (address) {
         return AuthPolicyStorage.layout().riskEngine;

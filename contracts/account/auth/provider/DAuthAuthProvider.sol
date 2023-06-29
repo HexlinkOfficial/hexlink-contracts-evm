@@ -8,13 +8,15 @@ import "../../../interfaces/IAuthProvider.sol";
 import "../../../utils/Constants.sol";
 
 contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
+    event ValidatorUpdated(address indexed validator);
+
     address private _validator;
     IValidatorRegistry private immutable _registry;
 
     constructor(address owner, address validator, address registry) {
         _transferOwnership(owner);
-        _validator = validator;
         _registry = IValidatorRegistry(registry);
+       _setValidator(validator);
     }
 
     function getRegistry() external view returns(address) {
@@ -35,6 +37,11 @@ contract DAuthAuthProvider is IAuthProvider, Constants, Ownable {
     }
 
     function setValidator(address validator) external onlyOwner {
+        _setValidator(validator);
+        emit ValidatorUpdated(validator);
+    }
+
+    function _setValidator(address validator) internal {
         require(_registry.isValidatorRegistered(validator), "invalid validator");
         _validator = validator;
     }

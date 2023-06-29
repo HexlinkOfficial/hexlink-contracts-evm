@@ -150,8 +150,6 @@ abstract contract AuthFactorManager is AccountModuleBase {
     }
 
     function addSecondFactor(AuthProvider memory provider, bytes memory data) onlySelf public {
-        bytes32 nameType = AuthFactorStorage.layout().first.nameType;
-        require(nameType != ENS_NAME, "second factor not supported");
         bytes32 encoded = AuthProviderEncoder.encode(provider);
         AuthFactorStorage.layout().second.add(encoded);
         if (data.length > 0) {

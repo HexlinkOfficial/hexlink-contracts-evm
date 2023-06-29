@@ -7,10 +7,11 @@ import {
   SENDER_NAME_HASH,
   RECEIVER_NAME_HASH,
   callWithEntryPoint,
+  callEntryPointWithTester,
   buildAccountExecData,
   genInitCode
 } from "./testers";
-import { getHexlink } from "../tasks/utils";
+import { getHexlink, getDeployedContract } from "../tasks/utils";
 
 export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
   const accountAddr = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
@@ -209,5 +210,34 @@ describe("Hexlink Account", function () {
     await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
+  });
+
+  it("Should not execute if the auth provider is dAuth and validator doesn't match the signer", async function() {
+    const { deployer } = await ethers.getNamedSigners();
+
+    // deploy sender
+    const initCode = await genInitCode(hexlink);
+    await callEntryPointWithTester(sender, initCode, [], entrypoint);
+
+    // receive tokens after account created
+    const token = await ethers.getContractAt(
+      "HexlinkToken",
+      (await deployments.get("HexlinkToken")).address
+    );
+    await expect(
+      token.connect(deployer).transfer(sender, 5000)
+    ).to.emit(token, "Transfer")
+      .withArgs(deployer.address, sender, 5000);
+    expect(await token.balanceOf(sender)).to.eq(5000);
+
+    // should not execute
+    const erc20Data = token.interface.encodeFunctionData(
+      "transfer",
+      [receiver, 5000]
+    );
+    const callData = await buildAccountExecData(token.address, 0, erc20Data);
+    await callEntryPointWithTester(sender, [], callData, entrypoint);
+    expect(await token.balanceOf(sender)).to.eq(5000);
+    expect(await token.balanceOf(receiver)).to.eq(0);
   });
 });

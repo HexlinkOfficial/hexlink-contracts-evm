@@ -7,42 +7,81 @@ import "@solidstate/contracts/access/ownable/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 
-import "./IERC4972.sol";
-import "./IAccountFactory.sol";
-import "../utils/IHexlinkERC1967Proxy.sol";
+import "../interfaces/IAccountFactory.sol";
+import "../interfaces/IERC4972.sol";
+import "../interfaces/IHexlinkERC1967Proxy.sol";
 import "../account/Account.sol";
 import "../utils/EntryPointStaker.sol";
 
-contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, UUPSUpgradeable {
-    event Deployed(
+library HexlinkStorage {
+    bytes32 internal constant STORAGE_SLOT = keccak256('hexlink.main');
+
+    struct Layout {
+        address accountImplementation;
+        mapping(bytes32 => address) providers;
+    }
+
+    function layout() internal pure returns (Layout storage l) {
+        bytes32 slot = STORAGE_SLOT;
+        assembly {
+            l.slot := slot
+        }
+    }
+}
+
+contract Hexlink is
+    IAccountFactory,
+    Initializable,
+    EntryPointStaker,
+    UUPSUpgradeable
+{
+    event AccountDeployed(
         bytes32 indexed nameType,
         bytes32 indexed name,
         address indexed account
     );
 
-    address public immutable accountBase;
-    address public immutable defaultAuthModule;
-
-    constructor(address accountBase_, address authModule_) {
-        accountBase = accountBase_;
-        defaultAuthModule = authModule_;
-    }
-
-    receive() external payable { }
-
     function initialize(address owner) public initializer {
         _transferOwnership(owner);
     }
 
-    /** IERC4972 */
+    /** Default Auth Provider */
 
-    function ownedAccount(
+    function setAuthProviders(
+        bytes32[] memory nameTypes,
+        address[] memory providers
+    ) external onlyOwner {
+        require(providers.length == nameTypes.length, "array length mismatch");
+        for (uint256 i = 0; i < providers.length; i++) {
+            HexlinkStorage.layout().providers[nameTypes[i]] = providers[i];
+        }
+    }
+
+    function getAuthProvider(
+        bytes32 nameType
+    ) public view override returns(AuthProvider memory) {
+        address provider = HexlinkStorage.layout().providers[nameType];
+        if (provider == address(0)) {
+            return AuthProvider(provider, 0);
+        }
+        return AuthProvider(provider, 0);
+    }
+
+    function setAccountImplementation(address impl) external onlyOwner {
+        HexlinkStorage.layout().accountImplementation = impl;
+    }
+
+    function getAccountImplementation() public view override returns(address) {
+        return HexlinkStorage.layout().accountImplementation;
+    }
+
+    /** IERC4972 */
+ 
+    function getOwnedAccount(
         bytes32 nameType,
         bytes32 name
-    ) external view override returns(address) {
+    ) public view override returns(address) {
         return Clones.predictDeterministicAddress(
             address(this),
             _nameHash(nameType, name)
@@ -59,18 +98,14 @@ contract Hexlink is IAccountFactory, IERC4972, Initializable, EntryPointStaker, 
             address(this),
             _nameHash(nameType, name)
         );
-        bytes memory moduleData = abi.encodeWithSignature(
-            "setName(bytes32,bytes32)",
-            nameType,
-            name
-        );
+        AuthProvider memory provider = getAuthProvider(nameType);
+        require(provider.provider != address(0), "unsupported name type");
         bytes memory data = abi.encodeWithSelector(
-            Account.initialize.selector,
-            defaultAuthModule,
-            moduleData
+            Account.initialize.selector, nameType, name, provider
         );
-        IHexlinkERC1967Proxy(account).initProxy(accountBase, data);
-        emit Deployed(nameType, name, account);
+        address impl = getAccountImplementation();
+        IHexlinkERC1967Proxy(account).initProxy(impl, data);
+        emit AccountDeployed(nameType, name, account);
     }
 
     /** UUPSUpgradeable */

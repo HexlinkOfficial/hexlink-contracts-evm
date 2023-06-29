@@ -15,7 +15,7 @@ task("hexlink_check", "check hexlink metadata")
             "admin": admin.address,
             "hexlinkImpl": await hexlink.implementation(),
             "accountProxy": hexlink.address,
-            "accountImpl": await hexlink.accountImplementation(),
+            "accountImpl": await hexlink.getAccountImplementation(),
             "emailNameRegistry": await hexlink.getRegistry(
                 schema,
                 ethers.constants.HashZero

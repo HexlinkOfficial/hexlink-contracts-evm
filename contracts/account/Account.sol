@@ -5,132 +5,101 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@account-abstraction/contracts/core/BaseAccount.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./IExectuable.sol";
-import "./ModuleManager.sol";
-import "./modules/IAuthModule.sol";
+import "../interfaces/IExecutable.sol";
+import "../interfaces/IExecutableWithContext.sol";
+import "./base/ERC4337Account.sol";
+import "./AuthPolicyManager.sol";
 
-contract Account is Initializable, IExectuable, ModuleManager, BaseAccount, UUPSUpgradeable {
+contract Account is
+    Initializable,
+    IExecutable,
+    IExecutableWithContext,
+    ERC4337Account,
+    AuthPolicyManager
+{
     using Address for address;
 
-    event ModuleSet(bytes32 key, address module);
-
-    receive() external payable { }
-
-    fallback(bytes calldata) external returns (bytes memory) {
-        // for ERC1155 and ERC3525
-        return abi.encode(msg.sig);
-    }
-
-    /** keccak256("hexlink.account.module.auth") */
-    bytes32 public constant AUTH_MODULE = 0x049ca10d833db85bbd7d7e16d3a37e9cf04b6c799ef2e1a180966a9ebabd57b3;
-    IEntryPoint private immutable _entryPoint; 
-
-    constructor(address entryPoint_) {
-        _entryPoint = IEntryPoint(entryPoint_);
-    }
+    constructor(
+        address entryPoint,
+        address hexlink
+    ) ERC4337Account(entryPoint, hexlink) {}
 
     function initialize(
-        address authModule,
-        bytes memory data
+        bytes32 nameType,
+        bytes32 name,
+        AuthProvider memory provider
     ) public initializer {
-        _setModule(AUTH_MODULE, authModule);
-        _call(authModule, 0, data);
+        _initFirstFactor(nameType, name, provider);
     }
 
     /** IExectuable */
 
-    function exec(
-        address dest,
-        uint256 value,
-        bytes calldata func
-    ) external payable override {
-        _validateCaller();
-        _call(dest, value, func);
+    function execute(
+        UserRequest calldata request
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(!_isSecondFactorEnabled(), "must call with context");
+        _call(request);
     }
 
-    function execBatch(
-        address[] calldata dest,
-        uint256[] calldata values,
-        bytes[] calldata func
-    ) external payable override {
-        _validateCaller();
-        require(dest.length == func.length, "wrong array lengths");
-        for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], values[i], func[i]);
+    function executeBatch(
+        UserRequest[] calldata requests
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(!_isSecondFactorEnabled(), "must call with context");
+        for (uint256 i = 0; i < requests.length; i++) {
+            _call(requests[i]);
         }
     }
 
-    function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value : value}(data);
+    function _call(UserRequest calldata request) internal {
+        (bool success, bytes memory returndata) =
+            request.target.call{value : request.value}(request.data);
         if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
+            if (returndata.length > 0) {
+                assembly {
+                    let returndata_size := mload(returndata)
+                    revert(add(32, returndata), returndata_size)
+                }
+            } else {
+                revert("low level call failed");
             }
         }
     }
 
-    /** Paymaster */
+    /** IExectuableWithContext */
 
-    function getDeposit() public view returns (uint256) {
-        return entryPoint().balanceOf(address(this));
+    function executeWithContext(
+        UserRequest calldata request,
+        RequestContext calldata ctx
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        _callWithContext(request, ctx);
     }
 
-    function addDeposit() public payable {
-        entryPoint().depositTo{value : msg.value}(address(this));
+    function executeBatchWithContext(
+        UserRequest[] calldata requests,
+        RequestContext[] calldata ctxes
+    ) onlyEntryPoint onlyValidSigner external payable override {
+        require(requests.length == ctxes.length, "wrong array lengths");
+        for (uint256 i = 0; i < requests.length; i++) {
+            _callWithContext(requests[i], ctxes[i]);
+        }
     }
 
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public {
-        _validateCaller();
-        entryPoint().withdrawTo(withdrawAddress, amount);
+    function _callWithContext(
+        UserRequest calldata request,
+        RequestContext calldata ctx
+    ) internal {
+        bytes32 requestHash = keccak256(
+            abi.encode(block.chainid, address(this), getNonce(), request)
+        );
+        _stepUp(request, requestHash, ctx);
+        _call(request);
     }
 
-    /** ERC4337 BaseAccount */
-
-    function entryPoint() public view override returns(IEntryPoint) {
-        return _entryPoint;
-    }
+    /** ERC4337 Validation */
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256) {
-        address authModule = getModule(AUTH_MODULE);
-        return IAuthModule(authModule).validate(userOpHash, userOp.signature);
-    }
-
-    /** UUPSUpgradeable */
-
-    function implementation() external view returns (address) {
-        return _getImplementation();
-    }
-
-    function _authorizeUpgrade(
-        address /* newImplementation */
-    ) internal view override {
-         _validateCaller();
-    }
-
-    /** ModuleManager */
-
-    function setModule(bytes32 key, address module) external {
-        _validateCaller();
-        _setModule(key, module);
-        emit ModuleSet(key, module);
-    }
-
-    function execModule(bytes32 key, uint256 value, bytes memory data) external {
-        _validateCaller();
-        address module = getModule(key);
-        _call(module, value, data);
-    }
-
-    /** utils */
-
-    function _validateCaller() internal view virtual {
-        require(
-            msg.sender == address(entryPoint()) || msg.sender == address(this),
-            "invalid caller"
-        );
+    internal override virtual returns (uint256 validationData) {
+        validationData = _validateFirstFactor(userOpHash, userOp.signature);
     }
 }

@@ -1,108 +1,25 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
-import { ethers, deployments, getNamedAccounts, run } from "hardhat";
-import { Contract, BigNumberish } from "ethers";
-import { EMAIL_NAME_TYPE, SENDER_NAME_HASH, RECEIVER_NAME_HASH} from "./testers";
-import { UserOperationStruct } from '@account-abstraction/contracts'
-import { resolveProperties } from 'ethers/lib/utils'
-import { genInitCode } from "./hexlink";
+import { ethers, deployments, getNamedAccounts } from "hardhat";
+import { Contract } from "ethers";
+import {
+  EMAIL_NAME_TYPE,
+  SENDER_NAME_HASH,
+  RECEIVER_NAME_HASH,
+  callWithEntryPoint,
+  buildAccountExecData,
+  genInitCode
+} from "./testers";
+import { getHexlink } from "../tasks/utils";
 
-const deploySender = async (hexlink: Contract) : Promise<Contract> => {
-  const accountAddr = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
+  const accountAddr = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   await expect(
     hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
-  ).to.emit(hexlink, "Deployed").withArgs(
+  ).to.emit(hexlink, "AccountDeployed").withArgs(
     EMAIL_NAME_TYPE, SENDER_NAME_HASH, accountAddr
   );
   return await ethers.getContractAt("Account", accountAddr);
-}
-
-export const buildAccountExecData = async (
-  target: string,
-  value?: BigNumberish,
-  data?: string
-) => {
-  const artifact = await hre.artifacts.readArtifact("Account");
-  const iface = new ethers.utils.Interface(artifact.abi);
-  return iface.encodeFunctionData("exec", [target, value ?? 0, data ?? []]);
-}
-
-const getNonce = async (sender: string) => {
-  const account = await ethers.getContractAt("Account", sender);
-  if (await ethers.provider.getCode(sender) === "0x") {
-    return 0;
-  }
-  return account.getNonce();
-}
-
-export const call = async (
-  sender: string,
-  initCode: string | [],
-  callData: string | [],
-  entrypoint: Contract
-) => {
-  const {deployer, validator} = await hre.ethers.getNamedSigners();
-  const fee = await ethers.provider.getFeeData();
-  const userOp: UserOperationStruct = {
-    sender,
-    nonce: await getNonce(sender),
-    initCode,
-    callData,
-    callGasLimit: 500000,
-    verificationGasLimit: 2000000,
-    preVerificationGas: 0,
-    maxFeePerGas: fee.maxFeePerGas?.toNumber() ?? 0,
-    maxPriorityFeePerGas: fee.maxPriorityFeePerGas?.toNumber() ?? 0,
-    paymasterAndData: [],
-    signature: [],
-  };
-  const op = await resolveProperties(userOp);
-  const opHash = ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
-      [
-        'address',
-        'uint256',
-        'bytes32',
-        'bytes32',
-        'uint256',
-        'uint256',
-        'uint256',
-        'uint256',
-        'uint256',
-        'bytes32',
-      ],
-      [
-        op.sender,
-        op.nonce,
-        ethers.utils.keccak256(op.initCode),
-        ethers.utils.keccak256(op.callData),
-        op.callGasLimit,
-        op.verificationGasLimit,
-        op.preVerificationGas,
-        op.maxFeePerGas,
-        op.maxPriorityFeePerGas,
-        ethers.utils.keccak256(op.paymasterAndData)
-      ]
-    )
-  );
-  const chainId = await hre.getChainId();
-  const userOpHash = ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
-      ["bytes32", "address", "uint256"],
-      [opHash, entrypoint.address, chainId]
-    )
-  );
-  const message = ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
-      ["bytes32", "bytes32", "bytes32"],
-      [EMAIL_NAME_TYPE, SENDER_NAME_HASH, userOpHash]
-    )
-  );
-  const signature = await validator.signMessage(
-    ethers.utils.arrayify(message)
-  );
-  const signed = { ...userOp, signature, };
-  await entrypoint.handleOps([signed], deployer.address);
 }
 
 describe("Hexlink Account", function () {
@@ -113,10 +30,12 @@ describe("Hexlink Account", function () {
 
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
-    const hexlinkProxy = await run("deployHexlinkProxy", {});
-    hexlink = await ethers.getContractAt("Hexlink", hexlinkProxy);
-    sender = await hexlink.ownedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
-    receiver = await hexlink.ownedAccount(EMAIL_NAME_TYPE, RECEIVER_NAME_HASH);
+    hexlink = await getHexlink(hre);
+    await hre.run("set_auth_providers", []);
+    await hre.run("upgrade_account", []);
+
+    sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    receiver = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, RECEIVER_NAME_HASH);
     entrypoint = await ethers.getContractAt(
       "EntryPoint",
       (await deployments.get("EntryPoint")).address
@@ -136,7 +55,7 @@ describe("Hexlink Account", function () {
       "AccountV2ForTest",
       {
         from: deployer,
-        args: [await account.entryPoint()]
+        args: [await account.entryPoint(), await account.hexlink()]
       }
     );
 
@@ -156,9 +75,22 @@ describe("Hexlink Account", function () {
       account.upgradeTo(impl2.address)
     ).to.be.reverted;
 
-    const callData = account.interface.encodeFunctionData(
-      "upgradeTo", [impl2.address]);
-    await call(sender, [], callData, entrypoint);
+    const callData = await buildAccountExecData(
+      sender,
+      0,
+      account.interface.encodeFunctionData(
+        "upgradeTo",
+        [impl2.address]
+      )
+    );
+    // cannot upgrade to impl2 since impl2 is not set at hexlink
+    // this will not revert because handleOps will catch the exception
+    await callWithEntryPoint(sender, [], callData, entrypoint)
+    expect(await account.implementation()).to.not.eq(impl2.address);
+
+    // update account implementation and upgrade
+    await hre.run("upgrade_account", {account: impl2.address});
+    await callWithEntryPoint(sender, [], callData, entrypoint)
     expect(await account.implementation()).to.eq(impl2.address);
   });
 
@@ -178,7 +110,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive tokens after account created
     await expect(
@@ -192,7 +124,7 @@ describe("Hexlink Account", function () {
       [receiver, 5000]
     );
     const callData = await buildAccountExecData(token.address, 0, erc20Data);
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await token.balanceOf(sender)).to.eq(5000);
     expect(await token.balanceOf(receiver)).to.eq(5000);
   });
@@ -212,7 +144,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
@@ -228,7 +160,7 @@ describe("Hexlink Account", function () {
     const callData = await buildAccountExecData(
       receiver, ethers.utils.parseEther("0.5")
     );
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
@@ -257,7 +189,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await call(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint);
 
     // receive erc1155 after account created
     await expect(
@@ -274,7 +206,7 @@ describe("Hexlink Account", function () {
       [sender, receiver, 1, 10, []]
     );
     const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
-    await call(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });

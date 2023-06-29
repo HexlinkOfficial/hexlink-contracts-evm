@@ -1,4 +1,4 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, Contract } from "ethers";
 import * as config from '../config.json';
 
@@ -33,16 +33,6 @@ export async function getAdmin(hre: HardhatRuntimeEnvironment) {
   return getDeployedContract(hre, "TimelockController", "HexlinkAdmin");
 }
 
-export async function getHexlink(
-  hre : HardhatRuntimeEnvironment,
-  hexlink?: string
-) : Promise<Contract> {
-  return await hre.ethers.getContractAt(
-      "Hexlink",
-      hexlink || "0x4c552dC72756A690883f9e8955B231c43c4E598e"
-  );
-}
-
 export async function getFactory(hre: HardhatRuntimeEnvironment) {
   const factoryDeployed = await hre.deployments.get("HexlinkContractFactory");
   return await hre.ethers.getContractAt(
@@ -51,32 +41,49 @@ export async function getFactory(hre: HardhatRuntimeEnvironment) {
   );
 }
 
-export const buildAuthProof = async function (
-    hre: HardhatRuntimeEnvironment,
-    name: string,
-    signer?: string,
-    hexlink?: string,
-) {
-    const hexlinkContract = await getHexlink(hre, hexlink);
-    const func = hexlinkContract.interface.getSighash("deploy")
-    const validator = await hre.ethers.getNamedSigner(signer);
-    const requestId = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(
-        ["bytes4", "address", "uint256"],
-        [
-          func,
-          hexlinkContract.address,
-          hre.network.config.chainId,
-        ]
-      )
+export function getBytecode(artifact: Artifact, args: string | []) {
+  return ethers.utils.solidityPack(
+      ["bytes", "bytes"],
+      [artifact.bytecode, args]
+  );
+}
+
+export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
+    let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (hre.network.name === 'hardhat') {
+        const deployed = await hre.deployments.get("EntryPoint");
+        entrypoint = deployed.address;
+    }
+    return hre.ethers.getContractAt("EntryPoint", entrypoint);
+}
+
+export async function getDAuthRegistry(hre: HardhatRuntimeEnvironment) {
+  if (hre.network.name === 'hardhat') {
+      const deployed = await hre.deployments.get("DAuthRegistryTest");
+      return hre.ethers.getContractAt("IValidatorRegistry", deployed.address);
+  } else {
+    throw new Error("not supported");
+  }
+}
+
+export async function getHexlink(hre: HardhatRuntimeEnvironment) {
+    const factory = await getFactory(hre);
+    const bytecode = getBytecode(
+        await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), []
     );
-    const message = ethers.utils.keccak256(
-      ethers.utils.defaultAbiCoder.encode(
-        ["bytes32", "bytes32"],
-        [name, requestId]
-      )
-    );
-    return await validator.signMessage(
-      ethers.utils.arrayify(message)
-    );
-  };
+    const salt = hash("hexlink.HexlinkERC1967Proxy");
+    const hexlink = await factory.getAddress(bytecode, salt);
+    return hre.ethers.getContractAt("Hexlink", hexlink);
+}
+
+export async function searchContract(contract: String, hre : HardhatRuntimeEnvironment) {
+  if (contract === 'AuthModule') {
+      const module = await hre.deployments.get("AuthModule")
+      return module.address;
+  } else if (contract === 'Hexlink') {
+      const hexlink = await getHexlink(hre);
+      return hexlink.address;
+  } else {
+      throw new Error(`contract ${contract} not found`)
+  }
+}

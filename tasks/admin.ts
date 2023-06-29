@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import { hash, getHexlink, getAdmin } from "./utils";
+import { hash, getHexlink, getAdmin, searchContract } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -25,8 +25,8 @@ const processArgs = async function(
 }
 
 task("admin_check", "check if has role")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre, undefined);
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
+        const admin = await getAdmin(hre);
         const minDelay = await admin.getMinDelay();
         console.log("admin is " + admin.address + ", with min delay as " + minDelay);
 
@@ -66,9 +66,8 @@ task("admin_schedule", "schedule a tx")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
-    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre, args.admin);
+        const admin = await getAdmin(hre);
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
         await admin.connect(deployer).schedule(...processed);
@@ -80,9 +79,8 @@ task("admin_exec", "execute a tx")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
-    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre, args.admin);
+        const admin = await getAdmin(hre);
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
         processed.pop();
@@ -96,9 +94,8 @@ task("admin_schedule_and_exec", "schedule and execute")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
-    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre, args.admin);
+        const admin = await getAdmin(hre);
         console.log("scheduling...");
         await hre.run("admin_schedule", args);
         const delay = Number(args.dealy) || (await admin.getMinDelay()).toNumber();
@@ -121,9 +118,8 @@ task("admin_schedule_or_exec", "schedule and execute")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
-    .addOptionalParam("admin")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre, args.admin);
+        const admin = await getAdmin(hre);
         const processed = await processArgs(admin, args);
         processed.pop();
         const operationId = ethers.utils.keccak256(
@@ -156,7 +152,7 @@ task("register_validator", "register validator at oracle contract")
         const data = registry.interface.encodeFunctionData(
             "registerValidator",
             [ethers.utils.getAddress(args.validator), args.registered]
-        )
+        );
         const registered = await registry.isRegistered(args.validator);
         if (registered) {
             console.log("Already registered, skipping ");
@@ -170,17 +166,25 @@ task("register_validator", "register validator at oracle contract")
         }
     });
 
-task("set_registry", "set name registry")
-    .addParam("schema")
-    .addFlag("nowait")
-    .addOptionalParam("domain")
+task("set_auth_providers")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = await getHexlink(hre);
-        const registry = await hre.deployments.get("IdentityOracleRegistry");
-        const domain = args.domain ? hash(args.domain) : ethers.constants.HashZero;
+        // set auth providers if not set
+        let hexlink = await getHexlink(hre);
+        const dAuthProvider = await hre.deployments.get("DAuthAuthProvider");
+        const AUTH_PROVIDERS = [
+            [hash("mailto"), dAuthProvider.address],
+            [hash("tel"), dAuthProvider.address],
+        ];
+        let providers = [];
+        for (let i = 0; i < AUTH_PROVIDERS.length; i++) {
+            const provider = await hexlink.getAuthProvider(AUTH_PROVIDERS[i][0]);
+            if (provider !== AUTH_PROVIDERS[i][1]) {
+                providers.push(AUTH_PROVIDERS[i]);
+            }
+        }
         const data = hexlink.interface.encodeFunctionData(
-            "setRegistry",
-            [hash(args.schema), domain, registry.address]
+            "setAuthProviders",
+            [providers.map(p => p[0]), providers.map(p => p[1])],
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
@@ -189,26 +193,77 @@ task("set_registry", "set name registry")
         }
     });
 
-task("add_stake")
-    .addFlag("nowait")
+task("upgrade_account")
+    .addOptionalParam("account", "the account implementation")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = await getHexlink(hre);
-        const entrypoint = await hre.ethers.getContractAt(
-            "EntryPoint",
-            "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
-        );
+        // set auth providers if not set
+        let hexlink = await getHexlink(hre);
+        const existing = await hexlink.getAccountImplementation();
+        const latest = args.account || (await hre.deployments.get("Account")).address;
+        if (existing == latest) {
+            console.log("no need to upgrade account");
+            return;
+        }
         const data = hexlink.interface.encodeFunctionData(
-            'exec', [
-                entrypoint.address,
-                ethers.utils.parseEther("0.05"),
-                entrypoint.interface.encodeFunctionData("addStake", [86400])
-            ]
-        )
-        console.log("Add stake 0.05 ETH to " + entrypoint.address);
+            "setAccountImplementation",
+            [latest],
+        );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {
             await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+        }
+    });
+
+task("address_of")
+    .addParam("contract", "which contract to stake")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const contract = await searchContract(args.contract, hre);
+        console.log(contract);
+        return contract;
+    });
+
+task("check_deposit")
+    .addParam("contract", "which contract to stake")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const contract = await searchContract(args.contract, hre);
+        const entrypoint = await hre.ethers.getContractAt(
+            "EntryPoint",
+            "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+        );
+        const info = await entrypoint.getDepositInfo(contract);
+        console.log({
+            deposit: ethers.utils.formatEther(info.deposit),
+            stake: ethers.utils.formatEther(info.stake),
+            unstakeDelaySec: info.unstakeDelaySec,
+            withdrawTime: new Date(info.withdrawTime).toISOString(),
+        });
+        return info;
+    });
+
+task("add_stake")
+    .addParam("contract", "which contract to stake")
+    .addFlag("nowait")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const contract = await searchContract(args.contract, hre);
+        const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
+        const iface = new ethers.utils.Interface(artifact.abi);
+        const entrypoint = await hre.ethers.getContractAt(
+            "EntryPoint",
+            "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
+        );
+        const data = iface.encodeFunctionData(
+            'addStake', [
+                entrypoint.address,
+                ethers.utils.parseEther("0.05"),
+                86400
+            ]
+        )
+        console.log("Add stake 0.05 ETH to " + entrypoint.address);
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: contract, data });
+        } else {
+            await hre.run("admin_schedule_and_exec", { target: contract, data });
         }
     });
 
@@ -216,7 +271,6 @@ task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
-
         const proxy = await hre.ethers.getContractAt(
             "HexlinkERC1967Proxy",
             hexlink.address

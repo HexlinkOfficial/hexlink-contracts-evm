@@ -7,14 +7,12 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IExecutable.sol";
-import "../interfaces/IExecutableWithContext.sol";
 import "./base/ERC4337Account.sol";
 import "./AuthPolicyManager.sol";
 
 contract Account is
     Initializable,
     IExecutable,
-    IExecutableWithContext,
     ERC4337Account,
     AuthPolicyManager
 {
@@ -28,9 +26,10 @@ contract Account is
     function initialize(
         bytes32 nameType,
         bytes32 name,
-        AuthProvider memory provider
+        address provider
     ) public initializer {
-        _initFirstFactor(nameType, name, provider);
+         _setName(nameType, name);
+        _initFirstFactor(provider);
     }
 
     /** IExectuable */
@@ -66,40 +65,10 @@ contract Account is
         }
     }
 
-    /** IExectuableWithContext */
-
-    function executeWithContext(
-        UserRequest calldata request,
-        RequestContext calldata ctx
-    ) onlyEntryPoint onlyValidSigner external payable override {
-        _callWithContext(request, ctx);
-    }
-
-    function executeBatchWithContext(
-        UserRequest[] calldata requests,
-        RequestContext[] calldata ctxes
-    ) onlyEntryPoint onlyValidSigner external payable override {
-        require(requests.length == ctxes.length, "wrong array lengths");
-        for (uint256 i = 0; i < requests.length; i++) {
-            _callWithContext(requests[i], ctxes[i]);
-        }
-    }
-
-    function _callWithContext(
-        UserRequest calldata request,
-        RequestContext calldata ctx
-    ) internal {
-        bytes32 requestHash = keccak256(
-            abi.encode(block.chainid, address(this), getNonce(), request)
-        );
-        _stepUp(request, requestHash, ctx);
-        _call(request);
-    }
-
     /** ERC4337 Validation */
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 validationData) {
-        validationData = _validateFirstFactor(userOpHash, userOp.signature);
+        validationData = _validateAuthFactors(userOpHash, userOp.signature);
     }
 }

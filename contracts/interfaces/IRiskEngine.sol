@@ -7,7 +7,6 @@ import "./structs.sol";
 
 interface IRiskEngine {
     function assess(
-        UserRequest calldata request,
         bytes32 requestHash,
         RiskAssertion calldata assertion
     ) external returns(bool);

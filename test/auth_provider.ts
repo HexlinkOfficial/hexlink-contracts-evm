@@ -16,39 +16,6 @@ describe("AuthProviderTest", function() {
     sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   });
 
-  it("test encode and decode", async function() {
-    const {deployer} = await hre.ethers.getNamedSigners();
-    const deployed = await hre.deployments.deploy("AuthProviderTest", {
-      from: deployer.address,
-      args: [],
-      log: true,
-      autoMine: true,
-    });
-    const tester = await hre.ethers.getContractAt(
-      "AuthProviderTest",
-      deployed.address
-    );
-
-    // IAuthProvider
-    const dAuth = await hre.deployments.get("DAuthAuthProvider");
-    const encoded1 = await tester.testEncode({
-      provider: dAuth.address,
-      providerType: 0,
-    });
-    const decode1 = await tester.testDecode(encoded1);
-    expect(decode1.provider).to.eq(dAuth.address);
-    expect(decode1.providerType).to.eq(0);
-  
-    // EOA
-    const encoded2 = await tester.testEncode({
-      provider: deployer.address,
-      providerType: 1,
-    });
-    const decode2 = await tester.testDecode(encoded2);
-    expect(decode2.provider).to.eq(deployer.address);
-    expect(decode2.providerType).to.eq(1);
-  });
-
   it("test dauth auth provider", async function() {
     const {deployer, validator} = await hre.getNamedAccounts();
     const provider = await getDeployedContract(hre, 'DAuthAuthProvider');

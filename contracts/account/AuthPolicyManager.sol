@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.12;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./AuthFactorManager.sol";
 import "../interfaces/IRiskEngine.sol";
 
@@ -22,22 +23,39 @@ library AuthPolicyStorage {
 }
 
 abstract contract AuthPolicyManager is AuthFactorManager {
+    using ECDSA for bytes32;
+
     function getRiskEngine() public view returns (address) {
         return AuthPolicyStorage.layout().riskEngine;
     }
 
-    function _stepUp(
-        UserRequest memory request,
-        bytes32 requestHash,
-        RequestContext calldata ctx
-    ) internal {
-        require(_isSecondFactorEnabled(), "no step up enabled");
-        address engine = AuthPolicyStorage.layout().riskEngine;
-        if (
-            engine == address(0) ||
-            IRiskEngine(engine).assess(request, requestHash, ctx.risk)
-        ) {
-            _validateSecondFactor(requestHash, ctx.auth);
+    function _validateAuthFactors(
+        bytes32 userOpHash,
+        bytes calldata signature
+    ) internal returns (uint256 result) {
+        bytes32 message = userOpHash.toEthSignedMessageHash();
+        if (_isSecondFactorEnabled()) {
+            (
+                AuthInput memory first,
+                AuthInput memory second,
+                RiskAssertion memory risk
+            ) = abi.decode(signature, (AuthInput, AuthInput, RiskAssertion));
+            result = _validateFirstFactor(message, first);
+            if (result == 0 && _requireStepUp(message, risk)) {
+                result = _validateSecondFactor(message, second);
+            }
+        } else {
+            (AuthInput memory input) = abi.decode(signature, (AuthInput));
+            result = _validateFirstFactor(message, input);
         }
+    }
+
+    function _requireStepUp(
+        bytes32 message,
+        RiskAssertion memory risk
+    ) internal returns (bool) {
+        address engine = AuthPolicyStorage.layout().riskEngine;
+        return
+            engine == address(0) || IRiskEngine(engine).assess(message, risk);
     }
 }

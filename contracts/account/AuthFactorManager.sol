@@ -70,6 +70,7 @@ abstract contract AuthFactorManager is ERC4972Account {
     }
 
     function updateAuthFactor(uint256 index, address provider, address validator) external onlySelf {
+        require(validator != address(0), "invalid validator");
         AuthFactorStorage.layout().factors[index].provider = provider;
         AuthFactorStorage.layout().factors[index].validator = validator;
         if (provider != address(0)) {
@@ -115,7 +116,6 @@ abstract contract AuthFactorManager is ERC4972Account {
     }
 
     function _isSecondFactorEnabled() internal view returns(bool) {
-        AuthFactor memory second = AuthFactorStorage.layout().factors[1];
-        return second.provider == address(0) && second.validator == address(0);
+        return AuthFactorStorage.layout().factors[1].validator != address(0);
     }
 }

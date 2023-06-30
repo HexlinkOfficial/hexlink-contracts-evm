@@ -37,14 +37,12 @@ contract Account is
     function execute(
         UserRequest calldata request
     ) onlyEntryPoint onlyValidSigner external payable override {
-        require(!_isSecondFactorEnabled(), "must call with context");
         _call(request);
     }
 
     function executeBatch(
         UserRequest[] calldata requests
     ) onlyEntryPoint onlyValidSigner external payable override {
-        require(!_isSecondFactorEnabled(), "must call with context");
         for (uint256 i = 0; i < requests.length; i++) {
             _call(requests[i]);
         }

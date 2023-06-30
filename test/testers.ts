@@ -106,8 +106,8 @@ export const callWithEntryPoint = async (
       ethers.utils.arrayify(userOpHash)
     );
     const authInput = ethers.utils.defaultAbiCoder.encode(
-      ["address", "bytes"],
-      [validator.address, signature]
+      ["tuple(address, bytes)"],
+      [[validator.address, signature]]
     );
     const signed = { ...userOp, signature: authInput, };
     await entrypoint.handleOps([signed], deployer.address);
@@ -125,8 +125,8 @@ export const callEntryPointWithTester = async (
     ethers.utils.arrayify(userOpHash)
   );
   const authInput = ethers.utils.defaultAbiCoder.encode(
-    ["address", "bytes"],
-    [tester.address, signature]
+    ["tuple(address, bytes)"],
+    [[tester.address, signature]]
   );
   const signed = { ...userOp, signature: authInput, };
   await entrypoint.handleOps([signed], deployer.address);

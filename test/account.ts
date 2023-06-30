@@ -11,7 +11,7 @@ import {
   buildAccountExecData,
   genInitCode
 } from "./testers";
-import { getHexlink, getDeployedContract } from "../tasks/utils";
+import { getHexlink, getDeployedContract, getEntryPoint } from "../tasks/utils";
 
 export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
   const accountAddr = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
@@ -86,7 +86,9 @@ describe("Hexlink Account", function () {
     );
     // cannot upgrade to impl2 since impl2 is not set at hexlink
     // this will not revert because handleOps will catch the exception
+    console.log("111");
     await callWithEntryPoint(sender, [], callData, entrypoint)
+    console.log("222");
     expect(await account.implementation()).to.not.eq(impl2.address);
 
     // update account implementation and upgrade
@@ -221,9 +223,9 @@ describe("Hexlink Account", function () {
 
     // get first factor and check
     const account = await ethers.getContractAt("Account", sender);
-    const provider = await account.connect(deployer).getFirstFactor();
+    const factors = await account.getAuthFactors();
     const dAuthProvider = await deployments.get("DAuthAuthProvider");
-    expect(provider.provider).to.eq(dAuthProvider.address);
+    expect(factors[0].provider).to.eq(dAuthProvider.address);
 
     // receive tokens after account created
     const token = await ethers.getContractAt(

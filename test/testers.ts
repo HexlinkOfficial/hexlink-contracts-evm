@@ -1,7 +1,7 @@
 import * as hre from "hardhat";
 import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
-import { Contract, BigNumberish, Signer } from "ethers";
+import { Contract, BigNumberish } from "ethers";
 import { UserOperationStruct } from '@account-abstraction/contracts'
 import { resolveProperties } from 'ethers/lib/utils'
 

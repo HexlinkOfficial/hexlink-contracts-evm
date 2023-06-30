@@ -219,6 +219,12 @@ describe("Hexlink Account", function () {
     const initCode = await genInitCode(hexlink);
     await callEntryPointWithTester(sender, initCode, [], entrypoint);
 
+    // get first factor and check
+    const account = await ethers.getContractAt("Account", sender);
+    const provider = await account.connect(deployer).getFirstFactor();
+    const dAuthProvider = await deployments.get("DAuthAuthProvider");
+    expect(provider.provider).to.eq(dAuthProvider.address);
+
     // receive tokens after account created
     const token = await ethers.getContractAt(
       "HexlinkToken",

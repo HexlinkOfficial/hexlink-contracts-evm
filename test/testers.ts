@@ -94,6 +94,10 @@ const genUserOp = async (
   return [userOp, userOpHash];
 }
 
+function now() {
+  return Math.floor(Date.now() / 1000);
+}
+
 export const callWithEntryPoint = async (
     sender: string,
     initCode: string | [],
@@ -106,8 +110,8 @@ export const callWithEntryPoint = async (
       ethers.utils.arrayify(userOpHash)
     );
     const authInput = ethers.utils.defaultAbiCoder.encode(
-      ["tuple(address, bytes)"],
-      [[validator.address, signature]]
+      ["tuple(address, address, uint48, uint48, bytes)"],
+      [[validator.address, ethers.constants.AddressZero, now() + 3600, now(), signature]]
     );
     const signed = { ...userOp, signature: authInput, };
     await entrypoint.handleOps([signed], deployer.address);
@@ -125,8 +129,8 @@ export const callEntryPointWithTester = async (
     ethers.utils.arrayify(userOpHash)
   );
   const authInput = ethers.utils.defaultAbiCoder.encode(
-    ["tuple(address, bytes)"],
-    [[tester.address, signature]]
+    ["tuple(address, address, uint48, uint48, bytes)"],
+    [[tester.address, ethers.constants.AddressZero, now() + 3600, now(), signature]]
   );
   const signed = { ...userOp, signature: authInput, };
   await entrypoint.handleOps([signed], deployer.address);

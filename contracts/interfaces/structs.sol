@@ -10,13 +10,9 @@ struct AuthFactor {
 
 struct AuthInput {
     address signer;
-    bytes signature;
-}
-
-struct RiskAssertion {
-    uint256 score;
-    uint256 validUtil;
-    address signer;
+    address aggregator;
+    uint48 validUntil;
+    uint48 validAfter;
     bytes signature;
 }
 

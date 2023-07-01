@@ -8,13 +8,13 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IExecutable.sol";
 import "./base/ERC4337Account.sol";
-import "./AuthPolicyManager.sol";
+import "./AuthFactorManager.sol";
 
 contract Account is
     Initializable,
     IExecutable,
     ERC4337Account,
-    AuthPolicyManager
+    AuthFactorManager
 {
     using Address for address;
 
@@ -66,7 +66,7 @@ contract Account is
     /** ERC4337 Validation */
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
-        validationData = _validateAuthFactors(userOpHash, userOp.signature);
+    internal override virtual returns (uint256) {
+        return _validateAuthFactors(userOpHash, userOp.signature);
     }
 }

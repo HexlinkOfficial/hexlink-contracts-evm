@@ -60,12 +60,8 @@ contract Hexlink is
 
     function getAuthProvider(
         bytes32 nameType
-    ) public view override returns(AuthProvider memory) {
-        address provider = HexlinkStorage.layout().providers[nameType];
-        if (provider == address(0)) {
-            return AuthProvider(provider, 0);
-        }
-        return AuthProvider(provider, 0);
+    ) public view override returns(address) {
+        return HexlinkStorage.layout().providers[nameType];
     }
 
     function setAccountImplementation(address impl) external onlyOwner {
@@ -98,8 +94,8 @@ contract Hexlink is
             address(this),
             _nameHash(nameType, name)
         );
-        AuthProvider memory provider = getAuthProvider(nameType);
-        require(provider.provider != address(0), "unsupported name type");
+        address provider = getAuthProvider(nameType);
+        require(provider != address(0), "unsupported name type");
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector, nameType, name, provider
         );

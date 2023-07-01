@@ -3,32 +3,17 @@
 
 pragma solidity ^0.8.12;
 
-struct AuthProvider {
-    address provider;
-    uint8 providerType;
-}
-
-struct AuthValidator {
-    address signer;
-    bool isCurrent;
-}
-
 struct AuthFactor {
-    AuthProvider provider;
-    address signer;
-    bytes signature;
+    address provider;
+    address validator;
 }
 
-struct RiskAssertion {
-    uint256 score;
-    uint256 validUtil;
+struct AuthInput {
     address signer;
+    address aggregator;
+    uint48 validUntil;
+    uint48 validAfter;
     bytes signature;
-}
-
-struct RequestContext {
-    AuthFactor auth;
-    RiskAssertion risk;
 }
 
 struct UserRequest {

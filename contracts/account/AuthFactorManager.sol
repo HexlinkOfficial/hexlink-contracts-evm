@@ -46,15 +46,14 @@ abstract contract AuthFactorManager is ERC4972Account {
     }
 
     function _revalidateFactor(uint256 index) internal returns(bool) {
-        AuthFactor memory factor = AuthFactorStorage.layout().factors[index];
-        if (factor.provider == address(0)) {
+        AuthFactor storage factor = AuthFactorStorage.layout().factors[index];
+        address provider = factor.provider;
+        if (provider == address(0)) {
             return true;
         }
-        address validator = IAuthProvider(
-            factor.provider
-        ).getValidator(address(this));
+        address validator = IAuthProvider(provider).getValidator(address(this));
         if (factor.validator != validator) {
-            AuthFactorStorage.layout().factors[index].validator = validator;
+            factor.validator = validator;
             return false;
         } else if (index == 0 && AuthFactorStorage.layout().initiated) {
             AuthFactorStorage.layout().initiated = false;
@@ -72,8 +71,12 @@ abstract contract AuthFactorManager is ERC4972Account {
         return AuthFactorStorage.layout().factors;
     }
 
+    function isSecondFactorEnabled() public view returns(bool) {
+        return AuthFactorStorage.layout().factors[1].validator != address(0);
+    }
+
     function updateAuthFactor(uint256 index, address provider, address validator) external onlySelf {
-        require(validator != address(0), "invalid validator");
+        require(index < 2 && validator != address(0), "invalid input");
         AuthFactorStorage.layout().factors[index].provider = provider;
         AuthFactorStorage.layout().factors[index].validator = validator;
         if (provider != address(0)) {
@@ -95,7 +98,7 @@ abstract contract AuthFactorManager is ERC4972Account {
         bytes32 userOpHash,
         bytes memory signature
     ) internal returns(uint256 validationData) {
-        if (_isSecondFactorEnabled()) {
+        if (isSecondFactorEnabled()) {
             (
                 AuthInput memory first,
                 AuthInput memory second
@@ -132,18 +135,5 @@ abstract contract AuthFactorManager is ERC4972Account {
             input.signature
         ) && input.signer == factor.validator;
         return input.validationData | (sigValid ? 0 : 1);
-
-    }
-
-    function _isSecondFactorEnabled() internal view returns(bool) {
-        return AuthFactorStorage.layout().factors[1].validator != address(0);
-    }
-
-    function max(uint48 a, uint48 b) private pure returns (uint48) {
-        return a > b ? a : b;
-    }
-
-    function min(uint48 a, uint48 b) private pure returns (uint48) {
-        return a < b ? a : b;
     }
 }

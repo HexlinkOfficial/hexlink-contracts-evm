@@ -1,9 +1,9 @@
 import * as hre from "hardhat";
 import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
-import { Contract, BigNumberish } from "ethers";
+import { Contract, BigNumberish, BigNumber } from "ethers";
 import { UserOperationStruct } from '@account-abstraction/contracts'
-import { resolveProperties } from 'ethers/lib/utils'
+import { keccak256, resolveProperties } from 'ethers/lib/utils'
 
 export const TEL_NAME_TYPE = hash("tel");
 export const EMAIL_NAME_TYPE = hash("mailto");
@@ -94,8 +94,11 @@ const genUserOp = async (
   return [userOp, userOpHash];
 }
 
-function now() {
-  return Math.floor(Date.now() / 1000);
+function genValidationData() {
+  const now = Math.floor(Date.now() / 1000);
+  return BigNumber.from(now + 3600).shl(160).add(
+      BigNumber.from(now).shl(208)
+  );
 }
 
 export const callWithEntryPoint = async (
@@ -106,12 +109,16 @@ export const callWithEntryPoint = async (
 ) => {
     const {deployer, validator} = await hre.ethers.getNamedSigners();
     const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
+    const validation = genValidationData();
+    const message = keccak256(ethers.utils.defaultAbiCoder.encode(
+      ["uint256", "bytes32"], [validation, userOpHash]
+    ));
     const signature = await validator.signMessage(
-      ethers.utils.arrayify(userOpHash)
+      ethers.utils.arrayify(message)
     );
     const authInput = ethers.utils.defaultAbiCoder.encode(
-      ["tuple(address, address, uint48, uint48, bytes)"],
-      [[validator.address, ethers.constants.AddressZero, now() + 3600, now(), signature]]
+      ["tuple(uint256, address, bytes)"],
+      [[validation, validator.address, signature]]
     );
     const signed = { ...userOp, signature: authInput, };
     await entrypoint.handleOps([signed], deployer.address);
@@ -125,12 +132,16 @@ export const callEntryPointWithTester = async (
 ) => {
   const {deployer, tester} = await hre.ethers.getNamedSigners();
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
+  const validation = genValidationData();
+  const message = keccak256(ethers.utils.defaultAbiCoder.encode(
+    ["uint256", "bytes32"], [validation, userOpHash]
+  ));
   const signature = await tester.signMessage(
-    ethers.utils.arrayify(userOpHash)
+    ethers.utils.arrayify(message)
   );
   const authInput = ethers.utils.defaultAbiCoder.encode(
-    ["tuple(address, address, uint48, uint48, bytes)"],
-    [[tester.address, ethers.constants.AddressZero, now() + 3600, now(), signature]]
+    ["tuple(uint256, address, bytes)"],
+    [[validation, tester.address, signature]]
   );
   const signed = { ...userOp, signature: authInput, };
   await entrypoint.handleOps([signed], deployer.address);
@@ -142,22 +153,4 @@ export const getNonce = async (sender: string) => {
       return 0;
     }
     return account.getNonce();
-}
-
-async function buildAuthInput(factor: any, signer: string, signature: string) {
-  const encoded = ethers.utils.defaultAbiCoder.encode(
-    ['tuple(tuple(bytes32, bytes32, tuple(address, uint8)), address, bytes)'],
-    [
-      [
-        [
-          factor.nameType,
-          factor.name,
-          [factor.provider.provider, factor.provider.providerType],
-        ],
-        signer,
-        signature
-      ]
-    ]
-  );
-  return encoded;
 }

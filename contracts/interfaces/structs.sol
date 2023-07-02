@@ -9,10 +9,8 @@ struct AuthFactor {
 }
 
 struct AuthInput {
+    uint256 validationData;
     address signer;
-    address aggregator;
-    uint48 validUntil;
-    uint48 validAfter;
     bytes signature;
 }
 

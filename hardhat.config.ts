@@ -59,6 +59,11 @@ const config: HardhatUserConfig = {
       url: process.env.HARDHAT_GOERLI_URL || "",
       accounts,
     },
+    sepolia: {
+      chainId: 11155111,
+      url: `https://sepolia.infura.io/v3/${process.env.VITE_INFURA_API_KEY}`,
+      accounts,
+    },
     mumbai: {
       chainId: 80001,
       url: process.env.HARDHAT_MUMBAI_URL || "",
@@ -123,6 +128,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://api-testnet.polygonscan.com/api",
           browserURL: "https://mumbai.polygonscan.com/"
+        }
+      },
+      {
+        network: "sepolia",
+        chainId: 11155111,
+        urls: {
+          apiURL: "https://api-sepolia.etherscan.io/api",
+          browserURL: "https://sepolia.etherscan.io"
         }
       }
     ]

@@ -9,10 +9,6 @@
         "timelock": {
             "minDelay": 60
         },
-        "oracles": {
-            "EMAIL_OTP": "0xF514Ae7306652DcCb3B215AcE1396aaee2B3C204",
-            "TWITTER_OAUTH": "0x8dd83bfB002baD8589a7C4dcDA40cd5E6430e533"
-        },
         "gasTokens": [
             {
                 "address": "0x2f3a40a3db8a7e3d09b0adfefbce4f6f81927557",
@@ -33,6 +29,26 @@
                 "address": "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6",
                 "decimals": 18,
                 "price": "1000000000000000000"
+            }
+        ]
+    },
+    "sepolia": {
+        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "timelock": {
+            "minDelay": 60
+        },
+        "gasTokens": [
+            {
+                "address": "0x6f14c02fc1f78322cfd7d707ab90f18bad3b54f5",
+                "decimals": 18,
+                "price": "1000000000000000000",
+                "symbol": "USDC"
+            },
+            {
+                "symbol": "WETH",
+                "address": "0xed43f81c17976372fcb5786dd214572e7dbb92c7",
+                "decimals": 18,
+                "price": "1500000000000000000000"
             }
         ]
     },

@@ -167,6 +167,7 @@ task("register_validator", "register validator at oracle contract")
     });
 
 task("set_auth_providers")
+    .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         // set auth providers if not set
         let hexlink = await getHexlink(hre);
@@ -194,6 +195,7 @@ task("set_auth_providers")
     });
 
 task("upgrade_account")
+    .addFlag("nowait")
     .addOptionalParam("account", "the account implementation")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         // set auth providers if not set

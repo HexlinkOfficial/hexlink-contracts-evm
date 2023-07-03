@@ -111,6 +111,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       goerli: process.env.ETHERSCAN_API_KEY!,
+      sepolia: process.env.ETHERSCAN_API_KEY!,
       mumbai: process.env.POLYSCAN_API_KEY!,
     },
     customChains: [

@@ -1,0 +1,89 @@
+{
+  "address": "0x1E1f091104D219b9a4aDE52AC1A8B28ec3DE7Ce5",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "validator",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "getValidator",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x6d66c8b21ae460d9c294c2d938e08aac73852798a18f7ee43f35e99920aa116f",
+  "receipt": {
+    "to": null,
+    "from": "0xa4b368e3a9D49Ff15b58f70Fb976724A98B6D149",
+    "contractAddress": "0x1E1f091104D219b9a4aDE52AC1A8B28ec3DE7Ce5",
+    "transactionIndex": 3,
+    "gasUsed": "97558",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000008001000000000000000000000000000000000000000002000000000000800000000000000000000100000000000000000000000020000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000001000000000000000000000800000000000004000000000000000000001000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000100000",
+    "blockHash": "0x10aed5a70c0cee42eb56a507b75a5a43f20be13f14595cb3fb6804450b1bf76b",
+    "transactionHash": "0x6d66c8b21ae460d9c294c2d938e08aac73852798a18f7ee43f35e99920aa116f",
+    "logs": [
+      {
+        "transactionIndex": 3,
+        "blockNumber": 37495664,
+        "transactionHash": "0x6d66c8b21ae460d9c294c2d938e08aac73852798a18f7ee43f35e99920aa116f",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x000000000000000000000000a4b368e3a9d49ff15b58f70fb976724a98b6d149",
+          "0x00000000000000000000000001a8277d4327e1f71dbc94a0f96c439240c9a712"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000a7057d0b41b6c0000000000000000000000000000000000000000000000000d5a03bbd106eb0e00000000000000000000000000000000000000000000004e803cc22d954a28ff0000000000000000000000000000000000000000000000000d4f93640052cfa200000000000000000000000000000000000000000000004e8047328565fe446b",
+        "logIndex": 13,
+        "blockHash": "0x10aed5a70c0cee42eb56a507b75a5a43f20be13f14595cb3fb6804450b1bf76b"
+      }
+    ],
+    "blockNumber": 37495664,
+    "cumulativeGasUsed": "665342",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "1720bbbeba8381ff9dafa47136344a03",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.12+commit.f00d7308\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"getValidator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/account/auth/provider/SimpleAuthProvider.sol\":\"SimpleAuthProvider\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":1},\"remappings\":[],\"viaIR\":true},\"sources\":{\"contracts/account/auth/provider/SimpleAuthProvider.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// Hexlink Contracts\\n\\npragma solidity ^0.8.12;\\n\\nimport \\\"../../../interfaces/IAuthProvider.sol\\\";\\n\\ncontract SimpleAuthProvider is IAuthProvider {\\n    address immutable private _validator;\\n\\n    constructor(address validator) {\\n       _validator = validator;\\n    }\\n\\n    function getValidator(\\n        address /* account */\\n    ) external view override returns(address) {\\n        return _validator;\\n    }\\n}\",\"keccak256\":\"0x075c8b76d6a46facdd94a53a17add16fc52fc0d99552a5ccf510a52610b0e12f\",\"license\":\"MIT\"},\"contracts/interfaces/IAuthProvider.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// Hexlink Contracts\\n\\npragma solidity ^0.8.12;\\n\\ninterface IValidatorRegistry {\\n    function isValidatorRegistered(address validator) external view returns(bool);\\n}\\n\\ninterface IAuthProvider {\\n    function getValidator(address account) external view returns(address);\\n}\\n\",\"keccak256\":\"0x249620449a90e168e6120503400b0a4ec5712f3bb0919321c621d20aabf909fe\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60a0806040523461006d57601f61015138819003918201601f19168301916001600160401b038311848410176100735780849260209460405283398101031261006d57516001600160a01b03811681141561006d5760805260405160c3908161008e82396080518160520152f35b50600080fd5b50505050634e487b7160e01b600052604160045260246000fdfe60808060405260043610156014575b50600080fd5b600090813560e01c631904bb2e14602a5750600e565b34607b576020366003190112607b576001600160a01b036004358181161415607657602092507f0000000000000000000000000000000000000000000000000000000000000000168152f35b505080fd5b5080fdfea36469706673582212202decea073a9755214463b73e387a41eef3fa85bca144bea6025d03061e3c5a416c6578706572696d656e74616cf564736f6c634300080c0041",
+  "deployedBytecode": "0x60808060405260043610156014575b50600080fd5b600090813560e01c631904bb2e14602a5750600e565b34607b576020366003190112607b576001600160a01b036004358181161415607657602092507f0000000000000000000000000000000000000000000000000000000000000000168152f35b505080fd5b5080fdfea36469706673582212202decea073a9755214463b73e387a41eef3fa85bca144bea6025d03061e3c5a416c6578706572696d656e74616cf564736f6c634300080c0041",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

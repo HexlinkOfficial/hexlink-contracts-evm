@@ -14,25 +14,13 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
     const {deployer} = await getNamedAccounts();
 
-    // deploy registry
-    const validator = await getValidator(hre);
-    if (hre.network.name === 'hardhat') {
-        await hre.deployments.deploy(
-            "DAuthRegistryTest", {
-                from: deployer,
-                args: [[validator, deployer]],
-                log: true,
-            }
-        );
-    }
-
     // deploy contract factory
-    const dAuth = await getDAuthRegistry(hre);
+    const validator = await getValidator(hre);
     await deployments.deploy(
-        "DAuthAuthProvider",
+        "SimpleAuthProvider",
         {
             from: deployer,
-            args: [deployer, validator, dAuth.address],
+            args: [validator],
             log: true,
             autoMine: true
         }

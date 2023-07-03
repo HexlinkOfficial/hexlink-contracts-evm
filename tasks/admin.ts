@@ -170,10 +170,10 @@ task("set_auth_providers")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         // set auth providers if not set
         let hexlink = await getHexlink(hre);
-        const dAuthProvider = await hre.deployments.get("DAuthAuthProvider");
+        const authProvider = await hre.deployments.get("SimpleAuthProvider");
         const AUTH_PROVIDERS = [
-            [hash("mailto"), dAuthProvider.address],
-            [hash("tel"), dAuthProvider.address],
+            [hash("mailto"), authProvider.address],
+            [hash("tel"), authProvider.address],
         ];
         let providers = [];
         for (let i = 0; i < AUTH_PROVIDERS.length; i++) {

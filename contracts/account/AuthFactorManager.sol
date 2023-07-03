@@ -130,8 +130,9 @@ abstract contract AuthFactorManager is ERC4972Account {
             factor.validator = input.signer;
         }
         bytes32 message = keccak256(abi.encode(input.validationData, userOpHash));
+        bytes32 toSign = keccak256(abi.encode(getNameType(), getName(), message));
         bool sigValid = input.signer.isValidSignatureNow(
-            message.toEthSignedMessageHash(),
+            toSign.toEthSignedMessageHash(),
             input.signature
         ) && input.signer == factor.validator;
         return input.validationData | (sigValid ? 0 : 1);

@@ -111,10 +111,15 @@ export const callWithEntryPoint = async (
     const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
     const validation = genValidationData();
     const message = keccak256(ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "bytes32"], [validation, userOpHash]
+      ["uint256", "bytes32"],
+      [validation, userOpHash]
+    ));
+    const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "bytes32", "bytes32"],
+      [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
     ));
     const signature = await validator.signMessage(
-      ethers.utils.arrayify(message)
+      ethers.utils.arrayify(toSign)
     );
     const authInput = ethers.utils.defaultAbiCoder.encode(
       ["tuple(uint256, address, bytes)"],
@@ -134,10 +139,15 @@ export const callEntryPointWithTester = async (
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
   const message = keccak256(ethers.utils.defaultAbiCoder.encode(
-    ["uint256", "bytes32"], [validation, userOpHash]
+    ["uint256", "bytes32"],
+    [validation, userOpHash]
+  ));
+  const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
+    ["bytes32", "bytes32", "bytes32"],
+    [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
   ));
   const signature = await tester.signMessage(
-    ethers.utils.arrayify(message)
+    ethers.utils.arrayify(toSign)
   );
   const authInput = ethers.utils.defaultAbiCoder.encode(
     ["tuple(uint256, address, bytes)"],

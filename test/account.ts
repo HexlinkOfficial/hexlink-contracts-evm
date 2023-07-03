@@ -222,8 +222,8 @@ describe("Hexlink Account", function () {
     // get first factor and check
     const account = await ethers.getContractAt("Account", sender);
     const factors = await account.getAuthFactors();
-    const dAuthProvider = await deployments.get("DAuthAuthProvider");
-    expect(factors[0].provider).to.eq(dAuthProvider.address);
+    const authProvider = await deployments.get("SimpleAuthProvider");
+    expect(factors[0].provider).to.eq(authProvider.address);
 
     // receive tokens after account created
     const token = await ethers.getContractAt(

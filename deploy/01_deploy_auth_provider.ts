@@ -16,6 +16,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // deploy contract factory
     const validator = await getValidator(hre);
+    console.log(validator);
     await deployments.deploy(
         "SimpleAuthProvider",
         {

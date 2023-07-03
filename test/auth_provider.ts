@@ -16,25 +16,9 @@ describe("AuthProviderTest", function() {
     sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
   });
 
-  it("test dauth auth provider", async function() {
-    const {deployer, validator} = await hre.getNamedAccounts();
-    const provider = await getDeployedContract(hre, 'DAuthAuthProvider');
-
-    const registry = await hre.ethers.getContractAt(
-      "DAuthRegistryTest",
-      await provider.getRegistry()
-    );
-    expect(await registry.isValidatorRegistered(validator)).to.be.true;
-    expect(await registry.isValidatorRegistered(deployer)).to.be.true;
+  it("test simple auth provider", async function() {
+    const {validator} = await hre.getNamedAccounts();
+    const provider = await getDeployedContract(hre, 'SimpleAuthProvider');
     expect(await provider.getValidator(sender)).to.eq(validator);
-  
-    // set next provider
-    const signers = await hre.ethers.getNamedSigners();
-    await expect(
-      provider.connect(signers.deployer).setValidator(ethers.constants.AddressZero)
-    ).to.be.revertedWith("invalid validator");
-
-    await provider.connect(signers.deployer).setValidator(deployer);
-    expect(await provider.getValidator(sender)).to.eq(deployer);
   });
 });

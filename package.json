@@ -4,7 +4,7 @@
   "main": "./dist/index.js",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.2",
-    "@nomiclabs/hardhat-etherscan": "^2.1.8",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
     "@nomiclabs/hardhat-waffle": "^2.0.5",
     "@openzeppelin/contracts": "^4.8.0",
     "@safe-global/safe-core-sdk": "^3.2.2",

@@ -258,7 +258,7 @@ task("add_stake")
                 ethers.utils.parseEther("0.05"),
                 86400
             ]
-        )
+        );
         console.log("Add stake 0.05 ETH to " + entrypoint.address);
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: contract, data });

@@ -26,10 +26,11 @@ contract Account is
     function initialize(
         bytes32 nameType,
         bytes32 name,
-        address provider
+        address provider,
+        address validator
     ) public initializer {
          _setName(nameType, name);
-        _initFirstFactor(provider);
+        _initFirstFactor(provider, validator);
     }
 
     /** IExectuable */

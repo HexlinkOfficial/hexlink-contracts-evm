@@ -9,7 +9,7 @@ import {
   callWithEntryPoint,
   genInitCode
 } from "./testers";
-import { getHexlink } from "../tasks/utils";
+import { getHexlink, getValidator, hash } from "../tasks/utils";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -23,6 +23,24 @@ describe("Hexlink", function() {
     await hre.run("upgrade_account", []);
     admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+  });
+
+  it("should set with provider auth provider and validator", async function() {
+    const authProvider = await hre.deployments.get("SimpleAuthProvider");
+    expect(
+      await hexlink.getAuthProvider(hash("mailto"))
+    ).to.eq(authProvider.address);
+    expect(
+      await hexlink.getAuthProvider(hash("tel"))
+    ).to.eq(authProvider.address);
+
+    const validator = await getValidator(hre);
+    expect(
+      await hexlink.getDefaultValidator(hash("mailto"))
+    ).to.eq(validator);
+    expect(
+      await hexlink.getDefaultValidator(hash("tel"))
+    ).to.eq(validator);
   });
 
   it("should upgrade successfully", async function() {

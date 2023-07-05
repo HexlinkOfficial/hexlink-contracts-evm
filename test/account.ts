@@ -248,7 +248,7 @@ describe("Hexlink Account", function () {
     ).to.be.reverted;
   });
 
-  it.only("second factor", async function() {
+  it("second factor", async function() {
     const { deployer, validator, tester } = await ethers.getNamedSigners();
 
     // deploy sender

@@ -87,3 +87,11 @@ export async function searchContract(contract: String, hre : HardhatRuntimeEnvir
       throw new Error(`contract ${contract} not found`)
   }
 }
+
+export async function getValidator(hre: HardhatRuntimeEnvironment) {
+  let validator = loadConfig(hre, "validator");
+  if (hre.network.name == "hardhat" || validator == undefined) {
+      return (await hre.getNamedAccounts())["validator"];
+  }
+  return validator;
+}

@@ -20,6 +20,7 @@ library HexlinkStorage {
     struct Layout {
         address accountImplementation;
         mapping(bytes32 => address) providers;
+        mapping(bytes32 => address) validators;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -50,11 +51,17 @@ contract Hexlink is
 
     function setAuthProviders(
         bytes32[] memory nameTypes,
-        address[] memory providers
+        address[] memory providers,
+        address[] memory validators
     ) external onlyOwner {
-        require(providers.length == nameTypes.length, "array length mismatch");
+        require(
+            providers.length == nameTypes.length
+                && providers.length == validators.length,
+            "array length mismatch"
+        );
         for (uint256 i = 0; i < providers.length; i++) {
             HexlinkStorage.layout().providers[nameTypes[i]] = providers[i];
+            HexlinkStorage.layout().validators[nameTypes[i]] = validators[i];
         }
     }
 
@@ -62,6 +69,12 @@ contract Hexlink is
         bytes32 nameType
     ) public view override returns(address) {
         return HexlinkStorage.layout().providers[nameType];
+    }
+
+    function getDefaultValidator(
+        bytes32 nameType
+    ) public view returns(address) {
+        return HexlinkStorage.layout().validators[nameType];
     }
 
     function setAccountImplementation(address impl) external onlyOwner {
@@ -95,9 +108,14 @@ contract Hexlink is
             _nameHash(nameType, name)
         );
         address provider = getAuthProvider(nameType);
+        address validator = getDefaultValidator(nameType);
         require(provider != address(0), "unsupported name type");
         bytes memory data = abi.encodeWithSelector(
-            Account.initialize.selector, nameType, name, provider
+            Account.initialize.selector,
+            nameType,
+            name,
+            provider,
+            validator
         );
         address impl = getAccountImplementation();
         IHexlinkERC1967Proxy(account).initProxy(impl, data);

@@ -63,8 +63,9 @@ abstract contract AuthFactorManager is ERC4972Account {
         }
     }
 
-    function _initFirstFactor(address provider) internal {
+    function _initFirstFactor(address provider, address validator) internal {
         AuthFactorStorage.layout().factors[0].provider = provider;
+        AuthFactorStorage.layout().factors[0].validator = validator;
     }
 
     function getAuthFactors() external view returns(AuthFactor[2] memory) {

@@ -2,6 +2,7 @@ import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
 import { hash, getHexlink, getAdmin, searchContract } from "./utils";
+import {getValidator} from "../tasks/utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -172,9 +173,10 @@ task("set_auth_providers")
         // set auth providers if not set
         let hexlink = await getHexlink(hre);
         const authProvider = await hre.deployments.get("SimpleAuthProvider");
+        const validator = await getValidator(hre);
         const AUTH_PROVIDERS = [
-            [hash("mailto"), authProvider.address],
-            [hash("tel"), authProvider.address],
+            [hash("mailto"), authProvider.address, validator],
+            [hash("tel"), authProvider.address, validator],
         ];
         let providers = [];
         for (let i = 0; i < AUTH_PROVIDERS.length; i++) {
@@ -185,7 +187,11 @@ task("set_auth_providers")
         }
         const data = hexlink.interface.encodeFunctionData(
             "setAuthProviders",
-            [providers.map(p => p[0]), providers.map(p => p[1])],
+            [
+                providers.map(p => p[0]),
+                providers.map(p => p[1]),
+                providers.map(p => p[2])
+            ],
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });

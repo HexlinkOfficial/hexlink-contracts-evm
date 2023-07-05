@@ -181,7 +181,8 @@ task("set_auth_providers")
         let providers = [];
         for (let i = 0; i < AUTH_PROVIDERS.length; i++) {
             const provider = await hexlink.getAuthProvider(AUTH_PROVIDERS[i][0]);
-            if (provider !== AUTH_PROVIDERS[i][1]) {
+            const validator = await hexlink.getDefaultValidator(AUTH_PROVIDERS[i][0]);
+            if (provider !== AUTH_PROVIDERS[i][1] || validator != AUTH_PROVIDERS[i][2]) {
                 providers.push(AUTH_PROVIDERS[i]);
             }
         }

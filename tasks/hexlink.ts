@@ -19,6 +19,10 @@ task("hexlink_check", "check hexlink metadata")
             authProvider: {
                 email: await hexlink.getAuthProvider(hash("mailto")),
                 tel: await hexlink.getAuthProvider(hash("tel")),
+            },
+            validator: {
+                email: await hexlink.getDefaultValidator(hash("mailto")),
+                tel: await hexlink.getDefaultValidator(hash("tel")),
             }
         }
         console.log(result);

@@ -1,7 +1,7 @@
 import * as hre from "hardhat";
 import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
-import { Contract, BigNumberish, BigNumber } from "ethers";
+import { Contract, BigNumberish, BigNumber, Signer } from "ethers";
 import { UserOperationStruct } from '@account-abstraction/contracts'
 import { keccak256, resolveProperties } from 'ethers/lib/utils'
 
@@ -102,40 +102,16 @@ function genValidationData() {
 }
 
 export const callWithEntryPoint = async (
-    sender: string,
-    initCode: string | [],
-    callData: string | [],
-    entrypoint: Contract
-) => {
-    const {deployer, validator} = await hre.ethers.getNamedSigners();
-    const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
-    const validation = genValidationData();
-    const message = keccak256(ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "bytes32"],
-      [validation, userOpHash]
-    ));
-    const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
-      ["bytes32", "bytes32", "bytes32"],
-      [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
-    ));
-    const signature = await validator.signMessage(
-      ethers.utils.arrayify(toSign)
-    );
-    const authInput = ethers.utils.defaultAbiCoder.encode(
-      ["tuple(uint256, address, bytes)"],
-      [[validation, validator.address, signature]]
-    );
-    const signed = { ...userOp, signature: authInput, };
-    await entrypoint.handleOps([signed], deployer.address);
-}
-
-export const callEntryPointWithTester = async (
   sender: string,
   initCode: string | [],
   callData: string | [],
-  entrypoint: Contract
+  entrypoint: Contract,
+  signer?: any,
 ) => {
-  const {deployer, tester} = await hre.ethers.getNamedSigners();
+  if (!signer) {
+    const {validator} = await hre.ethers.getNamedSigners();
+    signer = validator;
+  }
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
   const message = keccak256(ethers.utils.defaultAbiCoder.encode(
@@ -146,15 +122,54 @@ export const callEntryPointWithTester = async (
     ["bytes32", "bytes32", "bytes32"],
     [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
   ));
-  const signature = await tester.signMessage(
+  const signature = await signer.signMessage(
     ethers.utils.arrayify(toSign)
   );
   const authInput = ethers.utils.defaultAbiCoder.encode(
     ["tuple(uint256, address, bytes)"],
-    [[validation, tester.address, signature]]
+    [[validation, signer.address, signature]]
   );
   const signed = { ...userOp, signature: authInput, };
-  await entrypoint.handleOps([signed], deployer.address);
+  await entrypoint.handleOps([signed], signer.address);
+}
+
+
+export const call2faWithEntryPoint = async (
+  sender: string,
+  initCode: string | [],
+  callData: string | [],
+  entrypoint: Contract,
+  signer1: any,
+  signer2: any,
+) => {
+  const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
+  const validation = genValidationData();
+  const message = keccak256(ethers.utils.defaultAbiCoder.encode(
+    ["uint256", "bytes32"],
+    [validation, userOpHash]
+  ));
+  const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
+    ["bytes32", "bytes32", "bytes32"],
+    [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
+  ));
+  const signature1 = await signer1.signMessage(
+    ethers.utils.arrayify(toSign)
+  );
+  const signature2 = await signer2.signMessage(
+    ethers.utils.arrayify(toSign)
+  );
+  const authInput = ethers.utils.defaultAbiCoder.encode(
+    [
+      "tuple(uint256, address, bytes)",
+      "tuple(uint256, address, bytes)"
+    ],
+    [
+      [validation, signer1.address, signature1],
+      [validation, signer2.address, signature2]
+    ]
+  );
+  const signed = { ...userOp, signature: authInput, };
+  await entrypoint.handleOps([signed], signer1.address);
 }
 
 export const getNonce = async (sender: string) => {

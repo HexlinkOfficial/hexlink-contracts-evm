@@ -46,30 +46,42 @@ const genUserOpHash = async (userOp : UserOperationStruct) => {
 }
 
 async function testSignature() {
-  const account = "0xa09239c9d59b9188fefdf236829505fe6b6d041a51fe5605927a980d9eeaf678";
-  const expectedUserOpHash = "0x734158798bcade39d0190bc76970eaa94ff6f0cc9b7da88475d05d8f32366f51";
-  const rawSignature = "0xa1710a91a3513cde6078f07240162f2b6959a96e1dc42c354a0607d3e86e4e386ce82749005b0de7cdc4039661f6f122f2a54b3ee3a6abb425c02a9f02c6ae2e1c";
+  const account = "0xba0402cdb051d09a81800e7ab29bbe7d71e3d8099f73f15a324c05bde3c8dd98";
+  const rawSignature = "0xb36444232eafe9dcc1a91a3a052ac888b69c0e602c9cc72bfff63a5a405cd05e484d9f56296c185c094c8e96cdcce277cc12f63e03fb4b2ee68d378ec1dd55471b";
   const hexlink = await getHexlink(hre);
-  const initCode = "0xaa08491f80c780a96cb42be84dbbfc3f6287bf38171223dda494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96ea09239c9d59b9188fefdf236829505fe6b6d041a51fe5605927a980d9eeaf678";
-  const signature = "0x0000000000000000000000000000000000000000000000000000000000000020000064a99707000064a99e0f0000000000000000000000000000000000000000000000000000000000000000f3b4e49fd77a959b704f6a045eea92bd55b3b57100000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000041a1710a91a3513cde6078f07240162f2b6959a96e1dc42c354a0607d3e86e4e386ce82749005b0de7cdc4039661f6f122f2a54b3ee3a6abb425c02a9f02c6ae2e1c00000000000000000000000000000000000000000000000000000000000000";
-  const userOp = {
-    "sender": "0x19daD6CFb526D98c22E66f3819c0d071BB2E2bFd",
-    "nonce": "0x10",
-    "initCode": [],
-    "callData": "0x5c1c6dcd000000000000000000000000000000000000000000000000000000000000002000000000000000000000000016b170bd4c30a79d1ad3c365805be6ea911b7eba000000000000000000000000000000000000000000000000016345785d8a000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000",
-    "callGasLimit": "0xa9d2",
-    "verificationGasLimit": "0x1f58ed",
-    "preVerificationGas": "0xae94",
-    "maxFeePerGas": "0x59682f14",
-    "maxPriorityFeePerGas": "0x59682f00",
-    "paymasterAndData": [],
-    "signature": signature
+  const opInfo = {
+    "userOpHash": "0x2de489466ffc05839ffe8b4d907de33f60e912d399402f77b99654db3e9f3017",
+    "validationData": {
+      "type": "BigNumber",
+      "hex": "0x64a9b94d000064a9c0550000000000000000000000000000000000000000"
+    },
+    "signer": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+    "signedMessage": "0x413452cc93315565598c03ea6200a2cbfaf921b1b7580f063c58d9182b909151",
+    "name": "ironchaindao@gmail.com",
+    "nameType": "mailto"
   };
+  const userOp = {
+    "sender": "0xE3204e23Dc9e503FB0f068997aC179f8d75A14aA",
+    "nonce": "0x00",
+    "initCode": "0xaa08491f80c780a96cb42be84dbbfc3f6287bf38171223dda494cfc40d31c3891835fac394fbcdd0bf27978f8af488c9a97d9b406b1ad96eba0402cdb051d09a81800e7ab29bbe7d71e3d8099f73f15a324c05bde3c8dd98",
+    "callData": "0x5c1c6dcd000000000000000000000000000000000000000000000000000000000000002000000000000000000000000016b170bd4c30a79d1ad3c365805be6ea911b7eba00000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000",
+    "callGasLimit": "0xb0c5",
+    "verificationGasLimit": "0x22ca62",
+    "maxFeePerGas": "0x59682f16",
+    "maxPriorityFeePerGas": "0x59682f00",
+    "preVerificationGas": "0xb44c",
+    "paymasterAndData": "0x",
+    "signature": "0x0000000000000000000000000000000000000000000000000000000000000020000064a9b94d000064a9c0550000000000000000000000000000000000000000000000000000000000000000f3b4e49fd77a959b704f6a045eea92bd55b3b57100000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000041b36444232eafe9dcc1a91a3a052ac888b69c0e602c9cc72bfff63a5a405cd05e484d9f56296c185c094c8e96cdcce277cc12f63e03fb4b2ee68d378ec1dd55471b00000000000000000000000000000000000000000000000000000000000000"
+  }
   const [result] = ethers.utils.defaultAbiCoder.decode(
     ['tuple(uint256, address, bytes)'],
-    signature,
+    userOp.signature,
   );
-  console.log(result);
+  console.log({
+    validator: result[0].toHexString(),
+    signer: result[1],
+    signature: result[2],
+  });
   const userOpHash = await genUserOpHash(userOp);
   console.log(userOpHash);
   const message = ethers.utils.keccak256(
@@ -78,10 +90,11 @@ async function testSignature() {
       [result[0], userOpHash]
     )
   );
+  console.log(message);
   const toSign = ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
       ["bytes32", "bytes32", "bytes32"],
-      [hash("mailto"), hash("shu@hexlink.io"), message]
+      [hash(opInfo.nameType), hash(opInfo.name), message]
     )
   );
   console.log("message: " + toSign);
@@ -90,7 +103,6 @@ async function testSignature() {
     result[2]
   );
   console.log("recovered: " + signerAddr);
-  console.log("signer: " + result[1]);
   // const entryPoint = await getEntryPoint(hre);
   // const validationData = await entryPoint.handleOps(
   //   [userOp],

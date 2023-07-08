@@ -168,12 +168,17 @@ task("register_validator", "register validator at oracle contract")
     });
 
 task("set_auth_providers")
+    .addOptionalParam("validator", "validator to set")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         // set auth providers if not set
         let hexlink = await getHexlink(hre);
-        const authProvider = await hre.deployments.get("SimpleAuthProvider");
-        const validator = await getValidator(hre);
+        const authProvider = await hre.deployments.get(
+            args.validator === 'hexlink' ? 'HexlinkProvider' : 'DAuthProvider'
+        );
+        const validator = await getValidator(hre, 
+            args.validator === 'hexlink' ? 'hexlinkValidator' : 'dauthValidator'
+        );
         const AUTH_PROVIDERS = [
             [hash("mailto"), authProvider.address, validator],
             [hash("tel"), authProvider.address, validator],

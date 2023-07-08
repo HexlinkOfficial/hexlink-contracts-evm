@@ -33,7 +33,8 @@
         ]
     },
     "sepolia": {
-        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+        "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+        "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
         "timelock": {
             "minDelay": 60
         },
@@ -53,7 +54,8 @@
         ]
     },
     "mumbai": {
-        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+        "dauthValdiator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+        "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
         "timelock": {
             "minDelay": 60
         },

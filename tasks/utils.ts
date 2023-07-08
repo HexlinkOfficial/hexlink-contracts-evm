@@ -88,8 +88,8 @@ export async function searchContract(contract: String, hre : HardhatRuntimeEnvir
   }
 }
 
-export async function getValidator(hre: HardhatRuntimeEnvironment) {
-  let validator = loadConfig(hre, "validator");
+export async function getValidator(hre: HardhatRuntimeEnvironment, name?: string) {
+  let validator = loadConfig(hre, name || "dauthValidator");
   if (hre.network.name == "hardhat" || validator == undefined) {
       return (await hre.getNamedAccounts())["validator"];
   }

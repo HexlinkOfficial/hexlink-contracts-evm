@@ -222,7 +222,7 @@ describe("Hexlink Account", function () {
     // get first factor and check
     const account = await ethers.getContractAt("Account", sender);
     const factors = await account.getAuthFactors();
-    const authProvider = await deployments.get("SimpleAuthProvider");
+    const authProvider = await deployments.get("DAuthProvider");
     expect(await account.isSecondFactorEnabled()).to.eq(false);
     expect(factors[0].provider).to.eq(authProvider.address);
 
@@ -263,7 +263,7 @@ describe("Hexlink Account", function () {
 
     // get first factor and check
     const account = await ethers.getContractAt("Account", sender);
-    const authProvider = await deployments.get("SimpleAuthProvider");
+    const authProvider = await deployments.get("DAuthProvider");
     // add second factor
     const authProvider2 = await deployments.deploy(
       "SimpleAuthProvider2", {

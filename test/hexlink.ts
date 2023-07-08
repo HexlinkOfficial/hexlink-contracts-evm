@@ -26,7 +26,7 @@ describe("Hexlink", function() {
   });
 
   it("should set with provider auth provider and validator", async function() {
-    const authProvider = await hre.deployments.get("SimpleAuthProvider");
+    const authProvider = await hre.deployments.get("DAuthProvider");
     expect(
       await hexlink.getAuthProvider(hash("mailto"))
     ).to.eq(authProvider.address);

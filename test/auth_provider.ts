@@ -18,7 +18,8 @@ describe("AuthProviderTest", function() {
 
   it("test simple auth provider", async function() {
     const {validator} = await hre.getNamedAccounts();
-    const provider = await getDeployedContract(hre, 'SimpleAuthProvider');
+    const provider = await getDeployedContract(
+      hre, 'SimpleAuthProvider', 'DAuthProvider');
     expect(await provider.getValidator(sender)).to.eq(validator);
     expect(await provider.getDefaultValidator()).to.eq(validator);
   });

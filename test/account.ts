@@ -269,7 +269,7 @@ describe("Hexlink Account", function () {
       "SimpleAuthProvider2", {
         from: deployer.address,
         contract: "SimpleAuthProvider",
-        args: [deployer.address],
+        args: [deployer.address, ''],
         log: true,
         autoMine: true,
       }

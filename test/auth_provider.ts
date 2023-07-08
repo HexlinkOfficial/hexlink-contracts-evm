@@ -20,5 +20,19 @@ describe("AuthProviderTest", function() {
     const {validator} = await hre.getNamedAccounts();
     const provider = await getDeployedContract(hre, 'SimpleAuthProvider');
     expect(await provider.getValidator(sender)).to.eq(validator);
+    expect(await provider.getDefaultValidator()).to.eq(validator);
+  });
+
+  it("test simple auth provider", async function() {
+    const {deployer, validator} = await hre.getNamedAccounts();
+    await hre.deployments.deploy('EnsAuthProvider', {
+      from: deployer,
+      args: [validator],
+      log: true,
+      autoMine: true,
+    });
+    const provider = await getDeployedContract(hre, 'EnsAuthProvider');
+    expect(await provider.getDefaultValidator()).to.eq(ethers.constants.AddressZero);
+    expect(await provider.getMetadata()).to.eq("");
   });
 });

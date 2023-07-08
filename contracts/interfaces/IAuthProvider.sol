@@ -9,4 +9,8 @@ interface IValidatorRegistry {
 
 interface IAuthProvider {
     function getValidator(address account) external view returns(address);
+
+    function getDefaultValidator() external view returns(address);
+
+    function getMetadata() external view returns(string memory);
 }

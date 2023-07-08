@@ -1,11 +1,11 @@
 {
     "polygon": {
-        "validator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81"
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571"
     },
     "goerli": {
         "safe": "0x4e8D85A3DA5227Aca8DFA70dB16C8BBFFa514a9F",
         "safeApi": "https://safe-transaction-goerli.safe.global",
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
             "minDelay": 60
         },
@@ -33,7 +33,7 @@
         ]
     },
     "sepolia": {
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
             "minDelay": 60
         },
@@ -53,7 +53,7 @@
         ]
     },
     "mumbai": {
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
             "minDelay": 60
         },
@@ -75,7 +75,7 @@
         ]
     },
     "nitro": {
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
             "minDelay": 30
         },
@@ -91,7 +91,7 @@
     },
     "arbitrum": {
         "safe": "0xC904356E795023DDf290FD58056cd516E815C785",
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
             "minDelay": 30
         },
@@ -121,7 +121,7 @@
         }]
     },
     "nova": {
-        "validator": "0x943fAbe0D1ae7130fc48Cf2ABc85F01fC987Ec81",
+        "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "safe": "0xdbCaf063873dC6be53c007Cf8f8447E303Cac8A3",
         "timelock": {
             "minDelay": 30

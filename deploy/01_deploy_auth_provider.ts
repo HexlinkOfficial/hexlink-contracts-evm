@@ -13,7 +13,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         "SimpleAuthProvider",
         {
             from: deployer,
-            args: [validator],
+            args: [validator, ""],
             log: true,
             autoMine: true
         }

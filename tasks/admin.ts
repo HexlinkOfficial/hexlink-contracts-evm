@@ -190,8 +190,7 @@ task("set_auth_providers")
             "setAuthProviders",
             [
                 providers.map(p => p[0]),
-                providers.map(p => p[1]),
-                providers.map(p => p[2])
+                providers.map(p => p[1])
             ],
         );
         if (args.nowait) {

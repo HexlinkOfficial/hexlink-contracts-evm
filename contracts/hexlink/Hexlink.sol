@@ -51,17 +51,12 @@ contract Hexlink is
 
     function setAuthProviders(
         bytes32[] memory nameTypes,
-        address[] memory providers,
-        address[] memory validators
+        address[] memory providers
     ) external onlyOwner {
-        require(
-            providers.length == nameTypes.length
-                && providers.length == validators.length,
-            "array length mismatch"
-        );
         for (uint256 i = 0; i < providers.length; i++) {
             HexlinkStorage.layout().providers[nameTypes[i]] = providers[i];
-            HexlinkStorage.layout().validators[nameTypes[i]] = validators[i];
+            HexlinkStorage.layout().validators[nameTypes[i]] =
+                IAuthProvider(providers[i]).getDefaultValidator();
         }
     }
 

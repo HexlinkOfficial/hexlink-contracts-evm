@@ -176,7 +176,7 @@ task("set_auth_providers")
         const authProvider = await hre.deployments.get(
             args.validator === 'hexlink' ? 'HexlinkProvider' : 'DAuthProvider'
         );
-        const validator = await getValidator(hre, 
+        const validator = await getValidator(hre,
             args.validator === 'hexlink' ? 'hexlinkValidator' : 'dauthValidator'
         );
         const AUTH_PROVIDERS = [

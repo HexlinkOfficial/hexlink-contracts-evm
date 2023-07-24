@@ -2,22 +2,20 @@
 
 pragma solidity ^0.8.12;
 
-/* solhint-disable avoid-low-level-calls */
-
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "./ERC4972Account.sol";
+import "./AccountAuthBase.sol";
 
-abstract contract ERC4337Account is
-    ERC4972Account,
-    BaseAccount,
-    UUPSUpgradeable
-{
+abstract contract ERC4337Account is BaseAccount, AccountAuthBase {
     using Address for address;
 
+    error onlyEntryPointCallAllowed();
+
     modifier onlyEntryPoint() {
-        require(msg.sender == address(entryPoint()), "invalid caller");
+        if (msg.sender != address(entryPoint())) {
+            revert onlyEntryPointCallAllowed();
+        }
         _;
     }
 
@@ -30,10 +28,7 @@ abstract contract ERC4337Account is
 
     IEntryPoint private immutable _entryPoint; 
 
-    constructor(
-        address entryPoint_,
-        address hexlink
-    ) ERC4972Account(hexlink) {
+    constructor(address entryPoint_)  {
         _entryPoint = IEntryPoint(entryPoint_);
     }
 
@@ -47,7 +42,10 @@ abstract contract ERC4337Account is
         entryPoint().depositTo{value : msg.value}(address(this));
     }
 
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) onlySelf public {
+    function withdrawDepositTo(
+        address payable withdrawAddress,
+        uint256 amount
+    ) onlySelf public {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
@@ -55,20 +53,5 @@ abstract contract ERC4337Account is
 
     function entryPoint() public view override returns(IEntryPoint) {
         return _entryPoint;
-    }
-
-    /** UUPSUpgradeable */
-
-    function implementation() external view returns (address) {
-        return _getImplementation();
-    }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) onlySelf internal view override {
-        require(
-            newImplementation == hexlink.getAccountImplementation(),
-            "invalid implementation"
-        );
     }
 }

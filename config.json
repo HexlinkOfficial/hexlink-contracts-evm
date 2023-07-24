@@ -6,8 +6,9 @@
         "safe": "0x4e8D85A3DA5227Aca8DFA70dB16C8BBFFa514a9F",
         "safeApi": "https://safe-transaction-goerli.safe.global",
         "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
+        "ens": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
         "timelock": {
-            "minDelay": 60
+            "minDelay": 0
         },
         "gasTokens": [
             {
@@ -36,7 +37,7 @@
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
         "timelock": {
-            "minDelay": 60
+            "minDelay": 0
         },
         "gasTokens": [
             {
@@ -79,7 +80,7 @@
     "nitro": {
         "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
-            "minDelay": 30
+            "minDelay": 60
         },
         "oracles": {
             "EMAIL_OTP": "0xf856efCDFCC1b29169D45b5CB65ed0E1c12A9C62",
@@ -95,7 +96,7 @@
         "safe": "0xC904356E795023DDf290FD58056cd516E815C785",
         "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "timelock": {
-            "minDelay": 30
+            "minDelay": 60
         },
         "oracles": {
             "EMAIL_OTP": "0x7a2B0583A8227E6FdDDAC83eF0e27Eca78B94ba0",
@@ -126,7 +127,7 @@
         "validator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "safe": "0xdbCaf063873dC6be53c007Cf8f8447E303Cac8A3",
         "timelock": {
-            "minDelay": 30
+            "minDelay": 60
         },
         "oracles": {
             "EMAIL_OTP": "0xa599d212a5c4DB3b78b708605f14a4FbCD43cc56",

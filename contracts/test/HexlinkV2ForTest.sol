@@ -3,7 +3,7 @@
 
 pragma solidity ^0.8.12;
 
-import "../hexlink/Hexlink.sol";
+import "../Hexlink.sol";
 
 contract HexlinkV2ForTest is Hexlink {
     function name() external pure returns (string memory) {

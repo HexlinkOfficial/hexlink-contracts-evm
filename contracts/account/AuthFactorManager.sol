@@ -1,26 +1,29 @@
-
 //SPDX-License-Identifier: Unlicense
 
 pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@account-abstraction/contracts/core/Helpers.sol";
-import "../interfaces/IAuthProvider.sol";
 import "./base/ERC4972Account.sol";
 import "../interfaces/structs.sol";
 
+struct FirstFactor {
+    address owner;
+    bool initialized;
+    bool nameEnabled;
+}
+
 library AuthFactorStorage {
     bytes32 internal constant STORAGE_SLOT =
-        keccak256('hexlink.account.auth.factor');
- 
+        keccak256("hexlink.account.auth.factor.v2");
+
     struct Layout {
-        AuthFactor[2] factors;
-        bool initiated;
+        FirstFactor first;
+        EnumerableSet.AddressSet second;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -32,110 +35,156 @@ library AuthFactorStorage {
 }
 
 abstract contract AuthFactorManager is ERC4972Account {
-    using Address for address;
-    using EnumerableSet for EnumerableSet.Bytes32Set;
     using SignatureChecker for address;
     using ECDSA for bytes32;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-    event FactorUpdated(uint256 indexed, address indexed, address indexed);
+    event FirstFactorUpdated(address indexed, bool nameEnabled);
+    event SecondFactorUpdated(address indexed, bool enabled);
 
-    modifier onlyValidSigner() {
-        if (_revalidateFactor(0) && _revalidateFactor(1)) {
-            _;
-        }
-    }
+    error UnAuthorizedFirstFactorOwner(address owner);
+    error NameNotEnabled();
+    error InvalidFirstFactorOwnerToSet(address owner);
+    error InvalidSignType(uint8 signType);
 
-    function _revalidateFactor(uint256 index) internal returns(bool) {
-        AuthFactor storage factor = AuthFactorStorage.layout().factors[index];
-        address provider = factor.provider;
-        if (provider == address(0)) {
-            return true;
-        }
-        address validator = IAuthProvider(provider).getValidator(address(this));
-        if (factor.validator != validator) {
-            factor.validator = validator;
-            return false;
-        } else if (index == 0 && AuthFactorStorage.layout().initiated) {
-            AuthFactorStorage.layout().initiated = false;
-            return true;
-        } else {
-            return true;
-        }
-    }
+    /** First Factor */
 
-    function _initFirstFactor(address provider, address validator) internal {
-        AuthFactorStorage.layout().factors[0].provider = provider;
-        AuthFactorStorage.layout().factors[0].validator = validator;
-    }
-
-    function getAuthFactors() external view returns(AuthFactor[2] memory) {
-        return AuthFactorStorage.layout().factors;
-    }
-
-    function isSecondFactorEnabled() public view returns(bool) {
-        return AuthFactorStorage.layout().factors[1].validator != address(0);
-    }
-
-    function updateAuthFactor(uint256 index, address provider, address validator) external onlySelf {
-        require(index < 2 && validator != address(0), "invalid input");
-        AuthFactorStorage.layout().factors[index].provider = provider;
-        AuthFactorStorage.layout().factors[index].validator = validator;
-        if (provider != address(0)) {
-            address expected = IAuthProvider(provider).getValidator(address(this));
-            require(validator == expected, "validator mismatch");
-        }
-        emit FactorUpdated(index, provider, validator);
-    }
-
-    function resetValidatorFromProvider(uint256 index) public {
-        AuthFactor memory factor  = AuthFactorStorage.layout().factors[index];
-        require(factor.provider != address(0), "invalid provider");
-        address signer = IAuthProvider(factor.provider).getValidator(address(this));
-        require(signer != factor.validator, "no need to reset");
-        AuthFactorStorage.layout().factors[index].validator = signer;
-    }
-
-    function _validateAuthFactors(
-        bytes32 userOpHash,
-        bytes memory signature
-    ) internal returns(uint256 validationData) {
-        if (isSecondFactorEnabled()) {
-            (
-                AuthInput memory first,
-                AuthInput memory second
-            ) = abi.decode(signature, (AuthInput, AuthInput));
-            validationData = _validateAuthFactor(0, userOpHash, first);
-            if (uint160(validationData) == 0) {
-                ValidationData memory data = _intersectTimeRange(
-                    first.validationData,
-                    second.validationData
-                );
-                second.validationData = _packValidationData(data);
-                validationData = _validateAuthFactor(1, userOpHash, second);
+    modifier onlyValidFirstFactor() {
+        FirstFactor memory first = AuthFactorStorage.layout().first;
+        if (first.nameEnabled) {
+            if (!_isOwner(first.owner)) {
+                revert UnAuthorizedFirstFactorOwner(first.owner);
             }
-        } else {
-            (AuthInput memory input) = abi.decode(signature, (AuthInput));
-            validationData = _validateAuthFactor(0, userOpHash, input);
+            if (!first.initialized) {
+                AuthFactorStorage.layout().first.initialized = true;
+            }
         }
+        _;
     }
 
-    function _validateAuthFactor(
-        uint256 index,
+    function resetFirstFactorViaNameService(address owner) public {
+        FirstFactor memory first = AuthFactorStorage.layout().first;
+        if (!first.nameEnabled) {
+            revert NameNotEnabled();
+        }
+        if (owner == address(0) || owner == first.owner || !_isOwner(owner)) {
+            revert InvalidFirstFactorOwnerToSet(owner);
+        }
+        AuthFactorStorage.layout().first = FirstFactor(owner, true, true);
+        emit FirstFactorUpdated(owner, true);
+    }
+
+    function updateFirstFactor(address factor, bool nameEnabled) external onlySelf {
+        if (factor == address(0) || (nameEnabled && !_isOwner(factor))) {
+            revert InvalidFirstFactorOwnerToSet(factor);
+        }
+        AuthFactorStorage.layout().first =
+            FirstFactor(factor, true, nameEnabled);
+        emit FirstFactorUpdated(factor, nameEnabled);
+    }
+
+    function getFirstFactor() external view returns(FirstFactor memory) {
+        return AuthFactorStorage.layout().first;
+    }
+
+    function _initFirstFactor(address factor) internal {
+        AuthFactorStorage.layout().first = FirstFactor(
+            factor,
+            factor == address(0),
+            true
+        );
+    }
+
+    function _validateFirstFactor(
         bytes32 userOpHash,
         AuthInput memory input
     ) internal returns(uint256) {
-        AuthFactor memory factor = AuthFactorStorage.layout().factors[index];
-        if (index == 0 && factor.provider != address(0) && factor.validator == address(0)) {
-            AuthFactorStorage.layout().factors[0].validator = input.signer;
-            AuthFactorStorage.layout().initiated = true;
-            factor.validator = input.signer;
+        bytes32 message = keccak256(abi.encodePacked(input.timeRange, userOpHash));
+        FirstFactor memory first = AuthFactorStorage.layout().first;
+        if (first.nameEnabled) {
+            if (!getNameService().isSupported(input.nameType)) {
+                return 1;
+            }
+            if (!first.initialized) {
+                AuthFactorStorage.layout().first.owner = input.signer;
+            }
+            message = keccak256(abi.encodePacked(input.nameType, getName(), message));
         }
-        bytes32 message = keccak256(abi.encode(input.validationData, userOpHash));
-        bytes32 toSign = keccak256(abi.encode(getNameType(), getName(), message));
         bool sigValid = input.signer.isValidSignatureNow(
-            toSign.toEthSignedMessageHash(),
+            message.toEthSignedMessageHash(),
             input.signature
-        ) && input.signer == factor.validator;
-        return input.validationData | (sigValid ? 0 : 1);
+        );
+        sigValid = sigValid && input.signer == first.owner;
+        return sigValid ? (uint256(input.timeRange) << 160) : 1;
+    }
+
+    /** Second Factor */
+
+    function addSecondFactor(address factor) external onlySelf {
+        AuthFactorStorage.layout().second.add(factor);
+        emit SecondFactorUpdated(factor, true);
+    }
+
+    function removeSecondFactor(address factor) external onlySelf {
+        AuthFactorStorage.layout().second.remove(factor);
+        emit SecondFactorUpdated(factor, false);
+    }
+
+    function getSecondFactors() external view returns(address[] memory) {
+        return AuthFactorStorage.layout().second.values();
+    }
+
+    function isSecondFactorEnabeld(address factor) public view returns(bool) {
+        return AuthFactorStorage.layout().second.contains(factor);
+    }
+
+    function _validateSecondFactor(
+        bytes32 userOpHash,
+        AuthInput memory input2
+    ) internal view returns(uint256) {
+        bytes32 message = keccak256(abi.encodePacked(input2.timeRange, userOpHash));
+        bool sigValid = input2.signer.isValidSignatureNow(
+            message.toEthSignedMessageHash(),
+            input2.signature
+        );
+        sigValid = sigValid && isSecondFactorEnabeld(input2.signer);
+        return sigValid ? (uint256(input2.timeRange) << 160) : 1;
+    }
+
+    /** auth factor validation */
+
+    function _validateAuthFactors(
+        bytes32 userOpHash,
+        bytes calldata signature
+    ) internal returns (uint256 validationData) {
+        uint8 signType = uint8(signature[0]);
+        if(signType != 0x03) {
+            revert InvalidSignType(signType);
+        }
+        (AuthInput memory input1, uint256 processed) = _decodeAuthInput(1, signature);
+        validationData = _validateFirstFactor(userOpHash, input1);
+        if (validationData != 1 && AuthFactorStorage.layout().second.length() > 0) {
+            (AuthInput memory input2,) = _decodeAuthInput(1 + processed, signature);
+            uint256 validationData2 = _validateSecondFactor(userOpHash, input2);
+            if (validationData2 == 1) {
+                validationData = validationData2;
+            } else {
+                validationData = _packValidationData(
+                    _intersectTimeRange(validationData2, validationData)
+                );
+            }
+        }
+    }
+
+    function _decodeAuthInput(
+        uint256 start,
+        bytes calldata signature
+    ) private pure returns(AuthInput memory result, uint256 processed) {
+        result.timeRange = uint96(bytes12(signature[start:start + 12]));
+        result.signer = address(bytes20(signature[start + 12:start + 32]));
+        result.nameType = bytes32(signature[start + 32:start + 64]);
+        uint32 sigLength = uint32(bytes4(signature[start + 64:start + 68]));
+        result.signature = signature[start + 68:start + 68 + sigLength];
+        processed = 68 + sigLength;
     }
 }

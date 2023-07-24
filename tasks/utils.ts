@@ -6,15 +6,6 @@ export function hash(value: string) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
 }
 
-export async function getDeployedContract(
-  hre: HardhatRuntimeEnvironment,
-  contract: string,
-  name?: string
-) : Promise<Contract> {
-  const deployed = await hre.deployments.get(name || contract);
-  return hre.ethers.getContractAt(contract, deployed.address); 
-}
-
 export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
     return ethers.utils.keccak256(
         ethers.utils.defaultAbiCoder.encode(
@@ -29,18 +20,6 @@ export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
   return (netConf as any)[key];
 }
 
-export async function getAdmin(hre: HardhatRuntimeEnvironment) {
-  return getDeployedContract(hre, "TimelockController", "HexlinkAdmin");
-}
-
-export async function getFactory(hre: HardhatRuntimeEnvironment) {
-  const factoryDeployed = await hre.deployments.get("HexlinkContractFactory");
-  return await hre.ethers.getContractAt(
-      "HexlinkContractFactory",
-      factoryDeployed.address
-  );
-}
-
 export function getBytecode(artifact: Artifact, args: string | []) {
   return ethers.utils.solidityPack(
       ["bytes", "bytes"],
@@ -48,22 +27,21 @@ export function getBytecode(artifact: Artifact, args: string | []) {
   );
 }
 
-export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
-    let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
-    if (hre.network.name === 'hardhat') {
-        const deployed = await hre.deployments.get("EntryPoint");
-        entrypoint = deployed.address;
-    }
-    return hre.ethers.getContractAt("EntryPoint", entrypoint);
+export async function getValidator(hre: HardhatRuntimeEnvironment, name?: string) {
+  let validator = loadConfig(hre, name || "dauthValidator");
+  if (hre.network.name == "hardhat" || validator == undefined) {
+      return (await hre.getNamedAccounts())["validator"];
+  }
+  return validator;
 }
 
-export async function getDAuthRegistry(hre: HardhatRuntimeEnvironment) {
+export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
+  let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
   if (hre.network.name === 'hardhat') {
-      const deployed = await hre.deployments.get("DAuthRegistryTest");
-      return hre.ethers.getContractAt("IValidatorRegistry", deployed.address);
-  } else {
-    throw new Error("not supported");
+      const deployed = await hre.deployments.get("EntryPoint");
+      entrypoint = deployed.address;
   }
+  return hre.ethers.getContractAt("EntryPoint", entrypoint);
 }
 
 export async function getHexlink(hre: HardhatRuntimeEnvironment) {
@@ -76,22 +54,60 @@ export async function getHexlink(hre: HardhatRuntimeEnvironment) {
     return hre.ethers.getContractAt("Hexlink", hexlink);
 }
 
-export async function searchContract(contract: String, hre : HardhatRuntimeEnvironment) {
-  if (contract === 'AuthModule') {
-      const module = await hre.deployments.get("AuthModule")
-      return module.address;
-  } else if (contract === 'Hexlink') {
-      const hexlink = await getHexlink(hre);
-      return hexlink.address;
+export async function getAdmin(hre: HardhatRuntimeEnvironment) {
+  return getContract(hre, "TimelockController", "HexlinkAdmin");
+}
+
+export async function getFactory(hre: HardhatRuntimeEnvironment) {
+  return getContract(hre, "HexlinkContractFactory");
+}
+
+export async function getContract(
+  hre : HardhatRuntimeEnvironment,
+  contract: string,
+  name?: string
+) {
+  const deployed = await hre.deployments.get(name || contract);
+  return await hre.ethers.getContractAt(contract, deployed.address);
+}
+
+export async function deterministicDeploy(
+  hre: HardhatRuntimeEnvironment,
+  contract: string,
+  salt: string,
+  args: string | []
+) : Promise<{address: string, deployed: boolean}> {
+  const factory = await getFactory(hre);
+  const artifact = await hre.artifacts.readArtifact(contract);
+  const bytecode = getBytecode(artifact, args);
+  const address = await factory.getAddress(bytecode, salt);
+  if (await isContract(hre, address)) {
+      console.log(`Reusing ${contract} deployed at ${address}`);
+      return { deployed: false, address };
   } else {
-      throw new Error(`contract ${contract} not found`)
+      const tx = await factory.deploy(bytecode, salt);
+      await tx.wait();
+      console.log(`deploying ${contract} (tx: ${tx.hash})...: deployed at ${address}`);
+      return { deployed: true, address };
   }
 }
 
-export async function getValidator(hre: HardhatRuntimeEnvironment, name?: string) {
-  let validator = loadConfig(hre, name || "dauthValidator");
-  if (hre.network.name == "hardhat" || validator == undefined) {
-      return (await hre.getNamedAccounts())["validator"];
-  }
-  return validator;
+export async function getDeterministicAddress(
+  hre: HardhatRuntimeEnvironment,
+  contract: string,
+  salt: string,
+  args: string | []
+) {
+  const factory = await getFactory(hre);
+  const artifact = await hre.artifacts.readArtifact(contract);
+  const bytecode = getBytecode(artifact, args);
+  return await factory.getAddress(bytecode, salt);
+}
+
+async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
+  try {
+      const code = await hre.ethers.provider.getCode(address);
+      if (code !== '0x') return true;
+  } catch (error) { }
+  return false;
 }

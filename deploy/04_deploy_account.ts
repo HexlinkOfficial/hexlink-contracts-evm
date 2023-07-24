@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { getEntryPoint, getHexlink } from "../tasks/utils";
+import { hash, getEntryPoint, getHexlink, getContract, deterministicDeploy } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployments, getNamedAccounts} = hre;
@@ -16,15 +16,27 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         );
     }
 
+    const authRegistry = await deterministicDeploy(
+        hre,
+        "AuthRegistry",
+        hash("hexlink.AuthRegistry"),
+        []
+    );
     const entrypoint = await getEntryPoint(hre);
     const hexlink = await getHexlink(hre);
+    const nameService = await getContract(hre, 'DAuthNameService');
     await deployments.deploy(
-        "Account",
+        "AccountForDAuth",
         {
             from: deployer,
-            args: [entrypoint.address, hexlink.address],
+            contract: "Account",
+            args: [
+                entrypoint.address,
+                hexlink.address,
+                nameService.address,
+                authRegistry.address
+            ],
             log: true,
-            autoMine: true
         }
     );
 }

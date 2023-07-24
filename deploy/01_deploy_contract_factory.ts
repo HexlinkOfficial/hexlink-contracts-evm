@@ -1,21 +1,16 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
+import { getAdmin } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
-    const {getNamedAccounts, deployments} = hre;
+    const {deployments, getNamedAccounts} = hre;
     const {deployer} = await getNamedAccounts();
 
+    const {factoryDeployer} = await getNamedAccounts();
     await deployments.deploy(
-        "HexlinkAdmin",
-        {
-            from: deployer,
-            contract: "TimelockController",
-            args: [
-                0,
-                [deployer],
-                [deployer],
-                hre.ethers.constants.AddressZero
-            ],
+        "HexlinkContractFactory", {
+            from: factoryDeployer,
+            args: [deployer],
             log: true,
         }
     );

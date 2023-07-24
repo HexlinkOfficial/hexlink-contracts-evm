@@ -4,12 +4,14 @@
 pragma solidity ^0.8.12;
 
 struct AuthFactor {
-    address provider;
-    address validator;
+    address owner;
+    bool initialized;
+    bool isRegistryEnabled;
 }
 
 struct AuthInput {
-    uint256 validationData;
+    uint96 timeRange;
+    bytes32 nameType; // optional
     address signer;
     bytes signature;
 }

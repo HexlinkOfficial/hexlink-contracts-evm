@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import { hash, getHexlink, getAdmin, searchContract } from "./utils";
+import { hash, getHexlink, getAdmin, getContract } from "./utils";
 import {getValidator} from "../tasks/utils";
 
 const processArgs = async function(
@@ -143,60 +143,25 @@ task("admin_schedule_or_exec", "schedule and execute")
         }
     });
 
-task("register_validator", "register validator at oracle contract")
-    .addParam("registry")
-    .addParam("validator")
-    .addFlag("registered")
-    .addFlag("nowait")
-    .setAction(async (args: any, hre : HardhatRuntimeEnvironment) => {
-        const registry = await hre.ethers.getContractAt("NameRegistry", args.registry);
-        const data = registry.interface.encodeFunctionData(
-            "registerValidator",
-            [ethers.utils.getAddress(args.validator), args.registered]
-        );
-        const registered = await registry.isRegistered(args.validator);
-        if (registered) {
-            console.log("Already registered, skipping ");
-            return;
-        }
-        console.log("Registering valdiator " + args.validator + " at registry " + args.registry);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: registry.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: registry.address, data });
-        }
-    });
-
-task("set_auth_providers")
-    .addOptionalParam("validator", "validator to set")
+task("set_default_validator")
+    .addOptionalParam("nameService", "name service to set")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        // set auth providers if not set
         let hexlink = await getHexlink(hre);
-        const authProvider = await hre.deployments.get(
-            args.validator === 'hexlink' ? 'HexlinkProvider' : 'DAuthProvider'
-        );
-        const validator = await getValidator(hre,
-            args.validator === 'hexlink' ? 'hexlinkValidator' : 'dauthValidator'
-        );
-        const AUTH_PROVIDERS = [
-            [hash("mailto"), authProvider.address, validator],
-            [hash("tel"), authProvider.address, validator],
-        ];
-        let providers = [];
-        for (let i = 0; i < AUTH_PROVIDERS.length; i++) {
-            const provider = await hexlink.getAuthProvider(AUTH_PROVIDERS[i][0]);
-            const validator = await hexlink.getDefaultValidator(AUTH_PROVIDERS[i][0]);
-            if (provider !== AUTH_PROVIDERS[i][1] || validator != AUTH_PROVIDERS[i][2]) {
-                providers.push(AUTH_PROVIDERS[i]);
-            }
+        const nameService = args.nameService ?? "DAuthNameService";
+        let validator;
+        if (nameService == "DAuthNameService") {
+            validator = await getValidator(hre, 'dauthValidator');
+        } else if (nameService == "EnsNameService") {
+            validator = ethers.constants.AddressZero;
+        } else {
+            throw new Error("invalid nameService");
         }
+
+        const nsContract = await getContract(hre, nameService);
         const data = hexlink.interface.encodeFunctionData(
-            "setAuthProviders",
-            [
-                providers.map(p => p[0]),
-                providers.map(p => p[1])
-            ],
+            "setDefaultValidator",
+            [nsContract.address, validator.address],
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
@@ -207,19 +172,30 @@ task("set_auth_providers")
 
 task("upgrade_account")
     .addFlag("nowait")
-    .addOptionalParam("account", "the account implementation")
+    .addOptionalParam("nameService", "nameService to update")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        // set auth providers if not set
         let hexlink = await getHexlink(hre);
-        const existing = await hexlink.getAccountImplementation();
-        const latest = args.account || (await hre.deployments.get("Account")).address;
+        const nameService = args.nameService ?? "DAuthNameService";
+        let latest = args.account;
+        if (nameService == "DAuthNameService") {
+            const deployed = await getContract(hre, "Account", "AccountForDAuth");
+            latest = latest ?? deployed.address;
+        } else if (nameService == "EnsNameService") {
+            const deployed = await getContract(hre, "Account", "AccountForEns");
+            latest = latest ?? deployed.address;
+        } else {
+            throw new Error("invalid nameService");
+        }
+
+        const nsContract = await getContract(hre, nameService);
+        const existing = await hexlink.getAccountImplementation(nsContract.address);
         if (existing == latest) {
             console.log("no need to upgrade account");
             return;
         }
         const data = hexlink.interface.encodeFunctionData(
             "setAccountImplementation",
-            [latest],
+            [nsContract.address, latest],
         );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
@@ -231,7 +207,7 @@ task("upgrade_account")
 task("address_of")
     .addParam("contract", "which contract to stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await searchContract(args.contract, hre);
+        const contract = await getContract(hre, args.contract);
         console.log(contract);
         return contract;
     });
@@ -239,7 +215,7 @@ task("address_of")
 task("check_deposit")
     .addParam("contract", "which contract to stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await searchContract(args.contract, hre);
+        const contract = await getContract(hre, args.contract);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
@@ -258,7 +234,7 @@ task("add_stake")
     .addParam("contract", "which contract to stake")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await searchContract(args.contract, hre);
+        const contract = await getContract(hre, args.contract);
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.utils.Interface(artifact.abi);
         const entrypoint = await hre.ethers.getContractAt(
@@ -306,152 +282,4 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         } else {
             await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
         }
-    });
-
-task("upgrade_redpacket", "upgrade redpacket implementation")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const redpacket = await hre.run("redpacket", {});
-
-        await hre.run("deploy", {tags: "APP"});
-        const impl = await hre.deployments.get("HappyRedPacketImpl");
-        const existing = await redpacket.implementation();
-        if (existing.toLowerCase() == impl.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-
-        const data = redpacket.interface.encodeFunctionData(
-            "upgradeTo",
-            [impl.address]
-        );
-        console.log("Upgrading from " + existing + " to " + impl.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: redpacket.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: redpacket.address, data });
-        }
-    });
-
-task("set_erc721_impl", "set erc721 base")
-    .addFlag("nowait")
-    .setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-        const factory = await hre.run("token_factory", {});
-        await hre.run("deploy", {tags: "ERC721"});
-
-        const newImpl = await hre.deployments.get("HexlinkErc721Proxy");
-        const existing = await factory.erc721Impl();
-        if (existing.toLowerCase() == newImpl.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-        const data = factory.interface.encodeFunctionData(
-            "setErc721Impl",
-            [newImpl.address]
-        );
-        console.log("Upgrading from " + existing + " to " + newImpl.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: factory.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: factory.address, data });
-        }
-    });
-
-task("upgrade_erc721", "upgrade erc721 beacon implementation")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("HexlinkErc721Beacon");
-        const beacon = await hre.ethers.getContractAt(
-            "HexlinkErc721Beacon", deployment.address
-        );
-
-        await hre.run("deploy", {tags: "ERC721"});
-        const newImpl = await hre.deployments.get("HexlinkErc721Impl");
-        const existing = await beacon.implementation();
-        if (existing.toLowerCase() === newImpl.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-
-        const data = beacon.interface.encodeFunctionData(
-            "upgradeTo",
-            [newImpl.address]
-        );
-        console.log("Upgrading from " + existing + " to " + newImpl.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: beacon.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: beacon.address, data });
-        }
-    });
-
-task("upgrade_token_factory", "upgrade token factory implementation")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const factory = await hre.run("token_factory", {});
-        await hre.run("deploy", {tags: "TOKEN"});
-        const impl = await hre.deployments.get("HexlinkTokenFactoryImpl");
-        const existing = await factory.implementation();
-        if (existing.toLowerCase() == impl.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-        const data = factory.interface.encodeFunctionData(
-            "upgradeTo",
-            [impl.address]
-        );
-        console.log("Upgrading from " + existing + " to " + impl.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: factory.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: factory.address, data });
-        }
-    });
-
-task("upgrade_swap", "upgrade swap implementation")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("HexlinkSwapProxy");
-        const proxy = await hre.ethers.getContractAt(
-            "HexlinkSwapImpl", deployment.address
-        );
-
-        await hre.run("deploy", {tags: "SWAP"});
-        const impl = await hre.deployments.get("HexlinkSwapImpl");
-        const existing = await proxy.implementation();
-        if (existing.toLowerCase() == impl.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-        const data = proxy.interface.encodeFunctionData(
-            "upgradeTo",
-            [impl.address]
-        );
-        console.log("Upgrading from " + existing + " to " + impl.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: proxy.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: proxy.address, data });
-        }
-    });
-
-task("set_swap_prices", "set prices of gas token")
-    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
-        const deployment = await hre.deployments.get("HexlinkSwapProxy");
-        const swap = await hre.ethers.getContractAt(
-            "HexlinkSwapImpl", deployment.address
-        );
-        const gasTokens = (netConf as any)(hre)["gasTokens"] || [];
-        if (gasTokens.length == 0) {
-            console.log("no gas token found, exiting...");
-            return;
-        }
-        const tokens = gasTokens.map((t : any) => t.address);
-        const prices = gasTokens.map((t : any) => t.price);
-        const { deployer } = await hre.ethers.getNamedSigners();
-        const {gasPrice} = await hre.ethers.provider.getFeeData();
-        await swap.connect(deployer).setPrices(tokens, prices);
-        await swap.connect(deployer).deposit(
-            {value: ethers.utils.parseEther("0.01"), gasPrice}
-        );
     });

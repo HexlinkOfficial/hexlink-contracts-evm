@@ -11,7 +11,7 @@ struct AuthFactor {
 
 struct AuthInput {
     uint96 timeRange;
-    bytes32 nameType; // optional
+    bytes32 name; // optional
     address signer;
     bytes signature;
 }

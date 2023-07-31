@@ -14,13 +14,9 @@ contract EnsNameService is INameService {
     }
 
     function isOwner(
-        IERC4972Account account,
+        bytes32 name,
         address owner
     ) external view returns(bool) {
-        return ens.owner(account.getName()) == owner;
-    }
-
-    function isSupported(bytes32 nameType) external view returns(bool) {
-        return nameType == bytes32(uint256(uint160(address(ens))));
+        return ens.owner(name) == owner;
     }
 }

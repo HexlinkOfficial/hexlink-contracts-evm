@@ -8,15 +8,8 @@ import "../account/Account.sol";
 contract AccountV2ForTest is Account {
     constructor(
         address entryPoint,
-        address erc4972Registry,
-        address nameService,
-        address validatorMetadataRegistry
-    ) Account(
-        entryPoint,
-        erc4972Registry,
-        nameService,
-        validatorMetadataRegistry
-    ) { }
+        address erc4972Registry
+    ) Account(entryPoint, erc4972Registry) { }
 
     function name() external pure returns (string memory) {
         return "AccountV2ForTest";

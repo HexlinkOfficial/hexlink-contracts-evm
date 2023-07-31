@@ -75,17 +75,18 @@ export async function deterministicDeploy(
   hre: HardhatRuntimeEnvironment,
   contract: string,
   salt: string,
-  args: string | []
+  args?: string | [],
+  data?: string | []
 ) : Promise<{address: string, deployed: boolean}> {
   const factory = await getFactory(hre);
   const artifact = await hre.artifacts.readArtifact(contract);
-  const bytecode = getBytecode(artifact, args);
+  const bytecode = getBytecode(artifact, args ?? []);
   const address = await factory.getAddress(bytecode, salt);
   if (await isContract(hre, address)) {
       console.log(`Reusing ${contract} deployed at ${address}`);
       return { deployed: false, address };
   } else {
-      const tx = await factory.deploy(bytecode, salt);
+      const tx = await factory.deployAndCall(bytecode, salt, data ?? []);
       await tx.wait();
       console.log(`deploying ${contract} (tx: ${tx.hash})...: deployed at ${address}`);
       return { deployed: true, address };

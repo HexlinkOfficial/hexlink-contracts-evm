@@ -9,12 +9,7 @@ import "hardhat-deploy";
 import "hardhat-deploy-ethers";
 
 import "./tasks/admin";
-import "./tasks/nft";
 import "./tasks/hexlink";
-import "./tasks/app";
-import "./tasks/redpacket";
-
-import "@typechain/hardhat";
 
 task("abi", "Prints abi of contract")
     .addParam("contract", "contract name")

@@ -7,14 +7,21 @@ pragma solidity ^0.8.12;
     to ensure the identical cross-chain addresses
 */
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@solidstate/contracts/access/ownable/Ownable.sol";
 
 contract HexlinkContractFactory is Ownable {
+    using Address for address;
+
     constructor(address owner) {
         _transferOwnership(owner);
     }
 
-    function deploy(bytes memory bytecode, bytes32 salt) public payable onlyOwner {
+    function deployAndCall(
+        bytes memory bytecode,
+        bytes32 salt,
+        bytes memory data
+    ) public payable onlyOwner {
         address addr;
         /*
         NOTE: How to call create2
@@ -38,6 +45,9 @@ contract HexlinkContractFactory is Ownable {
             if iszero(extcodesize(addr)) {
                 revert(0, 0)
             }
+        }
+        if (data.length > 0) {
+            addr.functionCall(data);
         }
     }
 

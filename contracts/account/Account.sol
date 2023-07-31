@@ -8,37 +8,26 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IExecutable.sol";
 import "./base/ERC4337Account.sol";
-import "./base/ERC4972Account.sol";
-import "./base/ERC6662Account.sol";
 import "./AuthFactorManager.sol";
 
 contract Account is
     Initializable,
     IExecutable,
     ERC4337Account,
-    ERC4972Account,
-    ERC6662Account,
     AuthFactorManager,
     UUPSUpgradeable
 {
     using Address for address;
 
-    error UnAuthorizedUpgrade();
+    error InvalidAccountImplementation();
 
     constructor(
         address entryPoint,
-        address erc4972Registry,
-        address nameService,
-        address authRegistry
+        address erc4972Registry
     ) ERC4337Account(entryPoint)
-      ERC4972Account(erc4972Registry, nameService)
-      ERC6662Account(authRegistry) { }
+      ERC4972Account(erc4972Registry) { }
 
-    function initialize(
-        bytes32 name,
-        address owner
-    ) public initializer {
-         _setName(name);
+    function initialize(address owner) public initializer {
         _initFirstFactor(owner);
     }
 
@@ -89,9 +78,8 @@ contract Account is
     function _authorizeUpgrade(
         address newImplementation
     ) onlySelf internal view override {
-        address nameService = address(getNameService());
-        if (newImplementation != factory_.getAccountImplementation(nameService)) {
-            revert UnAuthorizedUpgrade();
+        if (newImplementation.code.length == 0) {
+            revert InvalidAccountImplementation();
         }
     }
 }

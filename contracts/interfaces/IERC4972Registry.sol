@@ -3,9 +3,13 @@
 
 pragma solidity ^0.8.12;
 
+import "./IAuthRegistry.sol";
+import "./INameService.sol";
+
 interface IERC4972Registry {
-    function getOwnedAccount(
-        address nameService,
-        bytes32 name
-    ) external view returns (address);
+    function getNameService() external view returns (INameService);
+
+    function getOwnedAccount(bytes32 name) external view returns (address);
+
+    function getAuthRegistry() external view returns (IAuthRegistry);
 }

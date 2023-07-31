@@ -43,6 +43,7 @@ abstract contract AuthFactorManager is ERC4972Account {
     event SecondFactorUpdated(address indexed, bool enabled);
 
     error UnAuthorizedFirstFactorOwner(address owner);
+    error UnAuthorizedERC4972Name(bytes32 name);
     error NameNotEnabled();
     error InvalidFirstFactorOwnerToSet(address owner);
     error InvalidSignType(uint8 signType);
@@ -102,13 +103,18 @@ abstract contract AuthFactorManager is ERC4972Account {
         bytes32 message = keccak256(abi.encodePacked(input.timeRange, userOpHash));
         FirstFactor memory first = AuthFactorStorage.layout().first;
         if (first.nameEnabled) {
-            if (!getNameService().isSupported(input.nameType)) {
-                return 1;
+            bytes32 name = getName();
+            if (name == bytes32(0)) {
+                address owned = getERC4972Registry().getOwnedAccount(input.name);
+                if (owned != address(this)) {
+                    revert UnAuthorizedERC4972Name(input.name);
+                }
+                name = input.name;
             }
             if (!first.initialized) {
                 AuthFactorStorage.layout().first.owner = input.signer;
             }
-            message = keccak256(abi.encodePacked(input.nameType, getName(), message));
+            message = keccak256(abi.encodePacked(name, message));
         }
         bool sigValid = input.signer.isValidSignatureNow(
             message.toEthSignedMessageHash(),
@@ -134,7 +140,7 @@ abstract contract AuthFactorManager is ERC4972Account {
         return AuthFactorStorage.layout().second.values();
     }
 
-    function isSecondFactorEnabeld(address factor) public view returns(bool) {
+    function isSecondFactorEnabled(address factor) public view returns(bool) {
         return AuthFactorStorage.layout().second.contains(factor);
     }
 
@@ -147,7 +153,7 @@ abstract contract AuthFactorManager is ERC4972Account {
             message.toEthSignedMessageHash(),
             input2.signature
         );
-        sigValid = sigValid && isSecondFactorEnabeld(input2.signer);
+        sigValid = sigValid && isSecondFactorEnabled(input2.signer);
         return sigValid ? (uint256(input2.timeRange) << 160) : 1;
     }
 
@@ -182,7 +188,7 @@ abstract contract AuthFactorManager is ERC4972Account {
     ) private pure returns(AuthInput memory result, uint256 processed) {
         result.timeRange = uint96(bytes12(signature[start:start + 12]));
         result.signer = address(bytes20(signature[start + 12:start + 32]));
-        result.nameType = bytes32(signature[start + 32:start + 64]);
+        result.name = bytes32(signature[start + 32:start + 64]);
         uint32 sigLength = uint32(bytes4(signature[start + 64:start + 68]));
         result.signature = signature[start + 68:start + 68 + sigLength];
         processed = 68 + sigLength;

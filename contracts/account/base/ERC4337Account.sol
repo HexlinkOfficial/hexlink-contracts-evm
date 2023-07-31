@@ -7,7 +7,10 @@ import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "./AccountAuthBase.sol";
 
-abstract contract ERC4337Account is BaseAccount, AccountAuthBase {
+abstract contract ERC4337Account is
+    BaseAccount,
+    AccountAuthBase
+{
     using Address for address;
 
     error onlyEntryPointCallAllowed();

@@ -10,6 +10,4 @@ interface IERC4972Registry {
     function getNameService() external view returns (INameService);
 
     function getOwnedAccount(bytes32 name) external view returns (address);
-
-    function getAuthRegistry() external view returns (IAuthRegistry);
 }

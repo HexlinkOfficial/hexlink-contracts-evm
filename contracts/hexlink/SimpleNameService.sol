@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT
+// Hexlink Contracts
+
+pragma solidity ^0.8.12;
+
+import "../interfaces/INameService.sol";
+
+contract SimpleNameService is INameService {
+    address immutable private validator_;
+
+    constructor(address validator) {
+        validator_ = validator;
+    }
+
+    function isOwner(
+        bytes32 /* name */,
+        address owner
+    ) external view returns(bool) {
+        return validator_ == owner;
+    }
+
+    function getGlobalOwner() external view override returns(address) {
+        return validator_;
+    }
+}

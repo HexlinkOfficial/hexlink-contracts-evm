@@ -1,13 +1,16 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { hash, deterministicDeploy } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
-    await deterministicDeploy(
-        hre,
+    const {getNamedAccounts, deployments} = hre;
+    const {deployer} = await getNamedAccounts();
+    await deployments.deploy(
         "AuthRegistry",
-        hash("hexlink.AuthRegistry"),
-        []
+        {
+            from: deployer,
+            args: [],
+            log: true,
+        }
     );
 }
 

@@ -19,4 +19,8 @@ contract EnsNameService is INameService {
     ) external view returns(bool) {
         return ens.owner(name) == owner;
     }
+
+    function getGlobalOwner() external pure override returns(address) {
+        return address(0);
+    }
 }

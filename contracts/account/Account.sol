@@ -6,15 +6,17 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "../interfaces/IExecutable.sol";
+import "../interfaces/IExecutionManager.sol";
 import "./base/ERC4337Account.sol";
-import "./AuthFactorManager.sol";
+import "./base/ERC4972Account.sol";
+import "./SecondFactorManager.sol";
 
 contract Account is
     Initializable,
-    IExecutable,
+    IExecutionManager,
     ERC4337Account,
-    AuthFactorManager,
+    ERC4972Account,
+    SecondFactorManager,
     UUPSUpgradeable
 {
     using Address for address;
@@ -27,37 +29,52 @@ contract Account is
     ) ERC4337Account(entryPoint)
       ERC4972Account(erc4972Registry) { }
 
-    function initialize(address owner) public initializer {
-        _initFirstFactor(owner);
+    function initialize(bytes32 name, address owner) public initializer {
+        _ERC4972Account_init(name, owner);
     }
 
-    /** IExectuable */
+    /** IExecutionManager */
 
     function execute(
-        UserRequest calldata request
-    ) onlyEntryPoint onlyValidFirstFactor external payable override {
-        _call(request);
+        address dest,
+        uint256 value,
+        bytes calldata func
+    ) external override onlyEntryPoint onlyValidNameOwner {
+        _call(dest, value, func);
     }
 
     function executeBatch(
-        UserRequest[] calldata requests
-    ) onlyEntryPoint onlyValidFirstFactor external payable override {
-        for (uint256 i = 0; i < requests.length; i++) {
-            _call(requests[i]);
+        address[] calldata dest,
+        bytes[] calldata func
+    ) external override onlyEntryPoint onlyValidNameOwner {
+        for (uint256 i = 0; i < dest.length;) {
+            _call(dest[i], 0, func[i]);
+            unchecked {
+                i++;
+            }
         }
     }
 
-    function _call(UserRequest calldata request) internal {
-        (bool success, bytes memory returndata) =
-            request.target.call{value : request.value}(request.data);
-        if (!success) {
-            if (returndata.length > 0) {
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert("low level call failed");
+    function executeBatch(
+        address[] calldata dest,
+        uint256[] calldata value,
+        bytes[] calldata func
+    ) external override onlyEntryPoint onlyValidNameOwner {
+        for (uint256 i = 0; i < dest.length;) {
+            _call(dest[i], value[i], func[i]);
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    function _call(address target, uint256 value, bytes memory data) private {
+        assembly {
+            let result := call(gas(), target, value, add(data, 0x20), mload(data), 0, 0)
+            if iszero(result) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0, returndatasize())
+                revert(ptr, returndatasize())
             }
         }
     }
@@ -66,7 +83,17 @@ contract Account is
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256) {
-        return _validateAuthFactors(userOpHash, userOp.signature);
+        uint8 signType = uint8(userOp.signature[0]);
+        if(signType != 0x00) {
+            revert InvalidSignType(signType);
+        }
+        uint96 timeRange = uint96(bytes12(userOp.signature[1:13]));
+        bytes32 message = keccak256(abi.encodePacked(signType, timeRange, userOpHash));
+        bool valid = _validateNameOwner(message, userOp.signature[13:78]);
+        if (valid && getNumOfSecondFactors() > 0) {
+            valid = valid && _validateSecondFactor(message, userOp.signature[78:143]);
+        }
+        return (uint256(timeRange) << 160) | (valid ? 0 : 1);
     }
 
     /** UUPSUpgradeable */

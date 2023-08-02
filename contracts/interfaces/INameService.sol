@@ -8,4 +8,6 @@ interface INameService {
         bytes32 name,
         address owner
     ) external view returns(bool);
+
+    function getGlobalOwner() external view returns(address);
 }

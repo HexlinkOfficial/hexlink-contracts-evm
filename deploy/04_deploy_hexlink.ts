@@ -12,47 +12,41 @@ import { ethers } from "ethers";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     // deploy erc1967 proxy
-    const erc1967Proxy = await deterministicDeploy(
+    const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
         hash("hexlink.HexlinkERC1967Proxy"),
         []
     );
+    const erc1967Proxy = await hre.ethers.getContractAt(
+        "HexlinkERC1967Proxy",
+        deployed.address
+    );
 
     const {getNamedAccounts, deployments} = hre;
     const {deployer} = await getNamedAccounts();
+    const authRegistry = await deployments.get("AuthRegistry");
+    const simpleNs = await deployments.get("SimpleNameService");
     await deployments.deploy(
         "Hexlink",
         {
             from: deployer,
-            args: [erc1967Proxy.address],
+            args: [
+                erc1967Proxy.address,
+                simpleNs.address,
+                authRegistry.address
+            ],
             log: true,
         }
     );
 
-    if (erc1967Proxy.deployed) {
-        const dauthValdiator = await getValidator(hre, "dauthValidator");
-        const authRegistry = await getDeterministicAddress(
-            hre,
-            "AuthRegistry",
-            hash("hexlink.AuthRegistry"),
-            []
-        );
-        let proxy = await hre.ethers.getContractAt(
-            "HexlinkERC1967Proxy",
-            erc1967Proxy.address
-        );
+    if (deployed.deployed) {
         const hexlinkImpl = await getContract(hre, "Hexlink");
         const admin = await getAdmin(hre);
         const data = hexlinkImpl.interface.encodeFunctionData(
-            "initialize", [
-                admin.address,
-                dauthValdiator,
-                ethers.constants.AddressZero,
-                authRegistry
-            ]
+            "initialize", [admin.address]
         );
-        await proxy.initProxy(hexlinkImpl.address, data)
+        await erc1967Proxy.initProxy(hexlinkImpl.address, data)
     }
 }
 

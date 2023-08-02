@@ -4,15 +4,13 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@account-abstraction/contracts/core/Helpers.sol";
-import "./base/AccountAuthBase.sol";
-import "../interfaces/structs.sol";
+import "./AccountAuthBase.sol";
 
-library SecondFactorStorage {
+library Simple2FAStorage {
     bytes32 internal constant STORAGE_SLOT =
-        keccak256("hexlink.account.auth.factor.v2");
+        keccak256("hexlink.account.auth.2fa");
 
     struct Layout {
         EnumerableSet.AddressSet factors;
@@ -26,36 +24,32 @@ library SecondFactorStorage {
     }
 }
 
-abstract contract SecondFactorManager is AccountAuthBase {
+abstract contract Simple2FA is AccountAuthBase {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    event SecondFactorUpdated(address indexed, bool enabled);
-
-    error UnAuthorizedFirstFactorOwner(address owner);
-    error UnAuthorizedERC4972Name(bytes32 name);
-    error NameNotEnabled();
-    error InvalidSignType(uint8 signType);
+    event SecondFactorAdded(address indexed);
+    event SecondFactorRemoved(address indexed);
 
     function addSecondFactor(address factor) external onlySelf {
-        SecondFactorStorage.layout().factors.add(factor);
-        emit SecondFactorUpdated(factor, true);
+        Simple2FAStorage.layout().factors.add(factor);
+        emit SecondFactorAdded(factor);
     }
 
     function removeSecondFactor(address factor) external onlySelf {
-        SecondFactorStorage.layout().factors.remove(factor);
-        emit SecondFactorUpdated(factor, false);
+        Simple2FAStorage.layout().factors.remove(factor);
+        emit SecondFactorRemoved(factor);
     }
 
     function getSecondFactors() external view returns(address[] memory) {
-        return SecondFactorStorage.layout().factors.values();
+        return Simple2FAStorage.layout().factors.values();
     }
 
     function isSecondFactorEnabled(address factor) public view returns(bool) {
-        return SecondFactorStorage.layout().factors.contains(factor);
+        return Simple2FAStorage.layout().factors.contains(factor);
     }
 
     function getNumOfSecondFactors() public view returns(uint256) {
-        return SecondFactorStorage.layout().factors.length();
+        return Simple2FAStorage.layout().factors.length();
     }
 
     function _validateSecondFactor(

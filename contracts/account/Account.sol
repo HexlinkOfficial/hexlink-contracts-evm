@@ -4,24 +4,22 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IExecutionManager.sol";
 import "./base/ERC4337Account.sol";
 import "./base/ERC4972Account.sol";
-import "./SecondFactorManager.sol";
+import "./base/Simple2FA.sol";
 
 contract Account is
     Initializable,
     IExecutionManager,
     ERC4337Account,
     ERC4972Account,
-    SecondFactorManager,
+    Simple2FA,
     UUPSUpgradeable
 {
-    using Address for address;
-
     error InvalidAccountImplementation();
+    error InvalidSignType(uint8);
 
     constructor(
         address entryPoint,

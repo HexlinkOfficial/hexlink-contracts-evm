@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.12;
 
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@account-abstraction/contracts/core/BaseAccount.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "./AccountAuthBase.sol";
@@ -11,8 +10,6 @@ abstract contract ERC4337Account is
     BaseAccount,
     AccountAuthBase
 {
-    using Address for address;
-
     error onlyEntryPointCallAllowed();
 
     modifier onlyEntryPoint() {

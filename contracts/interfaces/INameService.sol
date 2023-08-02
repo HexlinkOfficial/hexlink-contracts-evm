@@ -4,10 +4,7 @@
 pragma solidity ^0.8.12;
 
 interface INameService {
-    function isOwner(
-        bytes32 name,
-        address owner
-    ) external view returns(bool);
+    function defaultOwner() external view returns(address);
 
-    function getGlobalOwner() external view returns(address);
+    function owner(bytes32 name) external view returns(address);
 }

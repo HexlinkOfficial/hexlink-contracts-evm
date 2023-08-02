@@ -92,7 +92,7 @@ contract Hexlink is
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
             name,
-            getNameService().getGlobalOwner()
+            nameService.defaultOwner()
         );
         address impl = getAccountImplementation();
         HexlinkERC1967Proxy(payable(account)).initProxy(impl, data);

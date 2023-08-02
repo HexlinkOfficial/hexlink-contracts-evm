@@ -12,14 +12,11 @@ contract SimpleNameService is INameService {
         validator_ = validator;
     }
 
-    function isOwner(
-        bytes32 /* name */,
-        address owner
-    ) external view returns(bool) {
-        return validator_ == owner;
+    function defaultOwner() external view override returns(address) {
+        return validator_;
     }
 
-    function getGlobalOwner() external view override returns(address) {
+    function owner(bytes32 /* name */) external view override returns(address) {
         return validator_;
     }
 }

@@ -32,16 +32,19 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     event NameUpdated(bytes32 indexed name);
     event NameOwnerUpdated(address indexed);
 
+    error InvalidNameToSet(bytes32 name);
     error InvalidNameOwner(address owner);
 
     IERC4972Registry immutable internal registry_;
 
     modifier onlyValidNameOwner() {
-        address owner = ERC4972AccountStorage.layout().owner;
-        if (!_isOwner(owner)) {
-            revert InvalidNameOwner(owner);
+        address cached = ERC4972AccountStorage.layout().owner;
+        address owner = registry_.getNameService().owner(getName());
+        if (cached != owner) {
+            ERC4972AccountStorage.layout().owner == owner;
+        } else {
+            _;
         }
-        _;
     }
 
     constructor(address registry) {
@@ -65,33 +68,18 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
         return ERC4972AccountStorage.layout().owner;
     }
 
-    function setNameOwner(address owner) external onlySelf {
-        if (!_isOwner(owner)) {
-            revert InvalidNameOwner(owner);
-        }
+    function setNameOwner() public {
+        address owner = registry_.getNameService().owner(getName());
         ERC4972AccountStorage.layout().owner = owner;
         emit NameOwnerUpdated(owner);
     }
 
-    function setNameOwnerPublic(address newOwner) public {
-        address owner = ERC4972AccountStorage.layout().owner;
-        if (owner == newOwner || _isOwner(owner)) {
-            return; // no need to update
-        }
-        if (owner == address(0) || !_isOwner(newOwner)) {
-            revert InvalidNameOwner(newOwner);
-        }
-        ERC4972AccountStorage.layout().owner = newOwner;
-        emit NameOwnerUpdated(owner);
-    }
-
     function setName(bytes32 name) external onlySelf {
+        if (registry_.getOwnedAccount(name) != address(this)) {
+            revert InvalidNameToSet(name);
+        }
         ERC4972AccountStorage.layout().name = name;
         emit NameUpdated(name);
-    }
-
-    function _isOwner(address owner) internal view returns(bool) {
-        return getERC4972Registry().getNameService().isOwner(getName(), owner);
     }
 
     function _validateNameOwner(

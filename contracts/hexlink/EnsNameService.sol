@@ -13,14 +13,11 @@ contract EnsNameService is INameService {
         ens = ENS(ens_);
     }
 
-    function isOwner(
-        bytes32 name,
-        address owner
-    ) external view returns(bool) {
-        return ens.owner(name) == owner;
+    function defaultOwner() external pure override returns(address) {
+        return address(0);
     }
 
-    function getGlobalOwner() external pure override returns(address) {
-        return address(0);
+    function owner(bytes32 name) external view override returns(address) {
+        return ens.owner(name);
     }
 }

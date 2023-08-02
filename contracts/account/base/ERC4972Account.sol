@@ -27,8 +27,6 @@ library ERC4972AccountStorage {
 }
 
 abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
-    using SignatureChecker for address;
-
     event NameUpdated(bytes32 indexed name);
     event NameOwnerUpdated(address indexed);
 
@@ -38,11 +36,7 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     IERC4972Registry immutable internal registry_;
 
     modifier onlyValidNameOwner() {
-        address cached = ERC4972AccountStorage.layout().owner;
-        address owner = registry_.getNameService().owner(getName());
-        if (cached != owner) {
-            ERC4972AccountStorage.layout().owner == owner;
-        } else {
+        if (!setNameOwner()) {
             _;
         }
     }
@@ -68,10 +62,14 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
         return ERC4972AccountStorage.layout().owner;
     }
 
-    function setNameOwner() public {
+    function setNameOwner() public returns(bool updated) {
         address owner = registry_.getNameService().owner(getName());
+        if (owner == ERC4972AccountStorage.layout().owner) {
+            return false;
+        }
         ERC4972AccountStorage.layout().owner = owner;
         emit NameOwnerUpdated(owner);
+        return true;
     }
 
     function setName(bytes32 name) external onlySelf {

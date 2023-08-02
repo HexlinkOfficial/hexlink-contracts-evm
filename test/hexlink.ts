@@ -18,7 +18,6 @@ describe("Hexlink", function() {
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
     hexlink = await getHexlink(hre);
-    await hre.run("upgrade_account", []);
     admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   });

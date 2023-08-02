@@ -5,7 +5,7 @@ import {
     deterministicDeploy,
     getContract,
     getAdmin,
-    getDeterministicAddress,
+    getEntryPoint,
     getValidator
 } from "../tasks/utils";
 import { ethers } from "ethers";
@@ -23,8 +23,33 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         deployed.address
     );
 
-    const {getNamedAccounts, deployments} = hre;
-    const {deployer} = await getNamedAccounts();
+    // deploy account impl
+    const { deployments, getNamedAccounts } = hre;
+    const { deployer } = await getNamedAccounts();
+    if (hre.network.name === 'hardhat') {
+        await hre.deployments.deploy(
+            "EntryPoint", {
+            from: deployer,
+            args: [],
+            log: true,
+        }
+        );
+    }
+    const entrypoint = await getEntryPoint(hre);
+    const account = await deployments.deploy(
+        "Account",
+        {
+            from: deployer,
+            contract: "Account",
+            args: [
+                entrypoint.address,
+                erc1967Proxy.address,
+            ],
+            log: true,
+        }
+    );
+
+    // deploy hexlink impl
     const authRegistry = await deployments.get("AuthRegistry");
     const simpleNs = await deployments.get("SimpleNameService");
     await deployments.deploy(
@@ -40,11 +65,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         }
     );
 
+    // init hexlink
     if (deployed.deployed) {
         const hexlinkImpl = await getContract(hre, "Hexlink");
         const admin = await getAdmin(hre);
         const data = hexlinkImpl.interface.encodeFunctionData(
-            "initialize", [admin.address]
+            "initialize", [admin.address, account.address]
         );
         await erc1967Proxy.initProxy(hexlinkImpl.address, data)
     }

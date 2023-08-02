@@ -57,8 +57,9 @@ contract Hexlink is
         authRegistry = IAuthRegistry(authRegistry_);
     }
 
-    function initialize(address owner) public initializer {
+    function initialize(address owner, address accountImpl) public initializer {
         _transferOwnership(owner);
+        HexlinkStorage.layout().accountImpl = accountImpl;
     }
 
     /** IAccountFactory */

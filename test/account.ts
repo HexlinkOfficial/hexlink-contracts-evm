@@ -22,6 +22,18 @@ export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
   return await ethers.getContractAt("Account", accountAddr);
 }
 
+async function deployErc20(deployer: string) {
+  const deployed = await deployments.deploy("TestHexlinkERC20", {
+    from: deployer,
+    log: true,
+    autoMine: true,
+  });
+  return await ethers.getContractAt(
+    "TestHexlinkERC20",
+    deployed.address
+  );
+}
+
 describe("Hexlink Account", function () {
   let hexlink: Contract;
   let entrypoint: Contract;
@@ -31,9 +43,6 @@ describe("Hexlink Account", function () {
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
     hexlink = await getHexlink(hre);
-    await hre.run("set_auth_providers", []);
-    await hre.run("upgrade_account", []);
-
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
     receiver = await hexlink.getOwnedAccount(RECEIVER_NAME_HASH);
     entrypoint = await ethers.getContractAt(
@@ -49,13 +58,13 @@ describe("Hexlink Account", function () {
   });
 
   it("Should upgrade successfully", async function () {
-    const { deployer } = await getNamedAccounts();
+    const { deployer, validator } = await hre.ethers.getNamedSigners();
     let account = await deploySender(hexlink);
     const impl2 = await deployments.deploy(
       "AccountV2ForTest",
       {
-        from: deployer,
-        args: [await account.entryPoint(), await account.hexlink()]
+        from: deployer.address,
+        args: [await account.entryPoint(), await account.getERC4972Registry()]
       }
     );
 
@@ -83,54 +92,43 @@ describe("Hexlink Account", function () {
         [impl2.address]
       )
     );
-    // cannot upgrade to impl2 since impl2 is not set at hexlink
-    // this will not revert because handleOps will catch the exception
-    await callWithEntryPoint(sender, [], callData, entrypoint)
-    expect(await account.implementation()).to.not.eq(impl2.address);
-
-    // update account implementation and upgrade
-    await hre.run("upgrade_account", {account: impl2.address});
-    await callWithEntryPoint(sender, [], callData, entrypoint)
+    await callWithEntryPoint(sender, [], callData, entrypoint, validator)
     expect(await account.implementation()).to.eq(impl2.address);
   });
 
   it("Should transfer erc20 successfully", async function () {
-    const { deployer } = await ethers.getNamedSigners();
-
+    const { deployer, validator } = await hre.ethers.getNamedSigners();
+    const erc20 = await deployErc20(deployer.address);
     // receive tokens before account created
-    const token = await ethers.getContractAt(
-      "HexlinkToken",
-      (await deployments.get("HexlinkToken")).address
-    );
     await expect(
-      token.connect(deployer).transfer(sender, 5000)
-    ).to.emit(token, "Transfer")
+      erc20.connect(deployer).transfer(sender, 5000)
+    ).to.emit(erc20, "Transfer")
       .withArgs(deployer.address, sender, 5000);
-    expect(await token.balanceOf(sender)).to.eq(5000);
+    expect(await erc20.balanceOf(sender)).to.eq(5000);
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
 
     // receive tokens after account created
     await expect(
-      token.connect(deployer).transfer(sender, 5000)
-    ).to.emit(token, "Transfer")
+      erc20.connect(deployer).transfer(sender, 5000)
+    ).to.emit(erc20, "Transfer")
       .withArgs(deployer.address, sender, 5000);
-    expect(await token.balanceOf(sender)).to.eq(10000);
+    expect(await erc20.balanceOf(sender)).to.eq(10000);
 
-    const erc20Data = token.interface.encodeFunctionData(
+    const erc20Data = erc20.interface.encodeFunctionData(
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(token.address, 0, erc20Data);
-    await callWithEntryPoint(sender, [], callData, entrypoint);
-    expect(await token.balanceOf(sender)).to.eq(5000);
-    expect(await token.balanceOf(receiver)).to.eq(5000);
+    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
+    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    expect(await erc20.balanceOf(sender)).to.eq(5000);
+    expect(await erc20.balanceOf(receiver)).to.eq(5000);
   });
 
   it("Should transfer eth successfully", async function () {
-    const { deployer } = await ethers.getNamedSigners();
+    const { deployer, validator } = await hre.ethers.getNamedSigners();
 
     // receive eth before account created
     const tx1 = await deployer.sendTransaction({
@@ -144,7 +142,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
@@ -160,14 +158,14 @@ describe("Hexlink Account", function () {
     const callData = await buildAccountExecData(
       receiver, ethers.utils.parseEther("0.5")
     );
-    await callWithEntryPoint(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
   });
 
   it("Should hold and transfer ERC1155 successfully", async function () {
-    const { deployer } = await ethers.getNamedSigners();
+    const { deployer, validator } = await hre.ethers.getNamedSigners();
     const deployed = await deployments.deploy("TestHexlinkERC1155", {
       from: deployer.address,
       log: true,
@@ -189,7 +187,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
 
     // receive erc1155 after account created
     await expect(
@@ -206,113 +204,95 @@ describe("Hexlink Account", function () {
       [sender, receiver, 1, 10, []]
     );
     const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
-    await callWithEntryPoint(sender, [], callData, entrypoint);
+    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });
 
   it("Should not execute if the validator doesn't match the signer", async function() {
-    const { deployer, tester } = await hre.ethers.getNamedSigners();
+    const { deployer, tester, validator } = await hre.ethers.getNamedSigners();
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint);
+    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
 
     // get first factor and check
+    const nsContract = await ethers.getContractAt(
+      "SimpleNameService",
+      await hexlink.getNameService()
+    );
     const account = await ethers.getContractAt("Account", sender);
-    const factors = await account.getAuthFactors();
-    const authProvider = await deployments.get("DAuthProvider");
-    expect(await account.isSecondFactorEnabled()).to.eq(false);
-    expect(factors[0].provider).to.eq(authProvider.address);
+    const owner = await account.getNameOwner();
+    expect(await account.getNumOfSecondFactors()).to.eq(0);
+    expect(owner).to.eq(await nsContract.defaultOwner());
 
     // receive tokens after account created
-    const token = await ethers.getContractAt(
-      "HexlinkToken",
-      (await deployments.get("HexlinkToken")).address
-    );
+    const erc20 = await deployErc20(deployer.address);
     await expect(
-      token.connect(deployer).transfer(sender, 5000)
-    ).to.emit(token, "Transfer")
+      erc20.connect(deployer).transfer(sender, 5000)
+    ).to.emit(erc20, "Transfer")
       .withArgs(deployer.address, sender, 5000);
-    expect(await token.balanceOf(sender)).to.eq(5000);
+    expect(await erc20.balanceOf(sender)).to.eq(5000);
 
     // should not execute
-    const erc20Data = token.interface.encodeFunctionData(
+    const erc20Data = erc20.interface.encodeFunctionData(
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(token.address, 0, erc20Data);
+    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
     await expect(
       callWithEntryPoint(sender, [], callData, entrypoint, tester)
     ).to.be.reverted;
   });
 
   it("second factor", async function() {
-    const { deployer, validator, tester } = await ethers.getNamedSigners();
+    const { deployer, validator, tester } = await hre.ethers.getNamedSigners();
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint);
-    const token = await ethers.getContractAt(
-      "HexlinkToken",
-      (await deployments.get("HexlinkToken")).address
-    );
-    await token.connect(deployer).transfer(sender, 5000);
-    expect(await token.balanceOf(sender)).to.eq(5000);
+    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    const erc20 = await deployErc20(deployer.address);
+    await erc20.connect(deployer).transfer(sender, 5000);
+    expect(await erc20.balanceOf(sender)).to.eq(5000);
 
-    // get first factor and check
-    const account = await ethers.getContractAt("Account", sender);
-    const authProvider = await deployments.get("DAuthProvider");
     // add second factor
-    const authProvider2 = await deployments.deploy(
-      "SimpleAuthProvider2", {
-        from: deployer.address,
-        contract: "SimpleAuthProvider",
-        args: [deployer.address, ''],
-        log: true,
-        autoMine: true,
-      }
-    );
-    await expect(
-      account.updateAuthFactor(1, authProvider2.address, deployer.address)
-    ).to.be.revertedWith("invalid caller");
-
-    // should update second factor
+    const account = await ethers.getContractAt("Account", sender);
+    await expect(account.addSecondFactor(tester.address)).to.be.reverted;
     const data = account.interface.encodeFunctionData(
-      "updateAuthFactor",
-      [1, authProvider2.address, deployer.address]
+      "addSecondFactor",
+      [tester.address]
     );
     const callData1 = await buildAccountExecData(account.address, 0, data);
-    await callWithEntryPoint(sender, [], callData1, entrypoint);
+    await callWithEntryPoint(sender, [], callData1, entrypoint, validator);
 
-    const factors = await account.getAuthFactors();
-    expect(factors[0].provider).to.eq(authProvider.address);
-    expect(factors[1].provider).to.eq(authProvider2.address);
-    expect(await account.isSecondFactorEnabled()).to.eq(true);
+    // check 2fa settings
+    const factors = await account.getSecondFactors();
+    expect(factors[0]).to.eq(tester.address);
+    expect(await account.getNumOfSecondFactors()).to.eq(factors.length).to.eq(1);
 
-    const erc20Data = token.interface.encodeFunctionData(
+    // erc20 transfer with 2fa enabled
+    const erc20Data = erc20.interface.encodeFunctionData(
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(token.address, 0, erc20Data);
+    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
 
     // should not execute with first factor only
     await expect(
-      callWithEntryPoint(sender, [], callData, entrypoint)
+      callWithEntryPoint(sender, [], callData, entrypoint, validator)
     ).to.be.reverted;
     // should not execute with second factor only
     await expect(
-      callWithEntryPoint(sender, [], callData, entrypoint, deployer)
+      callWithEntryPoint(sender, [], callData, entrypoint, tester)
     ).to.be.reverted;
-  
     // should not execute with wrong second factor
     await expect(
-      call2faWithEntryPoint(sender, [], callData, entrypoint, validator, tester)
+      call2faWithEntryPoint(sender, [], callData, entrypoint, validator, deployer)
     ).to.be.reverted;
 
     // should execute with both factors
-    await call2faWithEntryPoint(sender, [], callData, entrypoint, validator, deployer);
-    expect(await token.balanceOf(sender)).to.eq(0);
-    expect(await token.balanceOf(receiver)).to.eq(5000);
+    await call2faWithEntryPoint(sender, [], callData, entrypoint, validator, tester);
+    expect(await erc20.balanceOf(sender)).to.eq(0);
+    expect(await erc20.balanceOf(receiver)).to.eq(5000);
   });
 });

@@ -105,6 +105,7 @@ export const callWithEntryPoint = async (
   callData: string | [],
   entrypoint: Contract,
   signer: any,
+  logError: boolean = false
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
@@ -127,7 +128,7 @@ export const callWithEntryPoint = async (
   try {
     await entrypoint.handleOps([signed], signer.address);
   } catch (e: any) {
-    if (e.message) {
+    if (logError && e.message) {
       const match = e.message.match(/0x[0-9a-z]+/);
       if (match) {
         console.log(entrypoint.interface.parseError(match[0]));
@@ -144,6 +145,7 @@ export const call2faWithEntryPoint = async (
   entrypoint: Contract,
   signer1: any,
   signer2: any,
+  log: boolean = false
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
@@ -163,10 +165,20 @@ export const call2faWithEntryPoint = async (
   );
   const signature = ethers.utils.solidityPack(
     ["uint8", "uint96", "bytes", "bytes"],
-    [1, validation, signature1, signature2]
+    [0, validation, signature1, signature2]
   );
   const signed = { ...userOp, signature, };
-  await entrypoint.handleOps([signed], signer1.address);
+  try {
+    await entrypoint.handleOps([signed], signer1.address);
+  } catch (e: any) {
+    if (log && e.message) {
+      const match = e.message.match(/0x[0-9a-z]+/);
+      if (match) {
+        console.log(entrypoint.interface.parseError(match[0]));
+      }
+    }
+    throw e;
+  }
 }
 
 export const getNonce = async (sender: string) => {

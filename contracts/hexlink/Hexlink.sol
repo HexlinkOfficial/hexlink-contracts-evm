@@ -74,7 +74,7 @@ contract Hexlink is
     /** IERC4972Registry */
 
     function getOwnedAccount(bytes32 name) public view override returns(address) {
-        return Clones.predictDeterministicAddress(address(this), name);
+        return Clones.predictDeterministicAddress(erc1967Proxy, name);
     }
 
     function getNameService() public view override returns(INameService) {

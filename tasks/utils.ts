@@ -1,5 +1,5 @@
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
-import { ethers, Contract } from "ethers";
+import { ethers } from "ethers";
 import * as config from '../config.json';
 
 export function hash(value: string) {

@@ -143,75 +143,6 @@ task("admin_schedule_or_exec", "schedule and execute")
         }
     });
 
-task("set_default_validator")
-    .addOptionalParam("nameService", "name service to set")
-    .addFlag("nowait")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        let hexlink = await getHexlink(hre);
-        const nameService = args.nameService ?? "DAuthNameService";
-        let validator;
-        if (nameService == "DAuthNameService") {
-            validator = await getValidator(hre, 'dauthValidator');
-        } else if (nameService == "EnsNameService") {
-            validator = ethers.constants.AddressZero;
-        } else {
-            throw new Error("invalid nameService");
-        }
-
-        const nsContract = await getContract(hre, nameService);
-        const data = hexlink.interface.encodeFunctionData(
-            "setDefaultValidator",
-            [nsContract.address, validator.address],
-        );
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
-        }
-    });
-
-task("upgrade_account")
-    .addFlag("nowait")
-    .addOptionalParam("nameService", "nameService to update")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        let hexlink = await getHexlink(hre);
-        const nameService = args.nameService ?? "DAuthNameService";
-        let latest = args.account;
-        if (nameService == "DAuthNameService") {
-            const deployed = await getContract(hre, "Account", "AccountForDAuth");
-            latest = latest ?? deployed.address;
-        } else if (nameService == "EnsNameService") {
-            const deployed = await getContract(hre, "Account", "AccountForEns");
-            latest = latest ?? deployed.address;
-        } else {
-            throw new Error("invalid nameService");
-        }
-
-        const nsContract = await getContract(hre, nameService);
-        const existing = await hexlink.getAccountImplementation(nsContract.address);
-        if (existing == latest) {
-            console.log("no need to upgrade account");
-            return;
-        }
-        const data = hexlink.interface.encodeFunctionData(
-            "setAccountImplementation",
-            [nsContract.address, latest],
-        );
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
-        }
-    });
-
-task("address_of")
-    .addParam("contract", "which contract to stake")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await getContract(hre, args.contract);
-        console.log(contract);
-        return contract;
-    });
-
 task("check_deposit")
     .addParam("contract", "which contract to stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
@@ -277,6 +208,28 @@ task("upgrade_hexlink", "upgrade hexlink contract")
             [deployed.address]
         );
         console.log("Upgrading from " + existing + " to " + deployed.address);
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
+        } else {
+            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+        }
+    });
+
+task("upgrade_account")
+    .addFlag("nowait")
+    .addOptionalParam("nameService", "nameService to update")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        let hexlink = await getHexlink(hre);
+        const deployed = await hre.deployments.get("Account");
+        const existing = await hexlink.getAccountImplementation();
+        if (existing.toLowerCase() == deployed.address.toLowerCase()) {
+            console.log("no need to upgrade account");
+            return;
+        }
+        const data = hexlink.interface.encodeFunctionData(
+            "setAccountImplementation",
+            [deployed.address],
+        );
         if (args.nowait) {
             await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {

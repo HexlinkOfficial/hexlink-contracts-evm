@@ -3,16 +3,14 @@ import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
 import { Contract, BigNumberish, BigNumber, Signer } from "ethers";
 import { UserOperationStruct } from '@account-abstraction/contracts'
-import { keccak256, resolveProperties } from 'ethers/lib/utils'
+import { resolveProperties } from 'ethers/lib/utils'
 
-export const TEL_NAME_TYPE = hash("tel");
-export const EMAIL_NAME_TYPE = hash("mailto");
-export const SENDER_NAME_HASH = hash("sender@gmail.com");
-export const RECEIVER_NAME_HASH = hash("receiver@gmail.com");
+export const SENDER_NAME_HASH = hash("mailto:sender@gmail.com");
+export const RECEIVER_NAME_HASH = hash("mailto:receiver@gmail.com");
 
 export const genInitCode = async (hexlink: Contract) => {
     const initData = hexlink.interface.encodeFunctionData(
-      "deploy", [EMAIL_NAME_TYPE, SENDER_NAME_HASH]
+      "deploy", [SENDER_NAME_HASH]
     );
     return ethers.utils.solidityPack(
       ["address", "bytes"],
@@ -27,11 +25,11 @@ export const buildAccountExecData = async (
 ) => {
     const artifact = await hre.artifacts.readArtifact("Account");
     const iface = new ethers.utils.Interface(artifact.abi);
-    return iface.encodeFunctionData("execute", [{
+    return iface.encodeFunctionData("execute", [
       target,
-      value: value ?? 0,
-      data: data ?? []
-    }]);
+      value ?? 0,
+      data ?? []
+    ]);
 }
 
 const genUserOp = async (
@@ -95,9 +93,9 @@ const genUserOp = async (
 }
 
 function genValidationData() {
-  const now = Math.floor(Date.now() / 1000);
-  return BigNumber.from(now + 3600).shl(160).add(
-      BigNumber.from(now).shl(208)
+  const now = Math.floor(Date.now() / 1000) - 5;
+  return BigNumber.from(now + 3600).add(
+      BigNumber.from(now).shl(48)
   );
 }
 
@@ -106,33 +104,38 @@ export const callWithEntryPoint = async (
   initCode: string | [],
   callData: string | [],
   entrypoint: Contract,
-  signer?: any,
+  signer: any,
 ) => {
-  if (!signer) {
-    const {validator} = await hre.ethers.getNamedSigners();
-    signer = validator;
-  }
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
-  const message = keccak256(ethers.utils.defaultAbiCoder.encode(
-    ["uint256", "bytes32"],
-    [validation, userOpHash]
-  ));
-  const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
-    ["bytes32", "bytes32", "bytes32"],
-    [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
-  ));
-  const signature = await signer.signMessage(
-    ethers.utils.arrayify(toSign)
+  let message = ethers.utils.solidityKeccak256(
+    ["uint8", "uint96", "bytes32"],
+    [0, validation, userOpHash]
   );
-  const authInput = ethers.utils.defaultAbiCoder.encode(
-    ["tuple(uint256, address, bytes)"],
-    [[validation, signer.address, signature]]
+  message = ethers.utils.solidityKeccak256(
+    ["bytes32", "bytes32"],
+    [SENDER_NAME_HASH, message]
   );
-  const signed = { ...userOp, signature: authInput, };
-  await entrypoint.handleOps([signed], signer.address);
+  let signature = await signer.signMessage(
+    ethers.utils.arrayify(message)
+  );
+  signature = ethers.utils.solidityPack(
+    ["uint8", "uint96", "bytes"],
+    [0, validation, signature]
+  );
+  const signed = { ...userOp, signature, };
+  try {
+    await entrypoint.handleOps([signed], signer.address);
+  } catch (e: any) {
+    if (e.message) {
+      const match = e.message.match(/0x[0-9a-z]+/);
+      if (match) {
+        console.log(entrypoint.interface.parseError(match[0]));
+      }
+    }
+    throw e;
+  }
 }
-
 
 export const call2faWithEntryPoint = async (
   sender: string,
@@ -144,31 +147,25 @@ export const call2faWithEntryPoint = async (
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
-  const message = keccak256(ethers.utils.defaultAbiCoder.encode(
-    ["uint256", "bytes32"],
-    [validation, userOpHash]
-  ));
-  const toSign = keccak256(ethers.utils.defaultAbiCoder.encode(
-    ["bytes32", "bytes32", "bytes32"],
-    [EMAIL_NAME_TYPE, SENDER_NAME_HASH, message]
-  ));
+  const message = ethers.utils.solidityKeccak256(
+    ["uint8", "uint96", "bytes32"],
+    [0, validation, userOpHash]
+  );
+  const messageWithName = ethers.utils.solidityKeccak256(
+    ["bytes32", "bytes32"],
+    [SENDER_NAME_HASH, message]
+  );
   const signature1 = await signer1.signMessage(
-    ethers.utils.arrayify(toSign)
+    ethers.utils.arrayify(messageWithName)
   );
   const signature2 = await signer2.signMessage(
-    ethers.utils.arrayify(toSign)
+    ethers.utils.arrayify(message)
   );
-  const authInput = ethers.utils.defaultAbiCoder.encode(
-    [
-      "tuple(uint256, address, bytes)",
-      "tuple(uint256, address, bytes)"
-    ],
-    [
-      [validation, signer1.address, signature1],
-      [validation, signer2.address, signature2]
-    ]
+  const signature = ethers.utils.solidityPack(
+    ["uint8", "uint96", "bytes", "bytes"],
+    [1, validation, signature1, signature2]
   );
-  const signed = { ...userOp, signature: authInput, };
+  const signed = { ...userOp, signature, };
   await entrypoint.handleOps([signed], signer1.address);
 }
 

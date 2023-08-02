@@ -26,6 +26,7 @@ library Simple2FAStorage {
 
 abstract contract Simple2FA is AccountAuthBase {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using ECDSA for bytes32;
 
     event SecondFactorAdded(address indexed);
     event SecondFactorRemoved(address indexed);
@@ -56,7 +57,7 @@ abstract contract Simple2FA is AccountAuthBase {
         bytes32 message,
         bytes memory signature
     ) internal view returns(bool) {
-        address signer = ECDSA.recover(message, signature);
+        address signer = ECDSA.recover(message.toEthSignedMessageHash(), signature);
         return isSecondFactorEnabled(signer);
     }
 }

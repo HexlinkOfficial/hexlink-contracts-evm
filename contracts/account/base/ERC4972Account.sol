@@ -27,6 +27,8 @@ library ERC4972AccountStorage {
 }
 
 abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
+    using ECDSA for bytes32;
+
     event NameUpdated(bytes32 indexed name);
     event NameOwnerUpdated(address indexed);
 
@@ -85,7 +87,7 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
         bytes memory signature
     ) internal returns(bool) {
         message = keccak256(abi.encodePacked(getName(), message));
-        address signer = ECDSA.recover(message, signature);
+        address signer = ECDSA.recover(message.toEthSignedMessageHash(), signature);
         address owner = ERC4972AccountStorage.layout().owner;
         if (owner == address(0)) {
             ERC4972AccountStorage.layout().owner = signer;

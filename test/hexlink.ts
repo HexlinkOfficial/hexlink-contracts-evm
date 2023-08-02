@@ -3,7 +3,6 @@ import { ethers, deployments, run } from "hardhat";
 import * as hre from "hardhat";
 import { Contract } from "ethers";
 import {
-  EMAIL_NAME_TYPE,
   SENDER_NAME_HASH,
   buildAccountExecData,
   callWithEntryPoint,
@@ -19,37 +18,36 @@ describe("Hexlink", function() {
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
     hexlink = await getHexlink(hre);
-    await hre.run("set_auth_providers", []);
     await hre.run("upgrade_account", []);
     admin = (await deployments.get("HexlinkAdmin")).address
-    sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+    sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   });
 
-  it("should set with provider auth provider and validator", async function() {
-    const authProvider = await hre.deployments.get("DAuthProvider");
+  it("should set with name service and auth registry", async function() {
+    const ns = await hre.deployments.get("SimpleNameService");
     expect(
-      await hexlink.getAuthProvider(hash("mailto"))
-    ).to.eq(authProvider.address);
+      await hexlink.getNameService()
+    ).to.eq(ns.address);
+
+    const authRegistry = await hre.deployments.get("AuthRegistry");
     expect(
-      await hexlink.getAuthProvider(hash("tel"))
-    ).to.eq(authProvider.address);
+      await hexlink.getAuthRegistry()
+    ).to.eq(authRegistry.address);
 
     const validator = await getValidator(hre);
-    expect(
-      await hexlink.getDefaultValidator(hash("mailto"))
-    ).to.eq(validator);
-    expect(
-      await hexlink.getDefaultValidator(hash("tel"))
-    ).to.eq(validator);
+    const nsContract = await ethers.getContractAt("SimpleNameService", ns.address);
+    expect(await nsContract.defaultOwner()).to.eq(validator);
   });
 
   it("should upgrade successfully", async function() {
     // deploy new hexlink impl
     const {deployer} = await ethers.getNamedSigners();
+    const ns = await hre.deployments.get("SimpleNameService");
+    const authRegistry = await hre.deployments.get("AuthRegistry");
     const newHexlinkImpl = await deployments.deploy(
       "HexlinkV2ForTest", {
         from: deployer.address,
-        args: [],
+        args: [hexlink.address, ns.address, authRegistry.address],
         log: true,
         autoMine: true,
     });
@@ -77,10 +75,10 @@ describe("Hexlink", function() {
       hexlink.address
     );
     expect(
-      await hexlinkProxy.implementation()
+      await hexlinkV2.implementation()
     ).to.eq(newHexlinkImpl.address);
     expect(
-      await hexlinkV2.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+      await hexlinkV2.getOwnedAccount(SENDER_NAME_HASH)
     ).to.eq(sender);
     expect(
       await hexlinkV2.name()
@@ -93,20 +91,20 @@ describe("Hexlink", function() {
 
     // deploy account contract
     await expect(
-      hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+      hexlink.deploy(SENDER_NAME_HASH)
     ).to.emit(hexlink, "AccountDeployed").withArgs(
-      EMAIL_NAME_TYPE, SENDER_NAME_HASH, sender
+      SENDER_NAME_HASH, sender
     );
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
 
     // redeploy should throw
     await expect(
-      hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+      hexlink.deploy(SENDER_NAME_HASH)
     ).to.be.revertedWith("ERC1167: create2 failed");
   });
 
   it("should deploy account with erc4337 entrypoint", async function() {
-    const { deployer } = await ethers.getNamedSigners();
+    const { deployer, validator } = await ethers.getNamedSigners();
     const entrypoint = await ethers.getContractAt(
       "EntryPoint",
       (await deployments.get("EntryPoint")).address
@@ -123,7 +121,8 @@ describe("Hexlink", function() {
       deployer.address,
       ethers.utils.parseEther("0.5"),
     );
-    await callWithEntryPoint(sender, initCode, callData, entrypoint);
+
+    await callWithEntryPoint(sender, initCode, callData, entrypoint, validator);
     // check account
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(

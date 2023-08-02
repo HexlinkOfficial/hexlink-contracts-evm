@@ -3,7 +3,6 @@ import * as hre from "hardhat";
 import { ethers, deployments, getNamedAccounts } from "hardhat";
 import { Contract } from "ethers";
 import {
-  EMAIL_NAME_TYPE,
   SENDER_NAME_HASH,
   RECEIVER_NAME_HASH,
   callWithEntryPoint,
@@ -14,11 +13,11 @@ import {
 import { getHexlink } from "../tasks/utils";
 
 export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
-  const accountAddr = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
+  const accountAddr = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   await expect(
-    hexlink.deploy(EMAIL_NAME_TYPE, SENDER_NAME_HASH)
+    hexlink.deploy(SENDER_NAME_HASH)
   ).to.emit(hexlink, "AccountDeployed").withArgs(
-    EMAIL_NAME_TYPE, SENDER_NAME_HASH, accountAddr
+    SENDER_NAME_HASH, accountAddr
   );
   return await ethers.getContractAt("Account", accountAddr);
 }
@@ -35,8 +34,8 @@ describe("Hexlink Account", function () {
     await hre.run("set_auth_providers", []);
     await hre.run("upgrade_account", []);
 
-    sender = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, SENDER_NAME_HASH);
-    receiver = await hexlink.getOwnedAccount(EMAIL_NAME_TYPE, RECEIVER_NAME_HASH);
+    sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
+    receiver = await hexlink.getOwnedAccount(RECEIVER_NAME_HASH);
     entrypoint = await ethers.getContractAt(
       "EntryPoint",
       (await deployments.get("EntryPoint")).address

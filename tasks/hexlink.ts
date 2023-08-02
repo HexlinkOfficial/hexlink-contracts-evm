@@ -5,24 +5,22 @@ import { hash, getHexlink, getContract } from "./utils";
 task("hexlink_check", "check hexlink metadata")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
-        const proxy = await hre.ethers.getContractAt("IHexlinkERC1967Proxy", hexlink.address);
         const factory = await getContract(hre, "HexlinkContractFactory");
         const admin = await getContract(hre, "TimelockController", "HexlinkAdmin");
+        const ns = await getContract(hre, "SimpleNameService");
         const result = {
             contractFactory: factory.address,
             hexlink: hexlink.address,
             admin: admin.address,
-            hexlinkImpl: await proxy.implementation(),
+            hexlinkImpl: await hexlink.implementation(),
             accountProxy: hexlink.address,
             accountImpl: await hexlink.getAccountImplementation(),
-            authProvider: {
-                email: await hexlink.getAuthProvider(hash("mailto")),
-                tel: await hexlink.getAuthProvider(hash("tel")),
+            nameService: await hexlink.getNameService(),
+            SimpleNameService: {
+                address: ns.address,
+                defaultOwner: await ns.getDefaultOwner(),
             },
-            validator: {
-                email: await hexlink.getDefaultValidator(hash("mailto")),
-                tel: await hexlink.getDefaultValidator(hash("tel")),
-            }
+            authRegistry: await hexlink.getAuthRegistry(),
         }
         console.log(result);
         return result;

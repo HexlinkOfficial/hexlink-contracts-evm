@@ -258,15 +258,18 @@ describe("Hexlink Account", function () {
     // add second factor
     const account = await ethers.getContractAt("Account", sender);
     await expect(account.addSecondFactor(tester.address)).to.be.reverted;
-    const data = account.interface.encodeFunctionData(
-      "addSecondFactor",
-      [tester.address]
+    const callData1 = await buildAccountExecData(
+      account.address,
+      0,
+      account.interface.encodeFunctionData(
+        "addSecondFactor",
+        [tester.address]
+      )
     );
-    const callData1 = await buildAccountExecData(account.address, 0, data);
     await callWithEntryPoint(sender, [], callData1, entrypoint, validator);
 
     // check 2fa settings
-    const factors = await account.getSecondFactors();
+    let factors = await account.getSecondFactors();
     expect(factors[0]).to.eq(tester.address);
     expect(await account.getNumOfSecondFactors()).to.eq(factors.length).to.eq(1);
 
@@ -294,5 +297,24 @@ describe("Hexlink Account", function () {
     await call2faWithEntryPoint(sender, [], callData, entrypoint, validator, tester);
     expect(await erc20.balanceOf(sender)).to.eq(0);
     expect(await erc20.balanceOf(receiver)).to.eq(5000);
+
+    // remove second factor
+    await expect(account.removeSecondFactor(tester.address)).to.be.reverted;
+    const callData2 = await buildAccountExecData(
+      account.address,
+      0,
+      account.interface.encodeFunctionData(
+        "removeSecondFactor",
+        [tester.address]
+      )
+    );
+    await expect(
+      callWithEntryPoint(sender, [], callData2, entrypoint, validator)
+    ).to.be.reverted;
+    await call2faWithEntryPoint(sender, [], callData2, entrypoint, validator, tester);
+
+    // check factors
+    factors = await account.getSecondFactors();
+    expect(await account.getNumOfSecondFactors()).to.eq(factors.length).to.eq(0);
   });
 });

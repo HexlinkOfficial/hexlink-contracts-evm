@@ -112,7 +112,7 @@ task("admin_schedule_and_exec", "schedule and execute")
         console.log("done.");
     });
 
-task("admin_schedule_or_exec", "schedule and execute")
+task("admin_schedule_or_exec", "schedule or execute")
     .addParam("target")
     .addParam("data")
     .addOptionalParam("value")
@@ -162,10 +162,9 @@ task("check_deposit")
     });
 
 task("add_stake")
-    .addParam("contract", "which contract to stake")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await getContract(hre, args.contract);
+        const hexlink = await getHexlink(hre);
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.utils.Interface(artifact.abi);
         const entrypoint = await hre.ethers.getContractAt(
@@ -181,9 +180,9 @@ task("add_stake")
         );
         console.log("Add stake 0.05 ETH to " + entrypoint.address);
         if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: contract, data });
+            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
         } else {
-            await hre.run("admin_schedule_and_exec", { target: contract, data });
+            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
         }
     });
 
@@ -191,18 +190,12 @@ task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
-        const proxy = await hre.ethers.getContractAt(
-            "HexlinkERC1967Proxy",
-            hexlink.address
-        );
-        const existing = await proxy.implementation();
+        const existing = await hexlink.implementation();
         const deployed = await hre.deployments.get("Hexlink");
         if (existing.toLowerCase() == deployed.address.toLowerCase()) {
             console.log("No need to upgrade");
             return;
         }
-
-        // upgrade hexlink proxy
         const data = hexlink.interface.encodeFunctionData(
             "upgradeTo",
             [deployed.address]

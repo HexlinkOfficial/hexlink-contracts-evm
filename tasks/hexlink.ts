@@ -11,6 +11,7 @@ task("hexlink_check", "check hexlink metadata")
         const result = {
             contractFactory: factory.address,
             hexlink: hexlink.address,
+            owner: await hexlink.owner(),
             admin: admin.address,
             hexlinkImpl: await hexlink.implementation(),
             accountProxy: hexlink.address,
@@ -18,7 +19,7 @@ task("hexlink_check", "check hexlink metadata")
             nameService: await hexlink.getNameService(),
             SimpleNameService: {
                 address: ns.address,
-                defaultOwner: await ns.getDefaultOwner(),
+                defaultOwner: await ns.defaultOwner(),
             },
             authRegistry: await hexlink.getAuthRegistry(),
         }

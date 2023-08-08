@@ -15,10 +15,10 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
-        hash("hexlink.HexlinkERC1967Proxy"),
+        hash("hexlink.Hexlink"),
         []
     );
-    const erc1967Proxy = await hre.ethers.getContractAt(
+    const hexlink = await hre.ethers.getContractAt(
         "HexlinkERC1967Proxy",
         deployed.address
     );
@@ -43,8 +43,17 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             contract: "Account",
             args: [
                 entrypoint.address,
-                erc1967Proxy.address,
+                hexlink.address,
             ],
+            log: true,
+        }
+    );
+
+    const erc1967Proxy = await deployments.deploy(
+        "HexlinkERC1967Proxy",
+        {
+            from: deployer,
+            args: [],
             log: true,
         }
     );
@@ -72,7 +81,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         const data = hexlinkImpl.interface.encodeFunctionData(
             "initialize", [admin.address, account.address]
         );
-        await erc1967Proxy.initProxy(hexlinkImpl.address, data)
+        await hexlink.initProxy(hexlinkImpl.address, data)
     }
 }
 

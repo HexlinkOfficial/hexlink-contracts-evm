@@ -49,7 +49,7 @@ export async function getHexlink(hre: HardhatRuntimeEnvironment) {
     const bytecode = getBytecode(
         await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), []
     );
-    const salt = hash("hexlink.HexlinkERC1967Proxy");
+    const salt = hash("hexlink.Hexlink");
     const hexlink = await factory.getAddress(bytecode, salt);
     return hre.ethers.getContractAt("Hexlink", hexlink);
 }

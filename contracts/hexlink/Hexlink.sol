@@ -43,16 +43,13 @@ contract Hexlink is
         address indexed account
     );
 
-    address immutable erc1967Proxy;
     INameService immutable nameService;
     IAuthRegistry immutable authRegistry;
 
     constructor(
-        address erc1967Proxy_,
         address nameService_,
         address authRegistry_
     ) {
-        erc1967Proxy = erc1967Proxy_;
         nameService = INameService(nameService_);
         authRegistry = IAuthRegistry(authRegistry_);
     }
@@ -75,7 +72,7 @@ contract Hexlink is
     /** IERC4972Registry */
 
     function getOwnedAccount(bytes32 name) public view override returns(address) {
-        return Clones.predictDeterministicAddress(erc1967Proxy, name);
+        return Clones.predictDeterministicAddress(address(this), name);
     }
 
     function getNameService() public view override returns(INameService) {
@@ -89,7 +86,7 @@ contract Hexlink is
     /** IAccountFactory */
 
     function deploy(bytes32 name) external override returns(address account) {
-        account = Clones.cloneDeterministic(erc1967Proxy, name);
+        account = Clones.cloneDeterministic(address(this), name);
         bytes memory data = abi.encodeWithSelector(
             Account.initialize.selector,
             name,

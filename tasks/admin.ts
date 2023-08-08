@@ -144,14 +144,13 @@ task("admin_schedule_or_exec", "schedule or execute")
     });
 
 task("check_deposit")
-    .addParam("contract", "which contract to stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const contract = await getContract(hre, args.contract);
+        const hexlink = await getHexlink(hre);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
         );
-        const info = await entrypoint.getDepositInfo(contract);
+        const info = await entrypoint.getDepositInfo(hexlink.address);
         console.log({
             deposit: ethers.utils.formatEther(info.deposit),
             stake: ethers.utils.formatEther(info.stake),

@@ -6,9 +6,7 @@ import {
     getContract,
     getAdmin,
     getEntryPoint,
-    getValidator
 } from "../tasks/utils";
-import { ethers } from "ethers";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     // deploy erc1967 proxy
@@ -49,15 +47,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         }
     );
 
-    const erc1967Proxy = await deployments.deploy(
-        "HexlinkERC1967Proxy",
-        {
-            from: deployer,
-            args: [],
-            log: true,
-        }
-    );
-
     // deploy hexlink impl
     const authRegistry = await deployments.get("AuthRegistry");
     const simpleNs = await deployments.get("SimpleNameService");
@@ -66,7 +55,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         {
             from: deployer,
             args: [
-                erc1967Proxy.address,
                 simpleNs.address,
                 authRegistry.address
             ],

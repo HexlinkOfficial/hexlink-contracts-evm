@@ -46,7 +46,7 @@ describe("Hexlink", function() {
     const newHexlinkImpl = await deployments.deploy(
       "HexlinkV2ForTest", {
         from: deployer.address,
-        args: [hexlink.address, ns.address, authRegistry.address],
+        args: [ns.address, authRegistry.address],
         log: true,
         autoMine: true,
     });

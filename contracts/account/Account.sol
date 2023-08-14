@@ -5,12 +5,14 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "../interfaces/IAccountInitializer.sol";
 import "../interfaces/IExecutionManager.sol";
 import "./base/ERC4337Account.sol";
 import "./base/ERC4972Account.sol";
 import "./base/Simple2FA.sol";
 
 contract Account is
+    IAccountInitializer,
     Initializable,
     IExecutionManager,
     ERC4337Account,
@@ -27,7 +29,7 @@ contract Account is
     ) ERC4337Account(entryPoint)
       ERC4972Account(erc4972Registry) { }
 
-    function initialize(bytes32 name, address owner) public initializer {
+    function initialize(bytes32 name, address owner) public override initializer {
         _ERC4972Account_init(name, owner);
     }
 

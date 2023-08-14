@@ -3,8 +3,6 @@
 
 pragma solidity ^0.8.12;
 
-import "./structs.sol";
-
 interface IAccountFactory {
     function getAccountImplementation() external view returns(address);
 

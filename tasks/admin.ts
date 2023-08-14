@@ -1,8 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers, BigNumber, Contract } from "ethers";
-import { hash, getHexlink, getAdmin, getContract } from "./utils";
-import {getValidator} from "../tasks/utils";
+import { getHexlink, getAdmin } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,

@@ -7,10 +7,11 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
+import "../interfaces/IAccountInitializer.sol";
 import "../interfaces/IAccountFactory.sol";
 import "../interfaces/INameService.sol";
+import "../interfaces/IERC4972Registry.sol";
 import "../interfaces/IERC6662.sol";
-import "../account/Account.sol";
 import "../utils/HexlinkERC1967Proxy.sol";
 import "../utils/EntryPointStaker.sol";
 
@@ -88,7 +89,7 @@ contract Hexlink is
     function deploy(bytes32 name) external override returns(address account) {
         account = Clones.cloneDeterministic(address(this), name);
         bytes memory data = abi.encodeWithSelector(
-            Account.initialize.selector,
+            IAccountInitializer.initialize.selector,
             name,
             nameService.defaultOwner()
         );

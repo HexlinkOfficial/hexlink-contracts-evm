@@ -149,16 +149,16 @@ export const call2faWithEntryPoint = async (
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
-  const message = ethers.utils.solidityKeccak256(
+  let message = ethers.utils.solidityKeccak256(
     ["uint8", "uint96", "bytes32"],
     [0, validation, userOpHash]
   );
-  const messageWithName = ethers.utils.solidityKeccak256(
+  message = ethers.utils.solidityKeccak256(
     ["bytes32", "bytes32"],
     [SENDER_NAME_HASH, message]
   );
   const signature1 = await signer1.signMessage(
-    ethers.utils.arrayify(messageWithName)
+    ethers.utils.arrayify(message)
   );
   const signature2 = await signer2.signMessage(
     ethers.utils.arrayify(message)

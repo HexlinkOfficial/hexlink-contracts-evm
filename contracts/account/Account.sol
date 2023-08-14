@@ -87,6 +87,7 @@ contract Account is
         }
         uint96 timeRange = uint96(bytes12(userOp.signature[1:13]));
         bytes32 message = keccak256(abi.encodePacked(signType, timeRange, userOpHash));
+        message = keccak256(abi.encodePacked(getName(), message));
         bool valid = _validateNameOwner(message, userOp.signature[13:78]);
         if (valid && getNumOfSecondFactors() > 0) {
             valid = valid && _validateSecondFactor(message, userOp.signature[78:143]);

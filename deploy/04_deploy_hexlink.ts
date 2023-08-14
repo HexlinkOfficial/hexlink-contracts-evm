@@ -27,10 +27,10 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     if (hre.network.name === 'hardhat') {
         await hre.deployments.deploy(
             "EntryPoint", {
-            from: deployer,
-            args: [],
-            log: true,
-        }
+                from: deployer,
+                args: [],
+                log: true,
+            }
         );
     }
     const entrypoint = await getEntryPoint(hre);

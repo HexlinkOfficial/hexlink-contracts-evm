@@ -39,7 +39,7 @@ contract Account is
     }
 
     function version() public override virtual pure returns (uint256) {
-        return 1;
+        return 2;
     }
 
     /** IExecutionManager */
@@ -116,7 +116,7 @@ contract Account is
         address newImplementation
     ) onlySelf internal view override {
         uint256 v = IVersion(newImplementation).version();
-        if (v <= version()) {
+        if (v < version()) {
             revert InvalidAccountImplementation();
         }
         address impl = IVersionManager(hexlink_).getImplementation(v);

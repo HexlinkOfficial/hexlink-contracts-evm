@@ -218,7 +218,7 @@ task("upgrade_account")
             return;
         }
         const data = hexlink.interface.encodeFunctionData(
-            "setAccountImplementation",
+            "upgradeImplementation",
             [deployed.address],
         );
         if (args.nowait) {

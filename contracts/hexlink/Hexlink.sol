@@ -12,6 +12,7 @@ import "../interfaces/IAccountFactory.sol";
 import "../interfaces/INameService.sol";
 import "../interfaces/IERC4972Registry.sol";
 import "../interfaces/IERC6662.sol";
+import "../interfaces/IVersionManager.sol";
 import "../interfaces/IVersion.sol";
 import "../utils/HexlinkERC1967Proxy.sol";
 import "../utils/EntryPointStaker.sol";
@@ -36,6 +37,7 @@ library HexlinkStorage {
 
 contract Hexlink is
     IAccountFactory,
+    IVersionManager,
     IERC4972Registry,
     IERC6662,
     Initializable,
@@ -63,31 +65,26 @@ contract Hexlink is
 
     function initialize(address owner, address accountImpl) public initializer {
         _transferOwnership(owner);
-        _setAccountImplementation(accountImpl);
+        _upgradeImplementation(accountImpl);
     }
 
     /** IAccountFactory */
 
     function getAccountImplementation() public view override returns(address) {
-        uint256 version = HexlinkStorage.layout().currentVersion;
+        return getImplementation(getLatestVersion());
+    }
+
+    /** IVersionManager */
+
+    function getLatestVersion() public view override returns(uint256) {
+        return HexlinkStorage.layout().currentVersion;
+    }
+
+    function getImplementation(uint256 version) public view override returns(address) {
         return HexlinkStorage.layout().accountImpls[version];
     }
 
-    function setAccountImplementation(address impl) external onlyOwner {
-        _setAccountImplementation(impl);
-    }
-
-    function _setAccountImplementation(address impl) internal {
-        uint256 next = IVersion(impl).version();
-        uint256 current = HexlinkStorage.layout().currentVersion;
-        if (next != current + 1) {
-            revert InvalidAccountVersion(current, next);
-        }
-        HexlinkStorage.layout().accountImpls[next] = impl;
-        HexlinkStorage.layout().currentVersion = next;
-    }
-
-    function getAccountImplementations(uint256 start, uint256 end)
+    function getImplementations(uint256 start, uint256 end)
         external
         view
         returns(address[] memory)
@@ -101,6 +98,20 @@ contract Hexlink is
             result[i - start] = HexlinkStorage.layout().accountImpls[i];
         }
         return result;
+    }
+
+    function upgradeImplementation(address impl) external onlyOwner {
+        _upgradeImplementation(impl);
+    }
+
+    function _upgradeImplementation(address impl) internal {
+        uint256 next = IVersion(impl).version();
+        uint256 current = HexlinkStorage.layout().currentVersion;
+        if (next != current + 1) {
+            revert InvalidAccountVersion(current, next);
+        }
+        HexlinkStorage.layout().accountImpls[next] = impl;
+        HexlinkStorage.layout().currentVersion = next;
     }
 
     /** IERC4972Registry */

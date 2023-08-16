@@ -4,10 +4,13 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
 import "../interfaces/IAccountInitializer.sol";
 import "../interfaces/IExecutionManager.sol";
 import "../interfaces/IVersion.sol";
+import "../interfaces/IVersionManager.sol";
 import "./base/ERC4337Account.sol";
 import "./base/ERC4972Account.sol";
 import "./base/Simple2FA.sol";
@@ -27,15 +30,15 @@ contract Account is
 
     constructor(
         address entryPoint,
-        address erc4972Registry
+        address hexlink
     ) ERC4337Account(entryPoint)
-      ERC4972Account(erc4972Registry) { }
+      AccountAuthBase(hexlink) { }
 
     function initialize(bytes32 name, address owner) public override initializer {
         _ERC4972Account_init(name, owner);
     }
 
-    function version() external override virtual pure returns (uint256) {
+    function version() public override virtual pure returns (uint256) {
         return 1;
     }
 
@@ -112,7 +115,12 @@ contract Account is
     function _authorizeUpgrade(
         address newImplementation
     ) onlySelf internal view override {
-        if (newImplementation.code.length == 0) {
+        uint256 v = IVersion(newImplementation).version();
+        if (v <= version()) {
+            revert InvalidAccountImplementation();
+        }
+        address impl = IVersionManager(hexlink_).getImplementation(v);
+        if (impl != newImplementation) {
             revert InvalidAccountImplementation();
         }
     }

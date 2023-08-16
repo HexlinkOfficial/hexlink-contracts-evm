@@ -35,16 +35,10 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     error InvalidNameToSet(bytes32 name);
     error InvalidNameOwner(address owner);
 
-    IERC4972Registry immutable internal registry_;
-
     modifier onlyValidNameOwner() {
         if (!setNameOwner()) {
             _;
         }
-    }
-
-    constructor(address registry) {
-        registry_ = IERC4972Registry(registry);
     }
 
     function _ERC4972Account_init(bytes32 name, address owner) internal {
@@ -53,7 +47,7 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     }
 
     function getERC4972Registry() public view override returns(IERC4972Registry) {
-        return registry_;
+        return IERC4972Registry(hexlink_);
     }
 
     function getName() public view override returns(bytes32) {
@@ -65,7 +59,7 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     }
 
     function setNameOwner() public returns(bool updated) {
-        address owner = registry_.getNameService().owner(getName());
+        address owner = IERC4972Registry(hexlink_).getNameService().owner(getName());
         if (owner == ERC4972AccountStorage.layout().owner) {
             return false;
         }
@@ -75,7 +69,7 @@ abstract contract ERC4972Account is IERC4972Account, AccountAuthBase {
     }
 
     function setName(bytes32 name) external onlySelf {
-        if (registry_.getOwnedAccount(name) != address(this)) {
+        if (IERC4972Registry(hexlink_).getOwnedAccount(name) != address(this)) {
             revert InvalidNameToSet(name);
         }
         ERC4972AccountStorage.layout().name = name;

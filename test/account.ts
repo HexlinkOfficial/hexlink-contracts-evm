@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
-import { ethers, deployments, getNamedAccounts } from "hardhat";
+import { ethers, deployments } from "hardhat";
 import { Contract } from "ethers";
 import {
   SENDER_NAME_HASH,
@@ -39,10 +39,12 @@ describe("Hexlink Account", function () {
   let entrypoint: Contract;
   let sender: string;
   let receiver: string;
+  let admin: string;
 
   beforeEach(async function () {
     await deployments.fixture(["TEST"]);
     hexlink = await getHexlink(hre);
+    admin = (await deployments.get("HexlinkAdmin")).address;
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
     receiver = await hexlink.getOwnedAccount(RECEIVER_NAME_HASH);
     entrypoint = await ethers.getContractAt(
@@ -61,20 +63,21 @@ describe("Hexlink Account", function () {
     const { deployer, validator } = await hre.ethers.getNamedSigners();
     let account = await deploySender(hexlink);
     expect(await account.version()).to.eq(1);
-    const impl2 = await deployments.deploy(
+    expect(await hexlink.getLatestVersion()).to.eq(1);
+    const impl2 = (await deployments.deploy(
       "AccountV2ForTest",
       {
         from: deployer.address,
         args: [await account.entryPoint(), await account.getERC4972Registry()]
       }
-    );
+    )).address;
 
     const accountProxy = await ethers.getContractAt(
       "HexlinkERC1967Proxy",
       account.address
     );
     await expect(
-      accountProxy.initProxy(impl2.address, [])
+      accountProxy.initProxy(impl2, [])
     ).to.be.reverted;
 
     await expect(
@@ -82,19 +85,49 @@ describe("Hexlink Account", function () {
     ).to.be.reverted;
 
     await expect(
-      account.upgradeTo(impl2.address)
+      account.upgradeTo(impl2)
     ).to.be.reverted;
+
+    // invalid impl
+    const invalidCallData = await buildAccountExecData(
+      sender,
+      0,
+      account.interface.encodeFunctionData(
+        "upgradeTo",
+        [ethers.constants.AddressZero]
+      )
+    );
+    expect(
+      await callWithEntryPoint(sender, [], invalidCallData, entrypoint, validator)
+    ).to.throw;
 
     const callData = await buildAccountExecData(
       sender,
       0,
       account.interface.encodeFunctionData(
         "upgradeTo",
-        [impl2.address]
+        [impl2]
       )
     );
+    // account2 is not registered in hexlink yet so will revert
+    expect(
+      await callWithEntryPoint(sender, [], callData, entrypoint, validator)
+    ).to.throw;
+
+    // register implementation at hexlink
+    const data = hexlink.interface.encodeFunctionData(
+      "upgradeImplementation",
+      [impl2]
+    );
+    await hre.run(
+      "admin_schedule_and_exec",
+      {target: hexlink.address, data, admin}
+    );
+    expect(await hexlink.getLatestVersion()).to.eq(2);
+
+    // account2 is registered in hexlink so will upgrade
     await callWithEntryPoint(sender, [], callData, entrypoint, validator)
-    expect(await account.implementation()).to.eq(impl2.address);
+    expect(await account.implementation()).to.eq(impl2);
     expect(await account.version()).to.eq(2);
   });
 

@@ -15,7 +15,7 @@ contract AccountV2ForTest is Account {
         return "AccountV2ForTest";
     }
 
-    function version() external pure override returns (uint256) {
+    function version() public pure override returns (uint256) {
         return 2;
     }
 }

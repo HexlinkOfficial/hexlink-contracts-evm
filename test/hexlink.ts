@@ -41,33 +41,37 @@ describe("Hexlink", function() {
 
   it("should upgrade account implementation successfully", async function() {
     const {deployer} = await ethers.getNamedSigners();
+    expect(await hexlink.getLatestVersion()).to.eq(1);
     const impl1 = await hexlink.getAccountImplementation();
     const account = await deploySender(hexlink);
-    const impl2 = await deployments.deploy(
+    const impl2 = (await deployments.deploy(
       "AccountV2ForTest",
       {
         from: deployer.address,
         args: [await account.entryPoint(), await account.getERC4972Registry()]
       }
-    );
+    )).address;
     const data = hexlink.interface.encodeFunctionData(
-      "setAccountImplementation",
-      [impl2.address]
+      "upgradeImplementation",
+      [impl2]
     );
     await run(
       "admin_schedule_and_exec",
       {target: hexlink.address, data, admin}
     );
 
-    expect(await hexlink.getAccountImplementation()).to.eq(impl2.address);
+    expect(await hexlink.getAccountImplementation()).to.eq(impl2);
+    expect(await hexlink.getLatestVersion()).to.eq(2);
+    expect(await hexlink.getImplementation(1)).to.eq(impl1);
+    expect(await hexlink.getImplementation(2)).to.eq(impl2);
     
-    await expect(hexlink.getAccountImplementations(2, 1)).to.be.reverted;
-    await expect(hexlink.getAccountImplementations(0, 2)).to.be.reverted;
-    await expect(hexlink.getAccountImplementations(1, 3)).to.be.reverted;
-    const impls = await hexlink.getAccountImplementations(1, 2);
+    await expect(hexlink.getImplementations(2, 1)).to.be.reverted;
+    await expect(hexlink.getImplementations(0, 2)).to.be.reverted;
+    await expect(hexlink.getImplementations(1, 3)).to.be.reverted;
+    const impls = await hexlink.getImplementations(1, 2);
     expect(impls.length).to.eq(2);
     expect(impls[0]).to.eq(impl1);
-    expect(impls[1]).to.eq(impl2.address);
+    expect(impls[1]).to.eq(impl2);
   });
 
   it("should upgrade successfully", async function() {

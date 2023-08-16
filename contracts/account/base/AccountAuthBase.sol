@@ -11,4 +11,10 @@ abstract contract AccountAuthBase {
         }
         _;
     }
+
+    address immutable internal hexlink_;
+
+    constructor(address hexlink) {
+        hexlink_ = hexlink;
+    }
 }

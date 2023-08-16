@@ -68,12 +68,6 @@ contract Hexlink is
         _upgradeImplementation(accountImpl);
     }
 
-    /** IAccountFactory */
-
-    function getAccountImplementation() public view override returns(address) {
-        return getImplementation(getLatestVersion());
-    }
-
     /** IVersionManager */
 
     function getLatestVersion() public view override returns(uint256) {
@@ -129,6 +123,10 @@ contract Hexlink is
     }
 
     /** IAccountFactory */
+
+    function getAccountImplementation() public view override returns(address) {
+        return getImplementation(getLatestVersion());
+    }
 
     function deploy(bytes32 name) external override returns(address account) {
         account = Clones.cloneDeterministic(address(this), name);

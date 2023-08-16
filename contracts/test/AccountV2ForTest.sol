@@ -14,4 +14,8 @@ contract AccountV2ForTest is Account {
     function name() external pure returns (string memory) {
         return "AccountV2ForTest";
     }
+
+    function version() external pure override returns (uint256) {
+        return 2;
+    }
 }

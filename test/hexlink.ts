@@ -8,7 +8,8 @@ import {
   callWithEntryPoint,
   genInitCode
 } from "./testers";
-import { getHexlink, getValidator, hash } from "../tasks/utils";
+import { getHexlink, getValidator } from "../tasks/utils";
+import { deploySender } from "./account";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -36,6 +37,37 @@ describe("Hexlink", function() {
     const validator = await getValidator(hre);
     const nsContract = await ethers.getContractAt("SimpleNameService", ns.address);
     expect(await nsContract.defaultOwner()).to.eq(validator);
+  });
+
+  it("should upgrade account implementation successfully", async function() {
+    const {deployer} = await ethers.getNamedSigners();
+    const impl1 = await hexlink.getAccountImplementation();
+    const account = await deploySender(hexlink);
+    const impl2 = await deployments.deploy(
+      "AccountV2ForTest",
+      {
+        from: deployer.address,
+        args: [await account.entryPoint(), await account.getERC4972Registry()]
+      }
+    );
+    const data = hexlink.interface.encodeFunctionData(
+      "setAccountImplementation",
+      [impl2.address]
+    );
+    await run(
+      "admin_schedule_and_exec",
+      {target: hexlink.address, data, admin}
+    );
+
+    expect(await hexlink.getAccountImplementation()).to.eq(impl2.address);
+    
+    await expect(hexlink.getAccountImplementations(2, 1)).to.be.reverted;
+    await expect(hexlink.getAccountImplementations(0, 2)).to.be.reverted;
+    await expect(hexlink.getAccountImplementations(1, 3)).to.be.reverted;
+    const impls = await hexlink.getAccountImplementations(1, 2);
+    expect(impls.length).to.eq(2);
+    expect(impls[0]).to.eq(impl1);
+    expect(impls[1]).to.eq(impl2.address);
   });
 
   it("should upgrade successfully", async function() {

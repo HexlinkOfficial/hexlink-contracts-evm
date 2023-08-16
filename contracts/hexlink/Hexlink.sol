@@ -12,6 +12,7 @@ import "../interfaces/IAccountFactory.sol";
 import "../interfaces/INameService.sol";
 import "../interfaces/IERC4972Registry.sol";
 import "../interfaces/IERC6662.sol";
+import "../interfaces/IVersion.sol";
 import "../utils/HexlinkERC1967Proxy.sol";
 import "../utils/EntryPointStaker.sol";
 
@@ -19,8 +20,10 @@ library HexlinkStorage {
     bytes32 internal constant STORAGE_SLOT = keccak256('hexlink.Hexlink');
 
     struct Layout {
-        address accountImpl;
+        address accountImpl; // deprecated
         IAuthRegistry authRegistry;
+        mapping(uint256 => address) accountImpls;
+        uint256 currentVersion;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -39,6 +42,9 @@ contract Hexlink is
     EntryPointStaker,
     UUPSUpgradeable
 {
+    error InvalidAccountVersion(uint256 current, uint256 next);
+    error InvalidVersionRange(uint256 start, uint256 end);
+
     event AccountDeployed(
         bytes32 indexed name,
         address indexed account
@@ -57,17 +63,44 @@ contract Hexlink is
 
     function initialize(address owner, address accountImpl) public initializer {
         _transferOwnership(owner);
-        HexlinkStorage.layout().accountImpl = accountImpl;
+        _setAccountImplementation(accountImpl);
     }
 
     /** IAccountFactory */
 
     function getAccountImplementation() public view override returns(address) {
-        return HexlinkStorage.layout().accountImpl;
+        uint256 version = HexlinkStorage.layout().currentVersion;
+        return HexlinkStorage.layout().accountImpls[version];
     }
 
     function setAccountImplementation(address impl) external onlyOwner {
-        HexlinkStorage.layout().accountImpl = impl;
+        _setAccountImplementation(impl);
+    }
+
+    function _setAccountImplementation(address impl) internal {
+        uint256 next = IVersion(impl).version();
+        uint256 current = HexlinkStorage.layout().currentVersion;
+        if (next != current + 1) {
+            revert InvalidAccountVersion(current, next);
+        }
+        HexlinkStorage.layout().accountImpls[next] = impl;
+        HexlinkStorage.layout().currentVersion = next;
+    }
+
+    function getAccountImplementations(uint256 start, uint256 end)
+        external
+        view
+        returns(address[] memory)
+    {
+        uint256 current = HexlinkStorage.layout().currentVersion;
+        if (start > end || start < 1 || end > current) {
+            revert InvalidVersionRange(start, end);
+        }
+        address[] memory result = new address[](end - start + 1);
+        for (uint256 i = start; i <= end; i++) {
+            result[i - start] = HexlinkStorage.layout().accountImpls[i];
+        }
+        return result;
     }
 
     /** IERC4972Registry */

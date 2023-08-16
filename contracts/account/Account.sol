@@ -7,12 +7,14 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../interfaces/IAccountInitializer.sol";
 import "../interfaces/IExecutionManager.sol";
+import "../interfaces/IVersion.sol";
 import "./base/ERC4337Account.sol";
 import "./base/ERC4972Account.sol";
 import "./base/Simple2FA.sol";
 
 contract Account is
     IAccountInitializer,
+    IVersion,
     Initializable,
     IExecutionManager,
     ERC4337Account,
@@ -31,6 +33,10 @@ contract Account is
 
     function initialize(bytes32 name, address owner) public override initializer {
         _ERC4972Account_init(name, owner);
+    }
+
+    function version() external override virtual pure returns (uint256) {
+        return 1;
     }
 
     /** IExecutionManager */

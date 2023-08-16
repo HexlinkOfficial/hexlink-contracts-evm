@@ -60,6 +60,7 @@ describe("Hexlink Account", function () {
   it("Should upgrade successfully", async function () {
     const { deployer, validator } = await hre.ethers.getNamedSigners();
     let account = await deploySender(hexlink);
+    expect(await account.version()).to.eq(1);
     const impl2 = await deployments.deploy(
       "AccountV2ForTest",
       {
@@ -94,6 +95,7 @@ describe("Hexlink Account", function () {
     );
     await callWithEntryPoint(sender, [], callData, entrypoint, validator)
     expect(await account.implementation()).to.eq(impl2.address);
+    expect(await account.version()).to.eq(2);
   });
 
   it("Should transfer erc20 successfully", async function () {

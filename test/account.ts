@@ -223,7 +223,7 @@ describe("Hexlink Account", function () {
     );
     const account = await ethers.getContractAt("Account", sender);
     const owner = await account.getNameOwner();
-    expect(await account.getNumOfSecondFactors()).to.eq(0);
+    expect(await account.getSecondFactor()).to.eq(ethers.constants.AddressZero);
     expect(owner).to.eq(await nsContract.defaultOwner());
 
     // receive tokens after account created
@@ -269,9 +269,7 @@ describe("Hexlink Account", function () {
     await callWithEntryPoint(sender, [], callData1, entrypoint, validator);
 
     // check 2fa settings
-    let factors = await account.getSecondFactors();
-    expect(factors[0]).to.eq(tester.address);
-    expect(await account.getNumOfSecondFactors()).to.eq(factors.length).to.eq(1);
+    expect(await account.getSecondFactor()).to.eq(tester.address);
 
     // erc20 transfer with 2fa enabled
     const erc20Data = erc20.interface.encodeFunctionData(
@@ -314,7 +312,6 @@ describe("Hexlink Account", function () {
     await call2faWithEntryPoint(sender, [], callData2, entrypoint, validator, tester);
 
     // check factors
-    factors = await account.getSecondFactors();
-    expect(await account.getNumOfSecondFactors()).to.eq(factors.length).to.eq(0);
+    expect(await account.getSecondFactor()).to.eq(ethers.constants.AddressZero);
   });
 });

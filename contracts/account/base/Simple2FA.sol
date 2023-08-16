@@ -13,7 +13,7 @@ library Simple2FAStorage {
         keccak256("hexlink.account.auth.2fa");
 
     struct Layout {
-        EnumerableSet.AddressSet factors;
+        address factor;
     }
 
     function layout() internal pure returns (Layout storage l) {
@@ -32,25 +32,17 @@ abstract contract Simple2FA is AccountAuthBase {
     event SecondFactorRemoved(address indexed);
 
     function addSecondFactor(address factor) external onlySelf {
-        Simple2FAStorage.layout().factors.add(factor);
+        Simple2FAStorage.layout().factor = factor;
         emit SecondFactorAdded(factor);
     }
 
     function removeSecondFactor(address factor) external onlySelf {
-        Simple2FAStorage.layout().factors.remove(factor);
+        Simple2FAStorage.layout().factor = address(0);
         emit SecondFactorRemoved(factor);
     }
 
-    function getSecondFactors() external view returns(address[] memory) {
-        return Simple2FAStorage.layout().factors.values();
-    }
-
-    function isSecondFactorEnabled(address factor) public view returns(bool) {
-        return Simple2FAStorage.layout().factors.contains(factor);
-    }
-
-    function getNumOfSecondFactors() public view returns(uint256) {
-        return Simple2FAStorage.layout().factors.length();
+    function getSecondFactor() public view returns(address) {
+        return Simple2FAStorage.layout().factor;
     }
 
     function _validateSecondFactor(
@@ -58,6 +50,6 @@ abstract contract Simple2FA is AccountAuthBase {
         bytes memory signature
     ) internal view returns(bool) {
         address signer = ECDSA.recover(message.toEthSignedMessageHash(), signature);
-        return isSecondFactorEnabled(signer);
+        return getSecondFactor() == signer;
     }
 }

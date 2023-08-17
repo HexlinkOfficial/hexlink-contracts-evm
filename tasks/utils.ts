@@ -45,13 +45,22 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 }
 
 export async function getHexlink(hre: HardhatRuntimeEnvironment) {
-    const factory = await getFactory(hre);
-    const bytecode = getBytecode(
-        await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), []
-    );
-    const salt = hash("hexlink.Hexlink");
-    const hexlink = await factory.getAddress(bytecode, salt);
-    return hre.ethers.getContractAt("Hexlink", hexlink);
+  const salt = hash("hexlink.Hexlink");
+  return await getHexlinkImpl(hre, salt);
+}
+
+export async function getHexlinkDev(hre: HardhatRuntimeEnvironment) {
+  const salt = hash("dev.hexlink.Hexlink");
+  return await getHexlinkImpl(hre, salt);
+}
+
+async function getHexlinkImpl(hre: HardhatRuntimeEnvironment, salt: string) {
+  const factory = await getFactory(hre);
+  const bytecode = getBytecode(
+      await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), []
+  );
+  const hexlink = await factory.getAddress(bytecode, salt);
+  return hre.ethers.getContractAt("Hexlink", hexlink);
 }
 
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {

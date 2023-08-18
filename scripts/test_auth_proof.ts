@@ -5,10 +5,12 @@ import { hash } from '../tasks/utils'
 
 import { ethers } from "ethers";
 
+const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+
 const genUserOpHash = async (userOp : UserOperationStruct) => {
-  const op = await ethers.utils.resolveProperties(userOp);
-  const opHash = ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
+  const op = await ethers.resolveProperties(userOp);
+  const opHash = ethers.keccak256(
+    abiCoder.encode(
       [
         'address',
         'uint256',
@@ -24,21 +26,21 @@ const genUserOpHash = async (userOp : UserOperationStruct) => {
       [
         op.sender,
         op.nonce,
-        ethers.utils.keccak256(op.initCode),
-        ethers.utils.keccak256(op.callData),
+        ethers.keccak256(op.initCode),
+        ethers.keccak256(op.callData),
         op.callGasLimit,
         op.verificationGasLimit,
         op.preVerificationGas,
         op.maxFeePerGas,
         op.maxPriorityFeePerGas,
-        ethers.utils.keccak256(op.paymasterAndData)
+        ethers.keccak256(op.paymasterAndData)
       ]
     )
   );
   const chainId = hre.network.config.chainId
   const entryPoint = await getEntryPoint(hre);
-  return ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
+  return ethers.keccak256(
+    abiCoder.encode(
       ["bytes32", "address", "uint256"],
       [opHash, entryPoint.address, chainId]
     )
@@ -73,7 +75,7 @@ async function testSignature() {
     "paymasterAndData": "0x",
     "signature": "0x0000000000000000000000000000000000000000000000000000000000000020000064aa292f000064aa30370000000000000000000000000000000000000000000000000000000000000000943fabe0d1ae7130fc48cf2abc85f01fc987ec810000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000004131f5ed06bd4a00fc758ba36a5ea4b054f599796a694ee414b771f895b498014633f0b08356e58f4b97390e126048ac9d228cce02052f54b02ff206bb215037c61c00000000000000000000000000000000000000000000000000000000000000"
   };
-  const [result] = ethers.utils.defaultAbiCoder.decode(
+  const [result] = abiCoder.decode(
     ['tuple(uint256, address, bytes)'],
     userOp.signature,
   );
@@ -84,25 +86,25 @@ async function testSignature() {
   });
   const userOpHash = await genUserOpHash(userOp);
   console.log(userOpHash);
-  const message = ethers.utils.keccak256(
-    ethers.utils.defaultAbiCoder.encode(
+  const message = ethers.keccak256(
+    abiCoder.encode(
       ["uint256", "bytes32"],
       [result[0], userOpHash]
     )
   );
   console.log(message);
-  const encoded = ethers.utils.defaultAbiCoder.encode(
+  const encoded = abiCoder.encode(
     ["bytes32", "bytes32", "bytes32"],
     [hash(opInfo.nameType), hash(opInfo.name), message]
   );
-  const toSign = ethers.utils.keccak256(encoded);
+  const toSign = ethers.keccak256(encoded);
   console.log("name type: " + hash(opInfo.nameType));
   console.log("name: " + hash(opInfo.name));
   console.log("request id: " + message);
   console.log("encoded: " + encoded);
   console.log("signed message: " + toSign);
-  const signerAddr = ethers.utils.verifyMessage(
-    ethers.utils.arrayify(toSign),
+  const signerAddr = ethers.verifyMessage(
+    ethers.getBytes(toSign),
     result[2]
   );
   console.log("recovered: " + signerAddr);

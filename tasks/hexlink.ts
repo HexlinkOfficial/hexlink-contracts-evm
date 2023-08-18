@@ -1,19 +1,19 @@
 import { task } from "hardhat/config";
+import { type Contract } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { hash, getHexlink, getHexlinkDev, getContract } from "./utils";
-import { ethers } from "ethers";
+import { hash, getHexlink, getContractAt } from "./utils";
 
-async function checkHexlink(hexlink: ethers.Contract, hre: HardhatRuntimeEnvironment) {
-    const factory = await getContract(hre, "HexlinkContractFactory");
-    const admin = await getContract(hre, "TimelockController", "HexlinkAdmin");
-    const ns = await getContract(hre, "SimpleNameService");
+async function checkHexlink(hre : HardhatRuntimeEnvironment, hexlink: Contract) {
+    const factory = await getContractAt(hre, "HexlinkContractFactory");
+    const admin = await getContractAt(hre, "TimelockController", "HexlinkAdmin");
+    const ns = await getContractAt(hre, "SimpleNameService");
     const result = {
         contractFactory: factory.address,
-        hexlink: hexlink.address,
+        hexlink: await hexlink.getAddress(),
         owner: await hexlink.owner(),
         admin: admin.address,
         hexlinkImpl: await hexlink.implementation(),
-        accountProxy: hexlink.address,
+        accountProxy: await hexlink.getAddress(),
         accountImpl: await hexlink.getAccountImplementation(),
         nameService: await hexlink.getNameService(),
         SimpleNameService: {
@@ -29,17 +29,18 @@ async function checkHexlink(hexlink: ethers.Contract, hre: HardhatRuntimeEnviron
 task("hexlink_check", "check hexlink metadata")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
-        await checkHexlink(hexlink, hre);
+        const hexlink = await getHexlink(hre, args.dev);
+        await checkHexlink(hre, hexlink);
     });
 
 task("account", "Prints account address")
     .addParam("name")
+    .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const hexlink = await getHexlink(hre, args.dev);
         const nameHash = hash(args.name);
-        const hexlink = await getHexlink(hre);
         console.log("name hash is " + nameHash);
-        const account = await hexlink.ownedAccount(nameHash);
+        const account = await hexlink.getOwnedAccount(nameHash);
         console.log("account is " + account);
         return account;
     });

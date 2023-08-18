@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { ethers, BigNumber, Contract } from "ethers";
-import { getHexlink, getHexlinkDev, getAdmin } from "./utils";
+import { ethers, Contract } from "ethers";
+import { getHexlink, getAdmin } from "./utils";
 
 const processArgs = async function(
     timelock: Contract,
@@ -16,11 +16,11 @@ const processArgs = async function(
 ) {
     return [
         args.target,
-        BigNumber.from(args.value || 0),
+        BigInt(args.value || 0),
         args.data,
-        args.predecessor || ethers.constants.HashZero,
-        args.salt || ethers.constants.HashZero,  // salt
-        BigNumber.from(args.delay || await timelock.getMinDelay())
+        args.predecessor || ethers.ZeroHash,
+        args.salt || ethers.ZeroHash,  // salt
+        BigInt(args.delay || await timelock.getMinDelay())
     ];
 }
 
@@ -35,25 +35,25 @@ task("admin_check", "check if has role")
         console.log("Owner of admin is " + controller);
 
         const isProposer = await admin.hasRole(
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PROPOSER_ROLE")),
+            ethers.keccak256(ethers.toUtf8Bytes("PROPOSER_ROLE")),
             controller
         );
         console.log(controller + " is " + (isProposer ? "" : "not ") +  "proposer");
 
         const isCanceller = await admin.hasRole(
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("CANCELLER_ROLE")),
+            ethers.keccak256(ethers.toUtf8Bytes("CANCELLER_ROLE")),
             controller
         );
         console.log(controller + " is " + (isCanceller ? "" : "not ") +  "canceller");
 
         const isExecutor = await admin.hasRole(
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("EXECUTOR_ROLE")),
+            ethers.keccak256(ethers.toUtf8Bytes("EXECUTOR_ROLE")),
             controller
         );
         console.log(controller + " is " + (isExecutor ? "" : "not ") +  "executor");
 
         const isAdmin = await admin.hasRole(
-            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TIMELOCK_ADMIN_ROLE")),
+            ethers.keccak256(ethers.toUtf8Bytes("TIMELOCK_ADMIN_ROLE")),
             admin.address
         );
         console.log(admin.address + " is " + (isAdmin ? "" : "not ") +  "admin");
@@ -70,7 +70,7 @@ task("admin_schedule", "schedule a tx")
         const admin = await getAdmin(hre);
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
-        await admin.connect(deployer).schedule(...processed);
+        await (admin.connect(deployer) as Contract).schedule(...processed);
     });
 
 task("admin_exec", "execute a tx")
@@ -84,7 +84,7 @@ task("admin_exec", "execute a tx")
         const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
         processed.pop();
-        await admin.connect(deployer).execute(...processed);
+        await (admin.connect(deployer) as Contract).execute(...processed);
     });
 
 task("admin_schedule_and_exec", "schedule and execute")
@@ -122,8 +122,8 @@ task("admin_schedule_or_exec", "schedule or execute")
         const admin = await getAdmin(hre);
         const processed = await processArgs(admin, args);
         processed.pop();
-        const operationId = ethers.utils.keccak256(
-            ethers.utils.defaultAbiCoder.encode(
+        const operationId = ethers.keccak256(
+            ethers.AbiCoder.defaultAbiCoder().encode(
                 ["address", "uint256", "bytes", "bytes32", "bytes32"],
                 processed
             )
@@ -143,7 +143,7 @@ task("admin_schedule_or_exec", "schedule or execute")
     });
 
 task("check_deposit")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
@@ -151,8 +151,8 @@ task("check_deposit")
         );
         const info = await entrypoint.getDepositInfo(hexlink.address);
         console.log({
-            deposit: ethers.utils.formatEther(info.deposit),
-            stake: ethers.utils.formatEther(info.stake),
+            deposit: ethers.formatEther(info.deposit),
+            stake: ethers.formatEther(info.stake),
             unstakeDelaySec: info.unstakeDelaySec,
             withdrawTime: new Date(info.withdrawTime).toISOString(),
         });
@@ -164,7 +164,7 @@ task("add_stake")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre);
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
-        const iface = new ethers.utils.Interface(artifact.abi);
+        const iface = new ethers.Interface(artifact.abi);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
@@ -172,7 +172,7 @@ task("add_stake")
         const data = iface.encodeFunctionData(
             'addStake', [
                 entrypoint.address,
-                ethers.utils.parseEther("0.05"),
+                ethers.parseEther("0.05"),
                 86400
             ]
         );
@@ -188,7 +188,7 @@ task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
+        const hexlink : Contract = await getHexlink(hre, args.dev);
         const existing = await hexlink.implementation();
         const deployed = args.dev
             ? await hre.deployments.get("HexlinkDev")
@@ -201,7 +201,7 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         console.log("Upgrading from " + existing + " to " + deployed.address);
         if (args.dev) {
             const {deployer} = await hre.ethers.getNamedSigners();
-            await hexlink.connect(deployer).upgradeTo(deployed.address);
+            await (hexlink.connect(deployer) as Contract).upgradeTo(deployed.address);
         } else {
             const data = hexlink.interface.encodeFunctionData(
                 "upgradeTo",
@@ -220,7 +220,8 @@ task("upgrade_account")
     .addFlag("dev")
     .addOptionalParam("nameService", "nameService to update")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
+        const { deployer } = await hre.ethers.getNamedSigners();
+        const hexlink = await getHexlink(hre, args.dev);
         const deployed = args.dev
             ? await hre.deployments.get("AccountDev")
             : await hre.deployments.get("Account");
@@ -233,7 +234,9 @@ task("upgrade_account")
         console.log("Upgrading account from " + existing + " to " + deployed.address);
         if (args.dev) {
             const {deployer} = await hre.ethers.getNamedSigners();
-            await hexlink.connect(deployer).upgradeImplementation(deployed.address);
+            await (
+                hexlink.connect(deployer) as Contract
+            ).upgradeImplementation(deployed.address);
         } else {
             const data = hexlink.interface.encodeFunctionData(
                 "upgradeImplementation",

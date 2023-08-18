@@ -15,7 +15,11 @@ The design(outdated) could be found at:
 
 # Commands
 
-```shell
+```
+# install deps
+npm i
+npm i --save-dev  @nomiclabs/hardhat-ethers@npm:hardhat-deploy-ethers ethers
+
 # clean and compile contracts
 npx hardhat clean; npx hardhat compile
 

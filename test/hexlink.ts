@@ -18,7 +18,7 @@ describe("Hexlink", function() {
 
   beforeEach(async function() {
     await deployments.fixture(["TEST"]);
-    hexlink = await getHexlink(hre);
+    hexlink = await getHexlink();
     admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   });
@@ -34,7 +34,7 @@ describe("Hexlink", function() {
       await hexlink.getAuthRegistry()
     ).to.eq(authRegistry.address);
 
-    const validator = await getValidator(hre);
+    const validator = await getValidator();
     const nsContract = await ethers.getContractAt("SimpleNameService", ns.address);
     expect(await nsContract.defaultOwner()).to.eq(validator);
   });
@@ -90,7 +90,7 @@ describe("Hexlink", function() {
     // upgrade
     const hexlinkProxy = await ethers.getContractAt(
       "HexlinkERC1967Proxy",
-      hexlink.address
+      await hexlink.getAddress()
     );
     await expect(
       hexlinkProxy.initProxy(newHexlinkImpl.address, [])
@@ -107,7 +107,7 @@ describe("Hexlink", function() {
 
     const hexlinkV2 = await ethers.getContractAt(
       "HexlinkV2ForTest",
-      hexlink.address
+      await hexlink.getAddress()
     );
     expect(
       await hexlinkV2.implementation()
@@ -148,13 +148,13 @@ describe("Hexlink", function() {
     // deposit eth before account created
     await deployer.sendTransaction({
       to: sender,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.parseEther("1.0")
     });
 
     const initCode = await genInitCode(hexlink);
     const callData = await buildAccountExecData(
       deployer.address,
-      ethers.utils.parseEther("0.5"),
+      ethers.parseEther("0.5"),
     );
 
     await callWithEntryPoint(sender, initCode, callData, entrypoint, validator);
@@ -162,6 +162,6 @@ describe("Hexlink", function() {
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.lte(ethers.utils.parseEther("0.5"));
+    ).to.lte(ethers.parseEther("0.5"));
   });
 });

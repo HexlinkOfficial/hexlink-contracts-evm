@@ -12,7 +12,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         hre,
         "HexlinkERC1967Proxy",
         hash("dev.hexlink.Hexlink"),
-        []
+        "0x"
     );
     const hexlinkDev = await hre.ethers.getContractAt(
         "HexlinkERC1967Proxy",

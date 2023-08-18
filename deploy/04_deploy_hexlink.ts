@@ -3,7 +3,7 @@ import {DeployFunction} from "hardhat-deploy/types";
 import {
     hash,
     deterministicDeploy,
-    getContract,
+    getContractAt,
     getAdmin,
     getEntryPoint,
 } from "../tasks/utils";
@@ -14,7 +14,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         hre,
         "HexlinkERC1967Proxy",
         hash("hexlink.Hexlink"),
-        []
+        "0x"
     );
     const hexlink = await hre.ethers.getContractAt(
         "HexlinkERC1967Proxy",
@@ -63,7 +63,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // init hexlink
     if (deployed.deployed) {
-        const hexlinkImpl = await getContract(hre, "Hexlink");
+        const hexlinkImpl = await getContractAt(hre, "Hexlink");
         const admin = await getAdmin(hre);
         const data = hexlinkImpl.interface.encodeFunctionData(
             "initialize", [admin.address, account.address]

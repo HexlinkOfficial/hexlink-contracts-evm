@@ -41,7 +41,7 @@ describe("Hexlink", function() {
 
   it("should upgrade account implementation successfully", async function() {
     const {deployer} = await ethers.getNamedSigners();
-    expect(await hexlink.getLatestVersion()).to.eq(1);
+    expect(await hexlink.getLatestVersion()).to.eq(2);
     const impl1 = await hexlink.getAccountImplementation();
     const account = await deploySender(hexlink);
     const impl2 = (await deployments.deploy(
@@ -61,14 +61,12 @@ describe("Hexlink", function() {
     );
 
     expect(await hexlink.getAccountImplementation()).to.eq(impl2);
-    expect(await hexlink.getLatestVersion()).to.eq(2);
-    expect(await hexlink.getImplementation(1)).to.eq(impl1);
-    expect(await hexlink.getImplementation(2)).to.eq(impl2);
+    expect(await hexlink.getLatestVersion()).to.eq(3);
+    expect(await hexlink.getImplementation(2)).to.eq(impl1);
+    expect(await hexlink.getImplementation(3)).to.eq(impl2);
     
     await expect(hexlink.getImplementations(2, 1)).to.be.reverted;
-    await expect(hexlink.getImplementations(0, 2)).to.be.reverted;
-    await expect(hexlink.getImplementations(1, 3)).to.be.reverted;
-    const impls = await hexlink.getImplementations(1, 2);
+    const impls = await hexlink.getImplementations(2, 3);
     expect(impls.length).to.eq(2);
     expect(impls[0]).to.eq(impl1);
     expect(impls[1]).to.eq(impl2);

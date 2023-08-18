@@ -62,8 +62,8 @@ describe("Hexlink Account", function () {
   it("Should upgrade successfully", async function () {
     const { deployer, validator } = await hre.ethers.getNamedSigners();
     let account = await deploySender(hexlink);
-    expect(await account.version()).to.eq(1);
-    expect(await hexlink.getLatestVersion()).to.eq(1);
+    const version = await account.version();
+    expect(await hexlink.getLatestVersion()).to.eq(version);
     const impl2 = (await deployments.deploy(
       "AccountV2ForTest",
       {
@@ -123,12 +123,12 @@ describe("Hexlink Account", function () {
       "admin_schedule_and_exec",
       {target: hexlink.address, data, admin}
     );
-    expect(await hexlink.getLatestVersion()).to.eq(2);
+    expect(await hexlink.getLatestVersion()).to.eq(version.add(1));
 
     // account2 is registered in hexlink so will upgrade
     await callWithEntryPoint(sender, [], callData, entrypoint, validator)
     expect(await account.implementation()).to.eq(impl2);
-    expect(await account.version()).to.eq(2);
+    expect(await account.version()).to.eq(version.add(1));
   });
 
   it("Should transfer erc20 successfully", async function () {

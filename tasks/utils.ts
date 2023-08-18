@@ -114,7 +114,7 @@ export async function getDeterministicAddress(
   return await factory.getAddress(bytecode, salt);
 }
 
-async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
+export async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
   try {
       const code = await hre.ethers.provider.getCode(address);
       if (code !== '0x') return true;

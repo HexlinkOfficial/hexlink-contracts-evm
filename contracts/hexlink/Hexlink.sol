@@ -65,7 +65,9 @@ contract Hexlink is
 
     function initialize(address owner, address accountImpl) public initializer {
         _transferOwnership(owner);
-        _upgradeImplementation(accountImpl);
+        uint256 version = IVersion(accountImpl).version();
+        HexlinkStorage.layout().accountImpls[version] = accountImpl;
+        HexlinkStorage.layout().currentVersion = version;
     }
 
     /** IVersionManager */
@@ -83,8 +85,7 @@ contract Hexlink is
         view
         returns(address[] memory)
     {
-        uint256 current = HexlinkStorage.layout().currentVersion;
-        if (start > end || start < 1 || end > current) {
+        if (start > end) {
             revert InvalidVersionRange(start, end);
         }
         address[] memory result = new address[](end - start + 1);

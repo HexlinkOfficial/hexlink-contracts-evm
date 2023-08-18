@@ -32,7 +32,7 @@ export const buildAccountExecData = async (
     ]);
 }
 
-const genUserOp = async (
+export const genUserOp = async (
   sender: string,
   initCode: string | [],
   callData: string | [],
@@ -105,7 +105,7 @@ export const callWithEntryPoint = async (
   callData: string | [],
   entrypoint: Contract,
   signer: any,
-  logError: boolean = false
+  log: boolean = false
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = genValidationData();
@@ -126,10 +126,11 @@ export const callWithEntryPoint = async (
   );
   const signed = { ...userOp, signature, };
   try {
-    await entrypoint.handleOps([signed], signer.address);
+    return await entrypoint.handleOps([signed], signer.address);
   } catch (e: any) {
-    if (logError && e.message) {
+    if (log && e.message) {
       const match = e.message.match(/0x[0-9a-z]+/);
+      console.log(match);
       if (match) {
         console.log(entrypoint.interface.parseError(match[0]));
       }
@@ -169,7 +170,7 @@ export const call2faWithEntryPoint = async (
   );
   const signed = { ...userOp, signature, };
   try {
-    await entrypoint.handleOps([signed], signer1.address);
+    return await entrypoint.handleOps([signed], signer1.address);
   } catch (e: any) {
     if (log && e.message) {
       const match = e.message.match(/0x[0-9a-z]+/);

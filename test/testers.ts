@@ -105,17 +105,18 @@ export const callWithEntryPoint = async (
   callData: string | [],
   entrypoint: Contract,
   signer: any,
-  log: boolean = false
+  log: boolean = false,
+  name?: string
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
-  const validation = genValidationData();
+  const validation = 0;
   let message = ethers.utils.solidityKeccak256(
     ["uint8", "uint96", "bytes32"],
     [0, validation, userOpHash]
   );
   message = ethers.utils.solidityKeccak256(
     ["bytes32", "bytes32"],
-    [SENDER_NAME_HASH, message]
+    [name ?? SENDER_NAME_HASH, message]
   );
   let signature = await signer.signMessage(
     ethers.utils.arrayify(message)

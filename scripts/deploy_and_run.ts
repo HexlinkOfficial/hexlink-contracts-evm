@@ -10,13 +10,12 @@ const RECEIVER_NAME = hash("mailto:dongs2011@gmail.com");
 async function main() {
     const { deployer } = await hre.ethers.getNamedSigners();
     const hexlink = await getHexlinkDev(hre);
-    const name = hash("mailto:shu@hexlink.io");
-    const accountAddr = await hexlink.getOwnedAccount(name);
+    const accountAddr = await hexlink.getOwnedAccount(SENDER_NAME);
     console.log("Account: ", accountAddr);
     console.log("Account Impl: ", await hexlink.getAccountImplementation());
     if (!await isContract(hre, accountAddr)) {
         console.log("Deploy account ...");
-        const tx = await hexlink.connect(deployer).deploy(name);
+        const tx = await hexlink.connect(deployer).deploy(SENDER_NAME);
         await tx.wait();
     }
     const account = await hre.ethers.getContractAt("Account", accountAddr);
@@ -31,17 +30,13 @@ async function main() {
     const target = await hexlink.getOwnedAccount(RECEIVER_NAME);
     const callData = await buildAccountExecData(
         target,
-        ethers.utils.parseEther("0.1"),
+        ethers.utils.parseEther("0.01"),
         "0x"
     );
     console.log(`sending 0.1 ETH from ${accountAddr} to ${target}`);
-    // const tx = await callWithEntryPoint(accountAddr, "0x", callData, ep, deployer, true);
-    // console.log("processing with tx hash: ", tx.hash);
-    // await tx.wait();
-    console.log(ep.interface.parseError(
-        "0x220266b600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001441413234207369676e6174757265206572726f72000000000000000000000000"
-    ));
-    
+    const tx = await callWithEntryPoint(accountAddr, "0x", callData, ep, deployer, true, SENDER_NAME);
+    console.log("processing with tx hash: ", tx.hash);
+    await tx.wait();    
 }
 
 main()

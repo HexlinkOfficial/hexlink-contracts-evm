@@ -115,7 +115,62 @@ async function testSignature() {
 }
 
 async function main() {
-  await testSignature();
+  const userOp = {
+    "sender": "0xB2d7668F89085fe7CFeE4c67d9a97c8C3344Ef1b",
+    "nonce": "0x10",
+    "initCode": "0x",
+    "callData": "0xb61d27f6000000000000000000000000b2d7668f89085fe7cfee4c67d9a97c8c3344ef1b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000024e76b05f9000000000000000000000000943fabe0d1ae7130fc48cf2abc85f01fc987ec8100000000000000000000000000000000000000000000000000000000",
+    "callGasLimit": "0x2328",
+    "verificationGasLimit": "0x10dd3",
+    "maxFeePerGas": "0xb3c63cc0",
+    "maxPriorityFeePerGas": "0x59682f00",
+    "preVerificationGas": "0xad44",
+    "paymasterAndData": "0x",
+    "signature": "0x00000000000000000000000000ba067c3a724ddba64586d25944bdae1adcb883086dc4d7dbdc2df0db676e51cd2c57ee552128d85673f15bbd01f2a42e90765beb562e529a7744bb33e05149aa1b"
+  };
+
+  const userOpHash = await genUserOpHash(userOp);
+  const signedMessage = ethers.utils.solidityKeccak256(
+    ["uint8", "uint96", "bytes32"],
+    [0, 0, userOpHash]
+  );
+  const signer = "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571";
+  const bytes = ethers.utils.arrayify(userOp.signature);
+  const sig = bytes.slice(13);
+  console.log(ethers.utils.hexlify(sig));
+  const nameHash = ethers.utils.keccak256(
+    ethers.utils.toUtf8Bytes("mailto:peterchen.eth@gmail.com")
+  );
+  const encoded = ethers.utils.solidityKeccak256(
+    ["bytes32", "bytes32"],
+    [nameHash, signedMessage]
+  );
+  console.log(encoded);
+  const verified = ethers.utils.verifyMessage(
+    ethers.utils.arrayify(encoded),
+    sig
+  );
+  console.log(verified);
+  console.log(verified === signer);
+
+  const acc = await hre.ethers.getContractAt("Account", "0xB2d7668F89085fe7CFeE4c67d9a97c8C3344Ef1b");
+  console.log("AccountImpl: ", await acc.implementation());
+  console.log("AccountVersion: ", (await acc.version()).toNumber());
+  console.log("Name: ", await acc.getName());
+  console.log("NameOwner: ", await acc.getNameOwner());
+  const {dest, value, func} = acc.interface.decodeFunctionData("execute", userOp.callData);
+  console.log(dest);
+  console.log(ethers.utils.formatEther(value));
+  console.log(func);
+
+  // const entryPoint = await getEntryPoint(hre);
+  // const {deployer} = await hre.ethers.getNamedSigners();
+  // console.log(deployer.address);
+  // const tx = await entryPoint.connect(deployer).handleOps(
+  //   [userOp],
+  //   deployer.address
+  // );
+  // console.log(tx.hash);
 }
 
 main()

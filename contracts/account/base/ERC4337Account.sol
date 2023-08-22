@@ -21,11 +21,6 @@ abstract contract ERC4337Account is
 
     receive() external payable { }
 
-    fallback(bytes calldata) external returns (bytes memory) {
-        // for ERC1155 and ERC3525
-        return abi.encode(msg.sig);
-    }
-
     IEntryPoint private immutable _entryPoint; 
 
     constructor(address entryPoint_)  {

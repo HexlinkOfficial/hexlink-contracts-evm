@@ -6,6 +6,7 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
 
 import "../interfaces/IAccountInitializer.sol";
 import "../interfaces/IExecutionManager.sol";
@@ -20,6 +21,7 @@ contract Account is
     IVersion,
     Initializable,
     IExecutionManager,
+    TokenCallbackHandler,
     ERC4337Account,
     ERC4972Account,
     Simple2FA,

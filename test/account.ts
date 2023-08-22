@@ -187,9 +187,9 @@ describe("Hexlink Account", function () {
     await tx2.wait();
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.gt(ethers.utils.parseEther("2.5"));
+    ).to.lt(ethers.utils.parseEther("3.0"));
 
-    // send ETH
+    // send 0.5 ETH
     const callData = await buildAccountExecData(
       receiver, ethers.utils.parseEther("0.5")
     );
@@ -197,6 +197,18 @@ describe("Hexlink Account", function () {
     expect(
       await ethers.provider.getBalance(receiver)
     ).to.eq(ethers.utils.parseEther("0.5").toHexString());
+    expect(
+      await ethers.provider.getBalance(sender)
+    ).to.lt(ethers.utils.parseEther("2.5"));
+  
+    // send 0.5 ETH again
+    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    expect(
+      await ethers.provider.getBalance(receiver)
+    ).to.eq(ethers.utils.parseEther("1.0").toHexString());
+    expect(
+      await ethers.provider.getBalance(sender)
+    ).to.lt(ethers.utils.parseEther("2.0"));
   });
 
   it("Should hold and transfer ERC1155 successfully", async function () {

@@ -50,3 +50,27 @@ To ensure all derived accounts share same addresses across different chains, we 
 ## Prod
 
 TBD
+
+# How to Deploy and Upgrade
+
+## How to deploy Hexlink
+
+```
+# deploy contracts
+doppler run -- npx hardhat deploy --network sepolia
+
+# check deployed contract
+doppler run -- npx hardhat hexlink_check --network mumbai --dev
+
+# stake token for hexlink contract since it
+# has to access its storage during deployment
+doppler run -- npx hardhat deploy --network sepolia
+
+
+```
+
+
+## How to update Hexlink
+
+1. deploy Hexlink
+2. 

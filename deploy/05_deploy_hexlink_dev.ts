@@ -11,7 +11,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
-        hash("dev.hexlink.Hexlink"),
+        hash("dev.hexlink"),
         []
     );
     const hexlinkDev = await hre.ethers.getContractAt(
@@ -22,7 +22,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const { deployments, getNamedAccounts } = hre;
     const { deployer } = await getNamedAccounts();
     const entrypoint = await getEntryPoint(hre);
-    await deployments.deploy(
+    const accountDev = await deployments.deploy(
         "AccountDev",
         {
             from: deployer,
@@ -46,7 +46,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             log: true,
         }
     );
-    const impl = await deployments.deploy(
+    const devImpl = await deployments.deploy(
         "HexlinkDev",
         {
             from: deployer,
@@ -58,14 +58,14 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             log: true,
         }
     );
-    const hexlinkDevImpl = await hre.ethers.getContractAt("Hexlink", impl.address);
 
     // init hexlink
     if (deployed.deployed) {
+        const hexlinkDevImpl = await hre.ethers.getContractAt("Hexlink", devImpl.address);
         const data = hexlinkDevImpl.interface.encodeFunctionData(
-            "initialize", [deployer, impl.address]
+            "initialize", [deployer, accountDev.address]
         );
-        await hexlinkDev.initProxy(impl.address, data)
+        await hexlinkDev.initProxy(devImpl.address, data)
     }
 }
 

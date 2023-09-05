@@ -1,0 +1,102 @@
+{
+  "address": "0x30aDa76578B2E00b6B1D434080D2f5Fd3fFAcd31",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "validator",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "defaultOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x29fda66eb9ccd2f60ddc29dfa6a8b471e86fbecd7282bd87b1c2518c5ce10284",
+  "receipt": {
+    "to": null,
+    "from": "0xa4b368e3a9D49Ff15b58f70Fb976724A98B6D149",
+    "contractAddress": "0x30aDa76578B2E00b6B1D434080D2f5Fd3fFAcd31",
+    "transactionIndex": 11,
+    "gasUsed": "115877",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008001002000000000000000000000000000000000000002000000000000800000000000000000040100000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000001000000000000000000000000040000000004000000000000000000001000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000100000",
+    "blockHash": "0xd87ba5df51b1830c3109b5b4cebc55f283cd9ac004c6939fd77022d1e3ed5d04",
+    "transactionHash": "0x29fda66eb9ccd2f60ddc29dfa6a8b471e86fbecd7282bd87b1c2518c5ce10284",
+    "logs": [
+      {
+        "transactionIndex": 11,
+        "blockNumber": 39774129,
+        "transactionHash": "0x29fda66eb9ccd2f60ddc29dfa6a8b471e86fbecd7282bd87b1c2518c5ce10284",
+        "address": "0x0000000000000000000000000000000000001010",
+        "topics": [
+          "0x4dfe1bbbcf077ddc3e01291eea2d5c70c2b422b415d95645b9adcfd678cb1d63",
+          "0x0000000000000000000000000000000000000000000000000000000000001010",
+          "0x000000000000000000000000a4b368e3a9d49ff15b58f70fb976724a98b6d149",
+          "0x000000000000000000000000c275dc8be39f50d12f66b6a63629c39da5bae5bd"
+        ],
+        "data": "0x000000000000000000000000000000000000000000000000000107794a1d53c0000000000000000000000000000000000000000000000000067eeb137af041000000000000000000000000000000000000000000000012c808ddf69f9b73cd8b000000000000000000000000000000000000000000000000067de39a30d2ed400000000000000000000000000000000000000000000012c808defe18e591214b",
+        "logIndex": 74,
+        "blockHash": "0xd87ba5df51b1830c3109b5b4cebc55f283cd9ac004c6939fd77022d1e3ed5d04"
+      }
+    ],
+    "blockNumber": 39774129,
+    "cumulativeGasUsed": "1988689",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0xa4b368e3a9D49Ff15b58f70Fb976724A98B6D149"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "5ca3ec68157dda7ca9ae37c895da754b",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.12+commit.f00d7308\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"validator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"defaultOwner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/hexlink/SimpleNameService.sol\":\"SimpleNameService\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":1},\"remappings\":[],\"viaIR\":true},\"sources\":{\"contracts/hexlink/SimpleNameService.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// Hexlink Contracts\\n\\npragma solidity ^0.8.12;\\n\\nimport \\\"../interfaces/INameService.sol\\\";\\n\\ncontract SimpleNameService is INameService {\\n    address immutable private validator_;\\n\\n    constructor(address validator) {\\n        validator_ = validator;\\n    }\\n\\n    function defaultOwner() external view override returns(address) {\\n        return validator_;\\n    }\\n\\n    function owner(bytes32 /* name */) external view override returns(address) {\\n        return validator_;\\n    }\\n}\",\"keccak256\":\"0xbc27609100f1b8d330a5cc0588ca402f584e956fab0c33018d08156218c4f66d\",\"license\":\"MIT\"},\"contracts/interfaces/INameService.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n// Hexlink Contracts\\n\\npragma solidity ^0.8.12;\\n\\ninterface INameService {\\n    function defaultOwner() external view returns(address);\\n\\n    function owner(bytes32 name) external view returns(address);\\n}\",\"keccak256\":\"0xabeea9761d4b59d0ab002572b63127d312b29d92cef2b8ac755f8e6613880c76\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x60a0806040523461007457601f6101ae38819003918201601f19168301916001600160401b0383118484101761007a5780849260209460405283398101031261007457516001600160a01b038116811415610074576080526040516101199081610095823960805181818160490152608c0152f35b50600080fd5b50505050634e487b7160e01b600052604160045260246000fdfe60808060405260043610156014575b50600080fd5b600090813560e01c90816302571be314607457506317de2f1f14603557600e565b346071575060413660c8565b60405180606d7f00000000000000000000000000000000000000000000000000000000000000008260b5565b0390f35b80fd5b9190503460b057602036600319011260b0575080606d7f00000000000000000000000000000000000000000000000000000000000000008260b5565b809150fd5b6001600160a01b03909116815260200190565b6000906003190112600e5756fea36469706673582212202dcb95a76ee86b19c5e8b3a1aa1b8ce7ba1be2d6f39ded1b4b496708905a95a66c6578706572696d656e74616cf564736f6c634300080c0041",
+  "deployedBytecode": "0x60808060405260043610156014575b50600080fd5b600090813560e01c90816302571be314607457506317de2f1f14603557600e565b346071575060413660c8565b60405180606d7f00000000000000000000000000000000000000000000000000000000000000008260b5565b0390f35b80fd5b9190503460b057602036600319011260b0575080606d7f00000000000000000000000000000000000000000000000000000000000000008260b5565b809150fd5b6001600160a01b03909116815260200190565b6000906003190112600e5756fea36469706673582212202dcb95a76ee86b19c5e8b3a1aa1b8ce7ba1be2d6f39ded1b4b496708905a95a66c6578706572696d656e74616cf564736f6c634300080c0041",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

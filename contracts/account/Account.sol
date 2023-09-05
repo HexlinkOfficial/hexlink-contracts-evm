@@ -41,7 +41,7 @@ contract Account is
     }
 
     function version() public override virtual pure returns (uint256) {
-        return 2;
+        return 1;
     }
 
     /** IExecutionManager */

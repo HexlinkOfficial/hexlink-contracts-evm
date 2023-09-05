@@ -37,22 +37,14 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // deploy hexlink impl
     const authRegistry = await deployments.get("AuthRegistry");
-    const ns = await deployments.deploy(
-        "SimpleNameServiceDev",
-        {
-            from: deployer,
-            contract: "SimpleNameService",
-            args: [deployer],
-            log: true,
-        }
-    );
+    const simpleNs = await deployments.get("SimpleNameService");
     const devImpl = await deployments.deploy(
         "HexlinkDev",
         {
             from: deployer,
             contract: "Hexlink",
             args: [
-                ns.address,
+                simpleNs.address,
                 authRegistry.address
             ],
             log: true,

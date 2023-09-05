@@ -27,10 +27,14 @@ async function checkHexlink(hexlink: ethers.Contract, hre: HardhatRuntimeEnviron
 }
 
 task("hexlink_check", "check hexlink metadata")
-    .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
-        await checkHexlink(hexlink, hre);
+        console.log("=====================================")
+        console.log("Prod: ")
+        await checkHexlink(await getHexlink(hre), hre);
+        console.log("=====================================")
+        console.log("Dev: ")
+        await checkHexlink(await getHexlinkDev(hre), hre);
+        console.log("=====================================")
     });
 
 task("account", "Prints account address")

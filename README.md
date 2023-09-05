@@ -60,11 +60,11 @@ TBD
 doppler run -- npx hardhat deploy --network sepolia
 
 # check deployed contract
-doppler run -- npx hardhat hexlink_check --network mumbai --dev
+doppler run -- npx hardhat hexlink_check --network sepolia
 
 # stake token for hexlink contract since it
 # has to access its storage during deployment
-doppler run -- npx hardhat deploy --network sepolia
+doppler run -- npx hardhat add_stake --network sepolia
 
 
 ```

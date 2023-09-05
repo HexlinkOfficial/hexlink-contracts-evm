@@ -45,12 +45,12 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 }
 
 export async function getHexlink(hre: HardhatRuntimeEnvironment) {
-  const salt = hash("hexlink.Hexlink");
+  const salt = hash("hexlink");
   return await getHexlinkImpl(hre, salt);
 }
 
 export async function getHexlinkDev(hre: HardhatRuntimeEnvironment) {
-  const salt = hash("dev.hexlink.Hexlink");
+  const salt = hash("dev.hexlink");
   return await getHexlinkImpl(hre, salt);
 }
 

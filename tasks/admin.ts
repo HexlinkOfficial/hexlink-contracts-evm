@@ -143,8 +143,9 @@ task("admin_schedule_or_exec", "schedule or execute")
     });
 
 task("check_deposit")
+    .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = await getHexlink(hre);
+        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
@@ -161,26 +162,46 @@ task("check_deposit")
 
 task("add_stake")
     .addFlag("nowait")
+    .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = await getHexlink(hre);
+        const { deployer } = await hre.ethers.getNamedSigners();
+        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.utils.Interface(artifact.abi);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
         );
-        const data = iface.encodeFunctionData(
-            'addStake', [
+        const balance = await hre.ethers.provider.getBalance(hexlink.address);
+        if (balance.lt(ethers.utils.parseEther("0.05"))) {
+            console.log("depositing 0.05 ETH to " + hexlink.address);
+            const tx = await deployer.sendTransaction({
+                to: hexlink.address,
+                value: ethers.utils.parseEther("0.05")
+            });
+            await tx.wait();
+        }
+
+        console.log("Adding stake 0.05 ETH to " + entrypoint.address + " for " + hexlink.address);
+        if (args.dev) {
+            await hexlink.connect(deployer).addStake(
                 entrypoint.address,
                 ethers.utils.parseEther("0.05"),
                 86400
-            ]
-        );
-        console.log("Add stake 0.05 ETH to " + entrypoint.address);
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
+            );
         } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+            const data = iface.encodeFunctionData(
+                'addStake', [
+                    entrypoint.address,
+                    ethers.utils.parseEther("0.05"),
+                    86400
+                ]
+            );
+            if (args.nowait) {
+                await hre.run("admin_schedule_or_exec", { target: hexlink.address, data });
+            } else {
+                await hre.run("admin_schedule_and_exec", { target: hexlink.address, data });
+            }
         }
     });
 

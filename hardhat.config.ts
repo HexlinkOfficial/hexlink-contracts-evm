@@ -59,6 +59,16 @@ const config: HardhatUserConfig = {
       url: `https://sepolia.infura.io/v3/${process.env.VITE_INFURA_API_KEY}`,
       accounts,
     },
+    naut: {
+      chainId: 22222,
+      url: "https://api.nautilus.nautchain.xyz",
+      accounts,
+    },
+    naut_test: {
+      chainId: 88002,
+      url: "https://api.proteus.nautchain.xyz/solana",
+      accounts,
+    },
     mumbai: {
       chainId: 80001,
       url: process.env.HARDHAT_MUMBAI_URL || "",

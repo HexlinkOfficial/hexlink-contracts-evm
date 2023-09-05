@@ -65,12 +65,17 @@ doppler run -- npx hardhat hexlink_check --network sepolia
 # stake token for hexlink contract since it
 # has to access its storage during deployment
 doppler run -- npx hardhat add_stake --network sepolia
-
-
 ```
 
+## How to upgrade
 
-## How to update Hexlink
+```
+# deploy contracts to lastest version
+doppler run -- npx hardhat deploy --network sepolia
 
-1. deploy Hexlink
-2. 
+# upgrade hexlink implementation
+doppler run -- npx hardhat upgrade_hexlink --network sepolia
+
+# upgrade account implementation
+doppler run -- npx hardhat upgrade_account --network sepolia
+```

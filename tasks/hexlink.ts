@@ -1,19 +1,20 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { hash, getHexlink, getHexlinkDev, getContract } from "./utils";
-import { ethers } from "ethers";
+import { Hexlink } from "../typechain-types";
 
-async function checkHexlink(hexlink: ethers.Contract, hre: HardhatRuntimeEnvironment) {
+async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
+    const hexlinkAddr = await hexlink.getAddress();
     const factory = await getContract(hre, "HexlinkContractFactory");
     const admin = await getContract(hre, "TimelockController", "HexlinkAdmin");
     const ns = await getContract(hre, "SimpleNameService");
     const result = {
         contractFactory: factory.address,
-        hexlink: hexlink.address,
+        hexlink: hexlinkAddr,
         owner: await hexlink.owner(),
         admin: admin.address,
         hexlinkImpl: await hexlink.implementation(),
-        accountProxy: hexlink.address,
+        accountProxy: hexlinkAddr,
         accountImpl: await hexlink.getAccountImplementation(),
         nameService: await hexlink.getNameService(),
         SimpleNameService: {
@@ -43,7 +44,7 @@ task("account", "Prints account address")
         const nameHash = hash(args.name);
         const hexlink = await getHexlink(hre);
         console.log("name hash is " + nameHash);
-        const account = await hexlink.ownedAccount(nameHash);
+        const account = await hexlink.getOwnedAccount(nameHash);
         console.log("account is " + account);
         return account;
     });

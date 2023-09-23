@@ -1,14 +1,20 @@
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
 import * as config from '../config.json';
+import {
+  Hexlink__factory,
+  TimelockController__factory,
+  HexlinkContractFactory__factory,
+} from "../typechain-types/";
+
 
 export function hash(value: string) {
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(value));
+    return ethers.keccak256(ethers.toUtf8Bytes(value));
 }
 
 export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
-    return ethers.utils.keccak256(
-        ethers.utils.defaultAbiCoder.encode(
+    return ethers.keccak256(
+        ethers.AbiCoder.defaultAbiCoder().encode(
           ["bytes32", "bytes32", "bytes32"],
           [name.schema, name.domain, name.handle]
         )
@@ -21,7 +27,7 @@ export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
 }
 
 export function getBytecode(artifact: Artifact, args: string | []) {
-  return ethers.utils.solidityPack(
+  return ethers.solidityPacked(
       ["bytes", "bytes"],
       [artifact.bytecode, args]
   );
@@ -59,16 +65,20 @@ async function getHexlinkImpl(hre: HardhatRuntimeEnvironment, salt: string) {
   const bytecode = getBytecode(
       await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), []
   );
-  const hexlink = await factory.getAddress(bytecode, salt);
-  return hre.ethers.getContractAt("Hexlink", hexlink);
+  const hexlink = await factory.calculateAddress(bytecode, salt);
+  return Hexlink__factory.connect(hexlink, hre.ethers.provider);
 }
 
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {
-  return getContract(hre, "TimelockController", "HexlinkAdmin");
+  const deployed = await hre.deployments.get("HexlinkAdmin");
+  return TimelockController__factory.connect(
+    deployed.address, hre.ethers.provider);
 }
 
 export async function getFactory(hre: HardhatRuntimeEnvironment) {
-  return getContract(hre, "HexlinkContractFactory");
+  const deployed = await hre.deployments.get("HexlinkContractFactory");
+  return HexlinkContractFactory__factory.connect(
+    deployed.address, hre.ethers.provider);
 }
 
 export async function getContract(
@@ -84,18 +94,19 @@ export async function deterministicDeploy(
   hre: HardhatRuntimeEnvironment,
   contract: string,
   salt: string,
-  args?: string | [],
-  data?: string | []
+  args?: string,
+  data?: string,
 ) : Promise<{address: string, deployed: boolean}> {
+  const {deployer} = await hre.ethers.getNamedSigners();
   const factory = await getFactory(hre);
   const artifact = await hre.artifacts.readArtifact(contract);
   const bytecode = getBytecode(artifact, args ?? []);
-  const address = await factory.getAddress(bytecode, salt);
+  const address = await factory.calculateAddress(bytecode, salt);
   if (await isContract(hre, address)) {
       console.log(`Reusing ${contract} deployed at ${address}`);
       return { deployed: false, address };
   } else {
-      const tx = await factory.deployAndCall(bytecode, salt, data ?? []);
+      const tx = await factory.deployAndCall(bytecode, salt, data || "");
       await tx.wait();
       console.log(`deploying ${contract} (tx: ${tx.hash})...: deployed at ${address}`);
       return { deployed: true, address };
@@ -111,7 +122,7 @@ export async function getDeterministicAddress(
   const factory = await getFactory(hre);
   const artifact = await hre.artifacts.readArtifact(contract);
   const bytecode = getBytecode(artifact, args);
-  return await factory.getAddress(bytecode, salt);
+  return await factory.calculateAddress(bytecode, salt);
 }
 
 export async function isContract(hre: HardhatRuntimeEnvironment, address: string) {

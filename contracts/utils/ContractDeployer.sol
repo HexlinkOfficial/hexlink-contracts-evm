@@ -34,7 +34,7 @@ abstract contract ContractDeployer {
         }
     }
 
-    function _getAddress(
+    function _calculateAddress(
         bytes memory bytecode,
         bytes32 salt
     ) internal view returns (address) {

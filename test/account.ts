@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import * as hre from "hardhat";
 import { ethers, deployments } from "hardhat";
-import { Contract } from "ethers";
 import {
   SENDER_NAME_HASH,
   RECEIVER_NAME_HASH,
@@ -11,15 +10,24 @@ import {
   genInitCode
 } from "./testers";
 import { getHexlink } from "../tasks/utils";
+import {
+  EntryPoint__factory,
+  Account__factory,
+  TestHexlinkERC20__factory,
+  TestHexlinkERC1155__factory,
+  Hexlink,
+  Account,
+  EntryPoint
+} from "../typechain-types";
 
-export const deploySender = async (hexlink: Contract) : Promise<Contract> => {
+export const deploySender = async (hexlink: Hexlink) : Promise<Account> => {
   const accountAddr = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   await expect(
     hexlink.deploy(SENDER_NAME_HASH)
   ).to.emit(hexlink, "AccountDeployed").withArgs(
     SENDER_NAME_HASH, accountAddr
   );
-  return await ethers.getContractAt("Account", accountAddr);
+  return Account__factory.connect(accountAddr, hre.ethers.provider);
 }
 
 async function deployErc20(deployer: string) {
@@ -28,15 +36,12 @@ async function deployErc20(deployer: string) {
     log: true,
     autoMine: true,
   });
-  return await ethers.getContractAt(
-    "TestHexlinkERC20",
-    deployed.address
-  );
+  return TestHexlinkERC20__factory.connect(deployed.address, hre.ethers.provider);
 }
 
 describe("Hexlink Account", function () {
-  let hexlink: Contract;
-  let entrypoint: Contract;
+  let hexlink: Hexlink;
+  let entrypoint: EntryPoint;
   let sender: string;
   let receiver: string;
   let admin: string;
@@ -47,15 +52,15 @@ describe("Hexlink Account", function () {
     admin = (await deployments.get("HexlinkAdmin")).address;
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
     receiver = await hexlink.getOwnedAccount(RECEIVER_NAME_HASH);
-    entrypoint = await ethers.getContractAt(
-      "EntryPoint",
-      (await deployments.get("EntryPoint")).address
+    entrypoint = EntryPoint__factory.connect(
+      (await deployments.get("EntryPoint")).address,
+      hre.ethers.provider
     );
     // deposit eth before account created
     const { deployer } = await hre.ethers.getNamedSigners();
     await deployer.sendTransaction({
       to: sender,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.parseEther("1.0")
     });
   });
 
@@ -74,14 +79,14 @@ describe("Hexlink Account", function () {
 
     const accountProxy = await ethers.getContractAt(
       "HexlinkERC1967Proxy",
-      account.address
+      await account.getAddress(),
     );
     await expect(
       accountProxy.initProxy(impl2, [])
     ).to.be.reverted;
 
     await expect(
-      account.upgradeTo(ethers.constants.AddressZero)
+      account.upgradeTo(ethers.ZeroAddress)
     ).to.be.reverted;
 
     await expect(
@@ -94,11 +99,11 @@ describe("Hexlink Account", function () {
       0,
       account.interface.encodeFunctionData(
         "upgradeTo",
-        [ethers.constants.AddressZero]
+        [ethers.ZeroAddress]
       )
     );
     expect(
-      await callWithEntryPoint(sender, [], invalidCallData, entrypoint, validator)
+      await callWithEntryPoint(sender, '', invalidCallData, entrypoint, validator)
     ).to.throw;
 
     const callData = await buildAccountExecData(
@@ -111,7 +116,7 @@ describe("Hexlink Account", function () {
     );
     // account2 is not registered in hexlink yet so will revert
     expect(
-      await callWithEntryPoint(sender, [], callData, entrypoint, validator)
+      await callWithEntryPoint(sender, '', callData, entrypoint, validator)
     ).to.throw;
 
     // register implementation at hexlink
@@ -121,14 +126,14 @@ describe("Hexlink Account", function () {
     );
     await hre.run(
       "admin_schedule_and_exec",
-      {target: hexlink.address, data, admin}
+      {target: await hexlink.getAddress(), data, admin}
     );
-    expect(await hexlink.getLatestVersion()).to.eq(version.add(1));
+    expect(await hexlink.getLatestVersion()).to.eq(version + BigInt(1));
 
     // account2 is registered in hexlink so will upgrade
-    await callWithEntryPoint(sender, [], callData, entrypoint, validator)
+    await callWithEntryPoint(sender, '', callData, entrypoint, validator)
     expect(await account.implementation()).to.eq(impl2);
-    expect(await account.version()).to.eq(version.add(1));
+    expect(await account.version()).to.eq(version + BigInt(1));
   });
 
   it("Should transfer erc20 successfully", async function () {
@@ -143,7 +148,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    await callWithEntryPoint(sender, initCode, '', entrypoint, validator);
 
     // receive tokens after account created
     await expect(
@@ -156,8 +161,9 @@ describe("Hexlink Account", function () {
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
-    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    const callData = await buildAccountExecData(
+      await erc20.getAddress(), 0, erc20Data);
+    await callWithEntryPoint(sender, '', callData, entrypoint, validator);
     expect(await erc20.balanceOf(sender)).to.eq(5000);
     expect(await erc20.balanceOf(receiver)).to.eq(5000);
   });
@@ -168,47 +174,47 @@ describe("Hexlink Account", function () {
     // receive eth before account created
     const tx1 = await deployer.sendTransaction({
       to: sender,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.parseEther("1.0")
     });
     await tx1.wait();
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.eq(ethers.utils.parseEther("2.0"));
+    ).to.eq(ethers.parseEther("2.0"));
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    await callWithEntryPoint(sender, initCode, '', entrypoint, validator);
 
     // receive eth after account created
     const tx2 = await deployer.sendTransaction({
       to: sender,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.parseEther("1.0")
     });
     await tx2.wait();
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.lt(ethers.utils.parseEther("3.0"));
+    ).to.lt(ethers.parseEther("3.0"));
 
     // send 0.5 ETH
     const callData = await buildAccountExecData(
-      receiver, ethers.utils.parseEther("0.5")
+      receiver, ethers.parseEther("0.5")
     );
-    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    await callWithEntryPoint(sender, '', callData, entrypoint, validator);
     expect(
       await ethers.provider.getBalance(receiver)
-    ).to.eq(ethers.utils.parseEther("0.5").toHexString());
+    ).to.eq(ethers.parseEther("0.5"));
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.lt(ethers.utils.parseEther("2.5"));
+    ).to.lt(ethers.parseEther("2.5"));
   
     // send 0.5 ETH again
-    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    await callWithEntryPoint(sender, '', callData, entrypoint, validator);
     expect(
       await ethers.provider.getBalance(receiver)
-    ).to.eq(ethers.utils.parseEther("1.0").toHexString());
+    ).to.eq(ethers.parseEther("1.0"));
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.lt(ethers.utils.parseEther("2.0"));
+    ).to.lt(ethers.parseEther("2.0"));
   });
 
   it("Should hold and transfer ERC1155 successfully", async function () {
@@ -218,15 +224,13 @@ describe("Hexlink Account", function () {
       log: true,
       autoMine: true,
     });
-    const erc1155 = await ethers.getContractAt(
-      "TestHexlinkERC1155",
-      deployed.address
-    );
+    const erc1155 = TestHexlinkERC1155__factory.connect(
+      deployed.address, hre.ethers.provider);
 
     // receive erc1155 before account created
     await expect(
       erc1155.connect(deployer).safeTransferFrom(
-        deployer.address, sender, 1, 10, []
+        deployer.address, sender, 1, 10, ''
       )
     ).to.emit(erc1155, "TransferSingle")
       .withArgs(deployer.address, deployer.address, sender, 1, 10);
@@ -234,12 +238,12 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    await callWithEntryPoint(sender, initCode, '', entrypoint, validator);
 
     // receive erc1155 after account created
     await expect(
       erc1155.connect(deployer).safeTransferFrom(
-        deployer.address, sender, 1, 10, []
+        deployer.address, sender, 1, 10, ''
       )
     ).to.emit(erc1155, "TransferSingle")
       .withArgs(deployer.address, deployer.address, sender, 1, 10);
@@ -248,10 +252,11 @@ describe("Hexlink Account", function () {
     // send erc1155
     const erc1155Data = erc1155.interface.encodeFunctionData(
       "safeTransferFrom",
-      [sender, receiver, 1, 10, []]
+      [sender, receiver, 1, 10, '']
     );
-    const callData = await buildAccountExecData(erc1155.address, 0, erc1155Data);
-    await callWithEntryPoint(sender, [], callData, entrypoint, validator);
+    const callData = await buildAccountExecData(
+      await erc1155.getAddress(), 0, erc1155Data);
+    await callWithEntryPoint(sender, '', callData, entrypoint, validator);
     expect(await erc1155.balanceOf(sender, 1)).to.eq(10);
     expect(await erc1155.balanceOf(receiver, 1)).to.eq(10);
   });
@@ -261,7 +266,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    await callWithEntryPoint(sender, initCode, '', entrypoint, validator);
 
     // get first factor and check
     const nsContract = await ethers.getContractAt(
@@ -270,7 +275,7 @@ describe("Hexlink Account", function () {
     );
     const account = await ethers.getContractAt("Account", sender);
     const owner = await account.getNameOwner();
-    expect(await account.getSecondFactor()).to.eq(ethers.constants.AddressZero);
+    expect(await account.getSecondFactor()).to.eq(ethers.ZeroAddress);
     expect(owner).to.eq(await nsContract.defaultOwner());
 
     // receive tokens after account created
@@ -286,9 +291,10 @@ describe("Hexlink Account", function () {
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
+    const callData = await buildAccountExecData(
+      await erc20.getAddress(), 0, erc20Data);
     await expect(
-      callWithEntryPoint(sender, [], callData, entrypoint, tester)
+      callWithEntryPoint(sender, '', callData, entrypoint, tester)
     ).to.be.reverted;
   });
 
@@ -297,7 +303,7 @@ describe("Hexlink Account", function () {
 
     // deploy sender
     const initCode = await genInitCode(hexlink);
-    await callWithEntryPoint(sender, initCode, [], entrypoint, validator);
+    await callWithEntryPoint(sender, initCode, '', entrypoint, validator);
     const erc20 = await deployErc20(deployer.address);
     await erc20.connect(deployer).transfer(sender, 5000);
     expect(await erc20.balanceOf(sender)).to.eq(5000);
@@ -306,14 +312,14 @@ describe("Hexlink Account", function () {
     const account = await ethers.getContractAt("Account", sender);
     await expect(account.addSecondFactor(tester.address)).to.be.reverted;
     const callData1 = await buildAccountExecData(
-      account.address,
+      await account.getAddress(),
       0,
       account.interface.encodeFunctionData(
         "addSecondFactor",
         [tester.address]
       )
     );
-    await callWithEntryPoint(sender, [], callData1, entrypoint, validator);
+    await callWithEntryPoint(sender, '', callData1, entrypoint, validator);
 
     // check 2fa settings
     expect(await account.getSecondFactor()).to.eq(tester.address);
@@ -323,30 +329,31 @@ describe("Hexlink Account", function () {
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(erc20.address, 0, erc20Data);
+    const callData = await buildAccountExecData(
+      await erc20.getAddress(), 0, erc20Data);
 
     // should not execute with first factor only
     await expect(
-      callWithEntryPoint(sender, [], callData, entrypoint, validator)
+      callWithEntryPoint(sender, '', callData, entrypoint, validator)
     ).to.be.reverted;
     // should not execute with second factor only
     await expect(
-      callWithEntryPoint(sender, [], callData, entrypoint, tester)
+      callWithEntryPoint(sender, '', callData, entrypoint, tester)
     ).to.be.reverted;
     // should not execute with wrong second factor
     await expect(
-      call2faWithEntryPoint(sender, [], callData, entrypoint, validator, deployer)
+      call2faWithEntryPoint(sender, '', callData, entrypoint, validator, deployer)
     ).to.be.reverted;
 
     // should execute with both factors
-    await call2faWithEntryPoint(sender, [], callData, entrypoint, validator, tester);
+    await call2faWithEntryPoint(sender, '', callData, entrypoint, validator, tester);
     expect(await erc20.balanceOf(sender)).to.eq(0);
     expect(await erc20.balanceOf(receiver)).to.eq(5000);
 
     // remove second factor
     await expect(account.removeSecondFactor(tester.address)).to.be.reverted;
     const callData2 = await buildAccountExecData(
-      account.address,
+      await account.getAddress(),
       0,
       account.interface.encodeFunctionData(
         "removeSecondFactor",
@@ -354,11 +361,11 @@ describe("Hexlink Account", function () {
       )
     );
     await expect(
-      callWithEntryPoint(sender, [], callData2, entrypoint, validator)
+      callWithEntryPoint(sender, '', callData2, entrypoint, validator)
     ).to.be.reverted;
-    await call2faWithEntryPoint(sender, [], callData2, entrypoint, validator, tester);
+    await call2faWithEntryPoint(sender, '', callData2, entrypoint, validator, tester);
 
     // check factors
-    expect(await account.getSecondFactor()).to.eq(ethers.constants.AddressZero);
+    expect(await account.getSecondFactor()).to.eq(ethers.ZeroAddress);
   });
 });

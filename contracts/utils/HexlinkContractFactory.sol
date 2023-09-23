@@ -26,10 +26,10 @@ contract HexlinkContractFactory is ContractDeployer, Ownable {
         _deployAndCall(bytecode, salt, data);
     }
 
-    function getAddress(
+    function calculateAddress(
         bytes memory bytecode,
         bytes32 salt
     ) external view returns(address) {
-        return _getAddress(bytecode, salt);
+        return _calculateAddress(bytecode, salt);
     }
 }

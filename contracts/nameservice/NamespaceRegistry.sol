@@ -4,23 +4,29 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../interfaces/INamespaceRegistry.sol";
+import "./INamespaceRegistry.sol";
 
-contract NamespaceRegistry is INamespaceRegistry, Ownable, UUPSUpgradeable {
+contract NamespaceRegistry is INamespaceRegistry, Ownable {
     struct Record {
         address owner;
         address registry;
     }
 
+    error NotAuthorised(bytes32 node, address sender, address owner);
+
     mapping(bytes32 => Record) private records;
 
-    modifier authorised(bytes32 ns) {
-        address nsOwner = records[ns].owner;
-        if (nsOwner == address(0)) {
-            require(msg.sender == owner());
-        } else {
-            require(msg.sender == nsOwner);
+    modifier authorised(bytes32 node) {
+        address nodeOwner = records[node].owner;
+        if (nodeOwner == address(0)) { // not registered
+            address nsOwner = owner();
+            if (msg.sender != nsOwner) {
+                revert NotAuthorised(node, msg.sender, nsOwner);
+            }
+        } else { // registered
+            if (msg.sender != nodeOwner) {
+                revert NotAuthorised(node, msg.sender, nodeOwner);
+            }
         }
         _;
     }
@@ -39,9 +45,9 @@ contract NamespaceRegistry is INamespaceRegistry, Ownable, UUPSUpgradeable {
         bytes32 ns,
         address owner,
         address registry
-    ) external authorised(ns) virtual override {
+    ) external virtual override {
         setOwner(ns, owner);
-        setRegistry(ns, registry);
+        _setRegistry(ns, registry);
     }
 
     /**
@@ -66,8 +72,7 @@ contract NamespaceRegistry is INamespaceRegistry, Ownable, UUPSUpgradeable {
         bytes32 ns,
         address registry
     ) public virtual override authorised(ns) {
-        records[ns].registry = registry;
-        emit NewRegistry(ns, registry);
+        _setRegistry(ns, registry);
     }
 
     /**
@@ -96,13 +101,11 @@ contract NamespaceRegistry is INamespaceRegistry, Ownable, UUPSUpgradeable {
         return records[ns].registry;
     }
 
-    /** UUPSUpgradeable */
-
-    function implementation() external view returns (address) {
-        return _getImplementation();
+    function _setRegistry(
+        bytes32 ns,
+        address registry
+    ) private {
+        records[ns].registry = registry;
+        emit NewRegistry(ns, registry);
     }
-
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal view onlyOwner override { }
 }

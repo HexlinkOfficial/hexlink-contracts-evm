@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import { ethers, deployments, run } from "hardhat";
 import * as hre from "hardhat";
-import { Contract } from "ethers";
 import {
   SENDER_NAME_HASH,
   buildAccountExecData,
@@ -10,9 +9,13 @@ import {
 } from "./testers";
 import { getHexlink, getValidator } from "../tasks/utils";
 import { deploySender } from "./account";
+import {
+  EntryPoint__factory,
+  Hexlink,
+} from "../typechain-types";
 
 describe("Hexlink", function() {
-  let hexlink: Contract;
+  let hexlink: Hexlink;
   let admin: string;
   let sender: string;
 
@@ -57,7 +60,7 @@ describe("Hexlink", function() {
     );
     await run(
       "admin_schedule_and_exec",
-      {target: hexlink.address, data, admin}
+      {target: await hexlink.getAddress(), data, admin}
     );
 
     expect(await hexlink.getAccountImplementation()).to.eq(impl2);
@@ -84,11 +87,12 @@ describe("Hexlink", function() {
         log: true,
         autoMine: true,
     });
+    const hexlinkAddr = await hexlink.getAddress();
 
     // upgrade
     const hexlinkProxy = await ethers.getContractAt(
       "HexlinkERC1967Proxy",
-      hexlink.address
+      hexlinkAddr
     );
     await expect(
       hexlinkProxy.initProxy(newHexlinkImpl.address, [])
@@ -100,12 +104,12 @@ describe("Hexlink", function() {
     );
     await run(
       "admin_schedule_and_exec",
-      {target: hexlink.address, data, admin}
+      {target: hexlinkAddr, data, admin}
     );
 
     const hexlinkV2 = await ethers.getContractAt(
       "HexlinkV2ForTest",
-      hexlink.address
+      hexlinkAddr
     );
     expect(
       await hexlinkV2.implementation()
@@ -138,21 +142,21 @@ describe("Hexlink", function() {
 
   it("should deploy account with erc4337 entrypoint", async function() {
     const { deployer, validator } = await ethers.getNamedSigners();
-    const entrypoint = await ethers.getContractAt(
-      "EntryPoint",
-      (await deployments.get("EntryPoint")).address
+    const entrypoint = EntryPoint__factory.connect(
+      (await deployments.get("EntryPoint")).address,
+      ethers.provider
     );
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
     // deposit eth before account created
     await deployer.sendTransaction({
       to: sender,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.parseEther("1.0")
     });
 
     const initCode = await genInitCode(hexlink);
     const callData = await buildAccountExecData(
       deployer.address,
-      ethers.utils.parseEther("0.5"),
+      ethers.parseEther("0.5"),
     );
 
     await callWithEntryPoint(sender, initCode, callData, entrypoint, validator);
@@ -160,6 +164,6 @@ describe("Hexlink", function() {
     expect(await ethers.provider.getCode(sender)).to.not.eq("0x");
     expect(
       await ethers.provider.getBalance(sender)
-    ).to.lte(ethers.utils.parseEther("0.5"));
+    ).to.lte(ethers.parseEther("0.5"));
   });
 });

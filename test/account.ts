@@ -285,7 +285,7 @@ describe("Hexlink Account", function () {
     );
     const account = await ethers.getContractAt("Account", sender);
     const owner = await account.getNameOwner();
-    expect(await account.getSecondFactor()).to.eq(ethers.ZeroAddress);
+    expect(await account.getAllSecondFactors()).to.be.empty;
     expect(owner).to.eq(await nsContract.defaultOwner());
 
     // receive tokens after account created
@@ -318,10 +318,26 @@ describe("Hexlink Account", function () {
     await erc20.connect(deployer).transfer(sender, 5000);
     expect(await erc20.balanceOf(sender)).to.eq(5000);
 
+    // check second factor
+    const account = Account__factory.connect(sender, deployer);
+    expect(await account.isValidSecondFactor(tester.address)).to.eq(false);
+    expect(await account.getAllSecondFactors()).to.be.empty;
+    expect(await account.isSecondFactorEnabled()).to.eq(false);
+
+    // enable second factor should fail
+    await expect(account.enableSecondFactor()).to.be.reverted;
+    const enable2faData = account.interface.encodeFunctionData(
+      "enableSecondFactor");
+    const callDataEnable2faInvalid = await buildAccountExecData(
+      sender, 0, enable2faData);
+    await expect(
+      callWithEntryPoint(
+        sender, '0x', callDataEnable2faInvalid, entrypoint, validator)
+    ).to.emit(entrypoint, "UserOperationRevertReason");
+
     // add second factor
-    const account = await ethers.getContractAt("Account", sender);
     await expect(account.addSecondFactor(tester.address)).to.be.reverted;
-    const callData1 = await buildAccountExecData(
+    const callDataAddFactor = await buildAccountExecData(
       await account.getAddress(),
       0,
       account.interface.encodeFunctionData(
@@ -329,53 +345,88 @@ describe("Hexlink Account", function () {
         [tester.address]
       )
     );
-    await callWithEntryPoint(sender, '0x', callData1, entrypoint, validator);
+    await callWithEntryPoint(sender, '0x', callDataAddFactor, entrypoint, validator);
 
     // check 2fa settings
-    expect(await account.getSecondFactor()).to.eq(tester.address);
+    expect(await account.isValidSecondFactor(tester.address)).to.eq(true);
+    const factors = await account.getAllSecondFactors();
+    expect(factors.length).to.eq(1);
+    expect(factors[0]).to.eq(tester.address);
+    expect(await account.isSecondFactorEnabled()).to.eq(false);
+
+    // enable second factor should success
+    const calldataEnable2faValid
+      = await buildAccountExecData(sender, 0, enable2faData);
+    await callWithEntryPoint(
+      sender, '0x', calldataEnable2faValid, entrypoint, validator);
+    expect(await account.isSecondFactorEnabled()).to.eq(true);
 
     // erc20 transfer with 2fa enabled
     const erc20Data = erc20.interface.encodeFunctionData(
       "transfer",
       [receiver, 5000]
     );
-    const callData = await buildAccountExecData(
+    const callDataErc20Transfer = await buildAccountExecData(
       await erc20.getAddress(), 0, erc20Data);
 
     // should not execute with first factor only
     await expect(
-      callWithEntryPoint(sender, '0x', callData, entrypoint, validator)
+      callWithEntryPoint(
+        sender, '0x', callDataErc20Transfer, entrypoint, validator)
     ).to.be.reverted;
     // should not execute with second factor only
     await expect(
-      callWithEntryPoint(sender, '0x', callData, entrypoint, tester)
+      callWithEntryPoint(
+        sender, '0x', callDataErc20Transfer, entrypoint, tester)
     ).to.be.reverted;
     // should not execute with wrong second factor
     await expect(
-      call2faWithEntryPoint(sender, '0x', callData, entrypoint, validator, deployer)
+      call2faWithEntryPoint(
+        sender, '0x', callDataErc20Transfer, entrypoint, validator, deployer)
     ).to.be.reverted;
 
     // should execute with both factors
-    await call2faWithEntryPoint(sender, '0x', callData, entrypoint, validator, tester);
+    await call2faWithEntryPoint(
+      sender, '0x', callDataErc20Transfer, entrypoint, validator, tester);
     expect(await erc20.balanceOf(sender)).to.eq(0);
     expect(await erc20.balanceOf(receiver)).to.eq(5000);
 
-    // remove second factor
+    // remove last second factor should fail
     await expect(account.removeSecondFactor(tester.address)).to.be.reverted;
-    const callData2 = await buildAccountExecData(
-      await account.getAddress(),
-      0,
-      account.interface.encodeFunctionData(
-        "removeSecondFactor",
-        [tester.address]
-      )
+    const removeFactorData = account.interface.encodeFunctionData(
+      "removeSecondFactor",
+      [tester.address]
     );
+    const callDataRemoveFactorInvalid = await buildAccountExecData(
+      sender, 0, removeFactorData);
     await expect(
-      callWithEntryPoint(sender, '0x', callData2, entrypoint, validator)
+      call2faWithEntryPoint(
+        sender, '0x', callDataRemoveFactorInvalid, entrypoint, validator, tester)
+    ).to.emit(entrypoint, "UserOperationRevertReason");
+
+    // disable second factor
+    const disable2faData = account.interface.encodeFunctionData(
+      "disableSecondFactor");
+    const calldataDisable2fa
+      = await buildAccountExecData(sender, 0, disable2faData);
+    // disable 1fa verification should fail
+    await expect(
+        callWithEntryPoint(
+          sender, '0x', calldataDisable2fa, entrypoint, validator)
     ).to.be.reverted;
-    await call2faWithEntryPoint(sender, '0x', callData2, entrypoint, validator, tester);
+    // disable with 2fa verification should success
+    await call2faWithEntryPoint(
+      sender, '0x', calldataDisable2fa, entrypoint, validator, tester);
+    expect(await account.isSecondFactorEnabled()).to.eq(false);
+
+    // remove last second factor after disabling should success
+    const callDataRemoveFactorValid = await buildAccountExecData(
+      sender, 0, removeFactorData);
+    await call2faWithEntryPoint(
+      sender, '0x', callDataRemoveFactorValid, entrypoint, validator, tester);
 
     // check factors
-    expect(await account.getSecondFactor()).to.eq(ethers.ZeroAddress);
+    expect(await account.isValidSecondFactor(tester.address)).to.eq(false);
+    expect(await account.getAllSecondFactors()).to.be.empty;
   });
 });

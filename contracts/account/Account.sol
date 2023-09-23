@@ -102,7 +102,7 @@ contract Account is
         bytes32 message = keccak256(abi.encodePacked(signType, timeRange, userOpHash));
         message = keccak256(abi.encodePacked(getName(), message));
         bool valid = _validateNameOwner(message, userOp.signature[13:78]);
-        if (valid && getSecondFactor() != address(0)) {
+        if (valid && isSecondFactorEnabled()) {
             valid = valid && _validateSecondFactor(message, userOp.signature[78:143]);
         }
         return (uint256(timeRange) << 160) | (valid ? 0 : 1);

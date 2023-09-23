@@ -9,7 +9,7 @@ import {
     EnsRegistryProxy
 } from "../typechain-types/";
 
-describe("Hexlink", function() {
+describe("Name Registry", function() {
   let namespaceRegistry: NamespaceRegistry;
   let ensRegistryProxy: EnsRegistryProxy;
   let deployer: any; // HardhatEthersSigner

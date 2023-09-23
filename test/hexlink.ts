@@ -13,15 +13,20 @@ import {
   EntryPoint__factory,
   Hexlink,
 } from "../typechain-types";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Hexlink", function() {
   let hexlink: Hexlink;
   let admin: string;
   let sender: string;
+  let deployer: HardhatEthersSigner;
 
   beforeEach(async function() {
+    const signers = await ethers.getNamedSigners();
+    deployer = signers.deployer;
     await deployments.fixture(["TEST"]);
-    hexlink = await getHexlink(hre);
+    hexlink = (await getHexlink(hre)).connect(deployer);
+
     admin = (await deployments.get("HexlinkAdmin")).address
     sender = await hexlink.getOwnedAccount(SENDER_NAME_HASH);
   });
@@ -95,7 +100,7 @@ describe("Hexlink", function() {
       hexlinkAddr
     );
     await expect(
-      hexlinkProxy.initProxy(newHexlinkImpl.address, [])
+      hexlinkProxy.initProxy(newHexlinkImpl.address, '0x')
     ).to.be.reverted;
 
     const data = hexlink.interface.encodeFunctionData(

@@ -14,7 +14,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
                 0,
                 [deployer],
                 [deployer],
-                hre.ethers.constants.AddressZero
+                hre.ethers.ZeroAddress
             ],
             log: true,
         }

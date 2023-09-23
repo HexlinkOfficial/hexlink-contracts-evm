@@ -5,6 +5,9 @@ import {
     deterministicDeploy,
     getEntryPoint,
 } from "../tasks/utils";
+import {
+    HexlinkERC1967Proxy__factory,
+} from "../typechain-types";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     // deploy erc1967 proxy
@@ -12,36 +15,34 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         hre,
         "HexlinkERC1967Proxy",
         hash("dev.hexlink"),
-        []
     );
-    const hexlinkDev = await hre.ethers.getContractAt(
-        "HexlinkERC1967Proxy",
-        deployed.address
+    const hexlinkDev = HexlinkERC1967Proxy__factory.connect(
+        deployed.address,
+        hre.ethers.provider
     );
 
-    const { deployments, getNamedAccounts } = hre;
-    const { deployer } = await getNamedAccounts();
+    const { deployer } = await hre.ethers.getNamedSigners();
     const entrypoint = await getEntryPoint(hre);
-    const accountDev = await deployments.deploy(
+    const accountDev = await hre.deployments.deploy(
         "AccountDev",
         {
-            from: deployer,
+            from: deployer.address,
             contract: "Account",
             args: [
-                entrypoint.address,
-                hexlinkDev.address,
+                await entrypoint.getAddress(),
+                deployed.address,
             ],
             log: true,
         }
     );
 
     // deploy hexlink impl
-    const authRegistry = await deployments.get("AuthRegistry");
-    const simpleNs = await deployments.get("SimpleNameService");
-    const devImpl = await deployments.deploy(
+    const authRegistry = await hre.deployments.get("AuthRegistry");
+    const simpleNs = await hre.deployments.get("SimpleNameService");
+    const devImpl = await hre.deployments.deploy(
         "HexlinkDev",
         {
-            from: deployer,
+            from: deployer.address,
             contract: "Hexlink",
             args: [
                 simpleNs.address,
@@ -53,11 +54,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // init hexlink
     if (deployed.deployed) {
-        const hexlinkDevImpl = await hre.ethers.getContractAt("Hexlink", devImpl.address);
+        const hexlinkDevImpl = await hre.ethers.getContractAt(
+            "Hexlink", devImpl.address);
         const data = hexlinkDevImpl.interface.encodeFunctionData(
-            "initialize", [deployer, accountDev.address]
+            "initialize", [deployer.address, accountDev.address]
         );
-        await hexlinkDev.initProxy(devImpl.address, data)
+        await hexlinkDev.connect(deployer).initProxy(devImpl.address, data)
     }
 }
 

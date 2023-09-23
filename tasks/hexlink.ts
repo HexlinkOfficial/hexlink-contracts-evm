@@ -1,13 +1,15 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { hash, getHexlink, getHexlinkDev, getContract } from "./utils";
-import { Hexlink } from "../typechain-types";
+import { hash, getHexlink, getHexlinkDev } from "./utils";
+import { Hexlink, SimpleNameService__factory } from "../typechain-types";
 
 async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
     const hexlinkAddr = await hexlink.getAddress();
-    const factory = await getContract(hre, "HexlinkContractFactory");
-    const admin = await getContract(hre, "TimelockController", "HexlinkAdmin");
-    const ns = await getContract(hre, "SimpleNameService");
+    const factory = await hre.deployments.get("HexlinkContractFactory");
+    const admin = await hre.deployments.get("HexlinkAdmin");
+    const ns = await hre.deployments.get("SimpleNameService");
+    const nsContract = SimpleNameService__factory.connect(
+        ns.address, hre.ethers.provider);
     const result = {
         contractFactory: factory.address,
         hexlink: hexlinkAddr,
@@ -19,7 +21,7 @@ async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
         nameService: await hexlink.getNameService(),
         SimpleNameService: {
             address: ns.address,
-            defaultOwner: await ns.defaultOwner(),
+            defaultOwner: await nsContract.defaultOwner(),
         },
         authRegistry: await hexlink.getAuthRegistry(),
     }
@@ -28,7 +30,7 @@ async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
 }
 
 task("hexlink_check", "check hexlink metadata")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         console.log("=====================================")
         console.log("Prod: ")
         await checkHexlink(await getHexlink(hre), hre);

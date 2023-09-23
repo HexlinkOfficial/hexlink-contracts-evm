@@ -28,7 +28,7 @@ export const buildAccountExecData = async (
     return iface.encodeFunctionData("execute", [
       target,
       value ?? 0,
-      data ?? []
+      data ?? "0x"
     ]);
 }
 
@@ -49,8 +49,8 @@ export const genUserOp = async (
     preVerificationGas: 0,
     maxFeePerGas: fee.maxFeePerGas ?? 0,
     maxPriorityFeePerGas: fee.maxPriorityFeePerGas ?? 0,
-    paymasterAndData: "",
-    signature: "",
+    paymasterAndData: "0x",
+    signature: "0x",
   };
   const op = await ethers.resolveProperties(userOp);
 

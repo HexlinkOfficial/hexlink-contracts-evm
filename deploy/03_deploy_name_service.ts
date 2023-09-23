@@ -23,7 +23,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     const ens = await loadConfig(hre, "ens");
     if (ens) {
-        const args = ethers.utils.defaultAbiCoder.encode(
+        const args = ethers.AbiCoder.defaultAbiCoder().encode(
             ["address", "address", "address"],
             [ens, ]
         );

@@ -3,56 +3,56 @@ import {DeployFunction} from "hardhat-deploy/types";
 import {
     hash,
     deterministicDeploy,
-    getContract,
     getAdmin,
     getEntryPoint,
 } from "../tasks/utils";
+import {
+    HexlinkERC1967Proxy__factory,
+} from "../typechain-types";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     // deploy erc1967 proxy
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
-        hash("hexlink"),
-        []
+        hash("hexlink")
     );
-    const hexlink = await hre.ethers.getContractAt(
-        "HexlinkERC1967Proxy",
-        deployed.address
+    const hexlink = HexlinkERC1967Proxy__factory.connect(
+        deployed.address,
+        hre.ethers.provider
     );
 
-    const { deployments, getNamedAccounts } = hre;
-    const { deployer } = await getNamedAccounts();
+    const { deployer } = await hre.ethers.getNamedSigners();
     if (hre.network.name === 'hardhat') {
         await hre.deployments.deploy(
             "EntryPoint", {
-                from: deployer,
+                from: deployer.address,
                 args: [],
                 log: true,
             }
         );
     }
     const entrypoint = await getEntryPoint(hre);
-    const account = await deployments.deploy(
+    const account = await hre.deployments.deploy(
         "Account",
         {
-            from: deployer,
+            from: deployer.address,
             contract: "Account",
             args: [
-                entrypoint.address,
-                hexlink.address,
+                await entrypoint.getAddress(),
+                deployed.address,
             ],
             log: true,
         }
     );
 
     // deploy hexlink impl
-    const authRegistry = await deployments.get("AuthRegistry");
-    const simpleNs = await deployments.get("SimpleNameService");
-    await deployments.deploy(
+    const authRegistry = await hre.deployments.get("AuthRegistry");
+    const simpleNs = await hre.deployments.get("SimpleNameService");
+    const impl = await hre.deployments.deploy(
         "Hexlink",
         {
-            from: deployer,
+            from: deployer.address,
             args: [
                 simpleNs.address,
                 authRegistry.address
@@ -63,12 +63,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // init hexlink
     if (deployed.deployed) {
-        const hexlinkImpl = await getContract(hre, "Hexlink");
+        const hexlinkImpl = await hre.ethers.getContractAt("Hexlink", impl.address); 
         const admin = await getAdmin(hre);
         const data = hexlinkImpl.interface.encodeFunctionData(
-            "initialize", [admin.address, account.address]
+            "initialize", [await admin.getAddress(), account.address]
         );
-        await hexlink.initProxy(hexlinkImpl.address, data)
+        await hexlink.connect(deployer).initProxy(impl.address, data)
     }
 }
 

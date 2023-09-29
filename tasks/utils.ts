@@ -3,6 +3,10 @@ import { ethers } from "ethers";
 import * as config from '../config.json';
 import { Contract } from "ethers";
 
+export function epoch() {
+  return Math.round(Date.now() / 1000);
+}
+
 export function hash(value: string) {
     return ethers.keccak256(ethers.toUtf8Bytes(value));
 }

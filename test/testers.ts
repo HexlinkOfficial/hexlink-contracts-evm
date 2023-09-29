@@ -2,7 +2,11 @@ import * as hre from "hardhat";
 import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
 import { BigNumberish, BytesLike, AddressLike, Contract, Signer } from "ethers";
-import { EntryPoint, HexlinkAccount__factory } from "../typechain-types";
+import {
+  EntryPoint,
+  TestHexlinkERC20__factory,
+  HexlinkAccount__factory
+} from "../typechain-types";
 
 export const SENDER_NAME_HASH = hash("mailto:sender@gmail.com");
 export const RECEIVER_NAME_HASH = hash("mailto:receiver@gmail.com");
@@ -200,4 +204,16 @@ export const getNonce = async (sender: string) => {
       return 0;
     }
     return await account.getNonce() as BigNumberish;
+}
+
+export async function deployErc20() {
+  const {deployer} = await ethers.getNamedSigners();
+  const deployed = await hre.deployments.deploy("TestHexlinkERC20", {
+    from: deployer.address,
+    log: true,
+    autoMine: true,
+  });
+  return TestHexlinkERC20__factory.connect(
+    deployed.address, deployer
+  );
 }

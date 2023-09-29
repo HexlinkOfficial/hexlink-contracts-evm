@@ -7,13 +7,13 @@ import {
   callWithEntryPoint,
   call2faWithEntryPoint,
   buildAccountExecData,
-  genInitCode
+  genInitCode,
+  deployErc20
 } from "./testers";
 import { getHexlink } from "../tasks/utils";
 import {
   EntryPoint__factory,
   HexlinkAccount__factory,
-  TestHexlinkERC20__factory,
   TestHexlinkERC1155__factory,
   HexlinkAccount,
   EntryPoint
@@ -37,18 +37,6 @@ export const deploySender = async (hexlink: Contract) : Promise<HexlinkAccount> 
   return HexlinkAccount__factory.connect(
     accountAddr, deployer
   );
-}
-
-async function deployErc20() {
-  const {deployer} = await ethers.getNamedSigners();
-  const deployed = await deployments.deploy("TestHexlinkERC20", {
-    from: deployer.address,
-    log: true,
-    autoMine: true,
-  });
-  return TestHexlinkERC20__factory.connect(
-    deployed.address, hre.ethers.provider
-  ).connect(deployer);
 }
 
 describe("Hexlink Account", function () {

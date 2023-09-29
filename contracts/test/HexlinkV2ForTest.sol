@@ -7,9 +7,9 @@ import "../hexlink/Hexlink.sol";
 
 contract HexlinkV2ForTest is Hexlink {
     constructor(
-        address nameService,
-        address authRegistry
-    ) Hexlink(nameService, authRegistry) { }
+        address validator,
+        address accountImpl
+    ) Hexlink(validator, accountImpl) { }
 
     function name() external pure returns (string memory) {
         return "HexlinkV2ForTest";

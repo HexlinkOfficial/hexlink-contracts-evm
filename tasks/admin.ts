@@ -2,10 +2,10 @@ import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
 import { getHexlink, getHexlinkDev, getAdmin } from "./utils";
-import { TimelockController } from "../typechain-types";
+import { Contract } from "ethers";
 
 const processArgs = async function(
-    timelock: TimelockController,
+    timelock: Contract,
     args : {
         target: string,
         data: string,
@@ -70,9 +70,8 @@ task("admin_schedule", "schedule a tx")
     .addOptionalParam("delay")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const admin = await getAdmin(hre);
-        const { deployer } = await hre.ethers.getNamedSigners();
         const processed = await processArgs(admin, args);
-        await admin.connect(deployer).schedule(...processed);
+        await admin.schedule(...processed);
     });
 
 task("admin_exec", "execute a tx")
@@ -83,10 +82,9 @@ task("admin_exec", "execute a tx")
     .addOptionalParam("salt")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const admin = await getAdmin(hre);
-        const { deployer } = await hre.ethers.getNamedSigners();
         const rawProcessed = await processArgs(admin, args);
         const processed = rawProcessed.slice(0, -1) as [string, bigint, string, string, string];
-        await admin.connect(deployer).execute(...processed);
+        await admin.execute(...processed);
     });
 
 task("admin_schedule_and_exec", "schedule and execute")
@@ -229,39 +227,6 @@ task("upgrade_hexlink", "upgrade hexlink contract")
             const data = hexlink.interface.encodeFunctionData(
                 "upgradeTo",
                 [deployed.address]
-            );
-            const hexlinkAddr = await hexlink.getAddress();
-            if (args.nowait) {
-                await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-            } else {
-                await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
-            }
-        }
-    });
-
-task("upgrade_account")
-    .addFlag("nowait")
-    .addFlag("dev")
-    .addOptionalParam("nameService", "nameService to update")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
-        const deployed = args.dev
-            ? await hre.deployments.get("AccountDev")
-            : await hre.deployments.get("Account");
-        const existing = await hexlink.getAccountImplementation();
-        if (existing.toLowerCase() == deployed.address.toLowerCase()) {
-            console.log("no need to upgrade account");
-            return;
-        }
-
-        console.log("Upgrading account from " + existing + " to " + deployed.address);
-        if (args.dev) {
-            const {deployer} = await hre.ethers.getNamedSigners();
-            await hexlink.connect(deployer).upgradeImplementation(deployed.address);
-        } else {
-            const data = hexlink.interface.encodeFunctionData(
-                "upgradeImplementation",
-                [deployed.address],
             );
             const hexlinkAddr = await hexlink.getAddress();
             if (args.nowait) {

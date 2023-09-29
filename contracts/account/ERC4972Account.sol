@@ -7,28 +7,60 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@account-abstraction/contracts/samples/callback/TokenCallbackHandler.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../interfaces/IAccountInitializer.sol";
+import "../interfaces/IERC4972Account.sol";
+import "../interfaces/IERC4972AccountInitializer.sol";
 import "../interfaces/IExecutionManager.sol";
 import "../interfaces/IVersion.sol";
 import "../interfaces/IVersionManager.sol";
 import "./base/ERC4337Account.sol";
-import "./base/ERC4972Account.sol";
 import "./base/Simple2FA.sol";
 
-contract Account is
-    IAccountInitializer,
+library ERC4972AccountStorage {
+    bytes32 internal constant STORAGE_SLOT =
+        keccak256('hexlink.account.erc4972');
+ 
+    struct Layout {
+        bytes32 name;
+        address owner;
+    }
+
+    function layout() internal pure returns (Layout storage l) {
+        bytes32 slot = STORAGE_SLOT;
+        assembly {
+            l.slot := slot
+        }
+    }
+}
+
+contract ERC4972Account is
+    IERC4972AccountInitializer,
     IVersion,
     Initializable,
     IExecutionManager,
+    IERC4972Account,
     TokenCallbackHandler,
     ERC4337Account,
-    ERC4972Account,
     Simple2FA,
     UUPSUpgradeable
 {
+    using ECDSA for bytes32;
+
+    event NameUpdated(bytes32 indexed name);
+    event NameOwnerUpdated(address indexed);
+
+    error InvalidNameToSet(bytes32 name);
+    error InvalidNameOwner(address owner);
     error InvalidAccountImplementation();
     error InvalidSignType(uint8);
+
+    modifier onlyValidNameOwner() {
+        if (!setNameOwner()) {
+            _;
+        }
+    }
 
     constructor(
         address entryPoint,
@@ -37,7 +69,8 @@ contract Account is
       AccountAuthBase(hexlink) { }
 
     function initialize(bytes32 name, address owner) public override initializer {
-        _ERC4972Account_init(name, owner);
+        ERC4972AccountStorage.layout().name = name;
+        ERC4972AccountStorage.layout().owner = owner;
     }
 
     function version() public override virtual pure returns (uint256) {
@@ -125,5 +158,49 @@ contract Account is
         if (impl != newImplementation) {
             revert InvalidAccountImplementation();
         }
+    }
+
+    /** ERC4972 */
+
+    function getERC4972Registry() public view override returns(IERC4972Registry) {
+        return IERC4972Registry(hexlink_);
+    }
+
+    function getName() public view override returns(bytes32) {
+        return ERC4972AccountStorage.layout().name;
+    }
+
+    function getNameOwner() public view returns(address) {
+        return ERC4972AccountStorage.layout().owner;
+    }
+
+    function setNameOwner() public returns(bool updated) {
+        address owner = IERC4972Registry(hexlink_).getNameService().owner(getName());
+        if (owner == ERC4972AccountStorage.layout().owner) {
+            return false;
+        }
+        ERC4972AccountStorage.layout().owner = owner;
+        emit NameOwnerUpdated(owner);
+        return true;
+    }
+
+    function setName(bytes32 name) external onlySelf {
+        if (IERC4972Registry(hexlink_).getOwnedAccount(name) != address(this)) {
+            revert InvalidNameToSet(name);
+        }
+        ERC4972AccountStorage.layout().name = name;
+        emit NameUpdated(name);
+    }
+
+    function _validateNameOwner(
+        bytes32 message,
+        bytes memory signature
+    ) internal returns(bool) {
+        address signer = ECDSA.recover(message.toEthSignedMessageHash(), signature);
+        address owner = ERC4972AccountStorage.layout().owner;
+        if (owner == address(0)) {
+            ERC4972AccountStorage.layout().owner = signer;
+        }
+        return signer == owner;
     }
 }

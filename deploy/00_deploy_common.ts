@@ -19,6 +19,25 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             log: true,
         }
     );
+
+    const {factoryDeployer} = await getNamedAccounts();
+    await deployments.deploy(
+        "HexlinkContractFactory", {
+            from: factoryDeployer,
+            args: [deployer],
+            log: true,
+        }
+    );
+
+    if (hre.network.name === 'hardhat') {
+        await hre.deployments.deploy(
+            "EntryPoint", {
+                from: deployer,
+                args: [],
+                log: true,
+            }
+        );
+    }
 }
 
 export default func;

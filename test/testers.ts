@@ -1,16 +1,21 @@
 import * as hre from "hardhat";
 import { hash } from "../tasks/utils";
 import { ethers } from "hardhat";
-import { BigNumberish, BytesLike, AddressLike } from "ethers";
-import { EntryPoint, Hexlink } from "../typechain-types";
-import { Account__factory } from "../typechain-types";
+import { BigNumberish, BytesLike, AddressLike, Contract, Signer } from "ethers";
+import { EntryPoint, HexlinkAccount__factory } from "../typechain-types";
 
 export const SENDER_NAME_HASH = hash("mailto:sender@gmail.com");
 export const RECEIVER_NAME_HASH = hash("mailto:receiver@gmail.com");
 
-export const genInitCode = async (hexlink: Hexlink) => {
+export const genInitCode = async (hexlink: Contract, owner: string, validator: Signer) => {
+    const message = ethers.solidityPackedKeccak256(
+      ["bytes32", "address"],
+      [SENDER_NAME_HASH, owner]
+    );
+    const signature = await validator.signMessage(
+      ethers.getBytes(message));
     const initData = hexlink.interface.encodeFunctionData(
-      "deploy", [SENDER_NAME_HASH]
+      "deploy", [SENDER_NAME_HASH, owner, signature]
     );
     return ethers.solidityPacked(
       ["address", "bytes"],
@@ -23,7 +28,7 @@ export const buildAccountExecData = async (
     value?: BigNumberish,
     data?: string
 ) => {
-    const artifact = await hre.artifacts.readArtifact("Account");
+    const artifact = await hre.artifacts.readArtifact("HexlinkAccount");
     const iface = new ethers.Interface(artifact.abi);
     return iface.encodeFunctionData("execute", [
       target,
@@ -118,17 +123,12 @@ export const callWithEntryPoint = async (
   entrypoint: EntryPoint,
   signer: any,
   log: boolean = false,
-  name?: string
 ) => {
   const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
   const validation = 0;
   let message = ethers.solidityPackedKeccak256(
     ["uint8", "uint96", "bytes32"],
     [0, validation, userOpHash]
-  );
-  message = ethers.solidityPackedKeccak256(
-    ["bytes32", "bytes32"],
-    [name ?? SENDER_NAME_HASH, message]
   );
   let signature = await signer.signMessage(
     ethers.getBytes(message)
@@ -139,7 +139,7 @@ export const callWithEntryPoint = async (
   );
   const signed = { ...userOp, signature, };
   try {
-    return await entrypoint.connect(signer).handleOps(
+    return await entrypoint.handleOps(
       [signed] as UserOperationStruct[],
       signer.address as string
     );
@@ -170,10 +170,6 @@ export const call2faWithEntryPoint = async (
     ["uint8", "uint96", "bytes32"],
     [0, validation, userOpHash]
   );
-  message = ethers.solidityPackedKeccak256(
-    ["bytes32", "bytes32"],
-    [SENDER_NAME_HASH, message]
-  );
   const signature1 = await signer1.signMessage(
     ethers.getBytes(message)
   );
@@ -199,7 +195,7 @@ export const call2faWithEntryPoint = async (
 }
 
 export const getNonce = async (sender: string) => {
-    const account = Account__factory.connect(sender, ethers.provider);
+    const account = HexlinkAccount__factory.connect(sender, ethers.provider);
     if (await ethers.provider.getCode(sender) === "0x") {
       return 0;
     }

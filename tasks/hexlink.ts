@@ -1,15 +1,12 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { hash, getHexlink, getHexlinkDev } from "./utils";
-import { Hexlink, SimpleNameService__factory } from "../typechain-types";
+import { Contract } from "ethers";
 
-async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
+async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
     const hexlinkAddr = await hexlink.getAddress();
     const factory = await hre.deployments.get("HexlinkContractFactory");
     const admin = await hre.deployments.get("HexlinkAdmin");
-    const ns = await hre.deployments.get("SimpleNameService");
-    const nsContract = SimpleNameService__factory.connect(
-        ns.address, hre.ethers.provider);
     const result = {
         contractFactory: factory.address,
         hexlink: hexlinkAddr,
@@ -18,12 +15,6 @@ async function checkHexlink(hexlink: Hexlink, hre: HardhatRuntimeEnvironment) {
         hexlinkImpl: await hexlink.implementation(),
         accountProxy: hexlinkAddr,
         accountImpl: await hexlink.getAccountImplementation(),
-        nameService: await hexlink.getNameService(),
-        SimpleNameService: {
-            address: ns.address,
-            defaultOwner: await nsContract.defaultOwner(),
-        },
-        authRegistry: await hexlink.getAuthRegistry(),
     }
     console.log(result);
     return result;

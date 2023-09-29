@@ -1,16 +1,18 @@
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
 import * as config from '../config.json';
-import {
-  Hexlink__factory,
-  EntryPoint__factory,
-  TimelockController__factory,
-  HexlinkContractFactory__factory,
-} from "../typechain-types/";
-
+import { Contract } from "ethers";
 
 export function hash(value: string) {
     return ethers.keccak256(ethers.toUtf8Bytes(value));
+}
+
+export async function getAbi(
+  hre: HardhatRuntimeEnvironment,
+  contract: string
+) {
+  const artifact = await hre.artifacts.readArtifact(contract);
+  return  artifact.abi;
 }
 
 export function nameHash(name: {schema: string, domain: string, handle: string}) : string {
@@ -48,7 +50,12 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
       const deployed = await hre.deployments.get("EntryPoint");
       entrypoint = deployed.address;
   }
-  return EntryPoint__factory.connect(entrypoint, hre.ethers.provider);
+  const { deployer } = await hre.ethers.getNamedSigners();
+  return new Contract(
+    entrypoint,
+    await getAbi(hre, "EntryPoint"),
+    deployer
+  );
 }
 
 export async function getHexlink(hre: HardhatRuntimeEnvironment) {
@@ -62,24 +69,36 @@ export async function getHexlinkDev(hre: HardhatRuntimeEnvironment) {
 }
 
 async function getHexlinkImpl(hre: HardhatRuntimeEnvironment, salt: string) {
+  const { deployer } = await hre.ethers.getNamedSigners();
   const factory = await getFactory(hre);
   const bytecode = getBytecode(
       await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
   );
-  const hexlink = await factory.calculateAddress(bytecode, salt);
-  return Hexlink__factory.connect(hexlink, hre.ethers.provider);
+  return new Contract(
+    await factory.calculateAddress(bytecode, salt),
+    await getAbi(hre, "Hexlink"),
+    deployer
+  );
 }
 
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {
+  const { deployer } = await hre.ethers.getNamedSigners();
   const deployed = await hre.deployments.get("HexlinkAdmin");
-  return TimelockController__factory.connect(
-    deployed.address, hre.ethers.provider);
+  return new Contract(
+    deployed.address,
+    await getAbi(hre, "TimelockController"),
+    deployer
+  );
 }
 
 export async function getFactory(hre: HardhatRuntimeEnvironment) {
+  const { deployer } = await hre.ethers.getNamedSigners();
   const deployed = await hre.deployments.get("HexlinkContractFactory");
-  return HexlinkContractFactory__factory.connect(
-    deployed.address, hre.ethers.provider);
+  return new Contract(
+    deployed.address,
+    await getAbi(hre, "HexlinkContractFactory"),
+    deployer
+  );
 }
 
 export async function deterministicDeploy(

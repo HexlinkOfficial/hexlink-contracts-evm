@@ -31,7 +31,8 @@
     "solhint": "^3.3.7",
     "solidity-coverage": "^0.7.21",
     "ts-node": "^10.9.1",
-    "typechain": "^8.3.1"
+    "typechain": "^8.3.1",
+    "typescript": "^5.2.2"
   },
   "dependencies": {
     "@account-abstraction/contracts": "^0.6.0",

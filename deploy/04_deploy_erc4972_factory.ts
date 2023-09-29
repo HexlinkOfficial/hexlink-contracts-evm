@@ -1,33 +1,34 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
+import { Contract } from "ethers";
 import {
     hash,
     deterministicDeploy,
     getEntryPoint,
 } from "../tasks/utils";
-import {
-    HexlinkERC1967Proxy__factory,
-} from "../typechain-types";
 
-const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
+async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     // deploy erc1967 proxy
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
-        hash("dev.hexlink"),
+        dev ? hash("dev.ERC4972AccountFactory") : hash("ERC4972AccountFactory"),
     );
-    const hexlinkDev = HexlinkERC1967Proxy__factory.connect(
+    const { deployer } = await hre.ethers.getNamedSigners();
+    const artifact = await hre.artifacts.readArtifact("HexlinkERC1967Proxy");
+    const factory = new Contract(
         deployed.address,
-        hre.ethers.provider
+        artifact.abi,
+        deployer
     );
 
-    const { deployer } = await hre.ethers.getNamedSigners();
+    // deploy account implementation
     const entrypoint = await getEntryPoint(hre);
     const accountDev = await hre.deployments.deploy(
-        "AccountDev",
+        dev ? "ERC4972AccountDev" : "ERC4972Account",
         {
             from: deployer.address,
-            contract: "Account",
+            contract: "ERC4972Account",
             args: [
                 await entrypoint.getAddress(),
                 deployed.address,
@@ -40,10 +41,10 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const authRegistry = await hre.deployments.get("AuthRegistry");
     const simpleNs = await hre.deployments.get("SimpleNameService");
     const devImpl = await hre.deployments.deploy(
-        "HexlinkDev",
+        dev ? "ERC4972AccountFactoryDev" : "ERC4972AccountFactory",
         {
             from: deployer.address,
-            contract: "Hexlink",
+            contract: "ERC4972AccountFactory",
             args: [
                 simpleNs.address,
                 authRegistry.address
@@ -54,14 +55,22 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 
     // init hexlink
     if (deployed.deployed) {
-        const hexlinkDevImpl = await hre.ethers.getContractAt(
-            "Hexlink", devImpl.address);
-        const data = hexlinkDevImpl.interface.encodeFunctionData(
+        const factoryImpl = await hre.ethers.getContractAt(
+            "ERC4972AccountFactory", devImpl.address);
+        const data = factoryImpl.interface.encodeFunctionData(
             "initialize", [deployer.address, accountDev.address]
         );
-        await hexlinkDev.connect(deployer).initProxy(devImpl.address, data)
+        await factory.initProxy(devImpl.address, data)
     }
 }
 
+const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
+    console.log("Deploying Prod ERC4972AccountFactory...");
+    await deploy(hre);
+
+    console.log("Deploying Dev ERC4972AccountFactory...");
+    await deploy(hre, true /* dev */);
+}
+
 export default func;
-func.tags = ["DEV"];
+func.tags = ["BETA"];

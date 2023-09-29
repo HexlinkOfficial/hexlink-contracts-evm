@@ -30,6 +30,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         await deterministicDeploy(
             hre,
             "EnsNameService",
+            "EnsNameService", /* alias */
             hash("hexlink.EnsNameService"),
             args
         );

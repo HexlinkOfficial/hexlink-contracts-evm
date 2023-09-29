@@ -12,6 +12,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
+        dev ? "ERC4972AccountFactoryDevProxy" : "ERC4972AccountFactoryProxy",
         dev ? hash("dev.ERC4972AccountFactory") : hash("ERC4972AccountFactory"),
     );
     const { deployer } = await hre.ethers.getNamedSigners();
@@ -65,10 +66,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
 }
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
-    console.log("Deploying Prod ERC4972AccountFactory...");
     await deploy(hre);
-
-    console.log("Deploying Dev ERC4972AccountFactory...");
     await deploy(hre, true /* dev */);
 }
 

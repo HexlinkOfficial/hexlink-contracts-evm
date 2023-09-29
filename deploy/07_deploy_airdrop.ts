@@ -16,6 +16,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const proxy = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
+        "AirdropProxy", /* alias */
         hash("airdrop"),
     );
     if (proxy.deployed) {

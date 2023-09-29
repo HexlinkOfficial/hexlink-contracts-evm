@@ -122,23 +122,23 @@ export async function getFactory(hre: HardhatRuntimeEnvironment) {
 export async function deterministicDeploy(
   hre: HardhatRuntimeEnvironment,
   contract: string,
+  alias: string,
   salt: string,
   args?: string,
   data?: string,
 ) : Promise<{address: string, deployed: boolean}> {
-  const {deployer} = await hre.ethers.getNamedSigners();
   const factory = await getFactory(hre);
   const artifact = await hre.artifacts.readArtifact(contract);
   const bytecode = getBytecode(artifact, args ?? "0x");
   const address = await factory.calculateAddress(bytecode, salt);
   if (await isContract(hre, address)) {
-      console.log(`Reusing ${contract} deployed at ${address}`);
+      console.log(`Reusing ${alias} deployed at ${address}`);
       return { deployed: false, address };
   } else {
-      const tx = await factory.connect(deployer).deployAndCall(
+      const tx = await factory.deployAndCall(
         bytecode, salt, data || "0x");
       await tx.wait();
-      console.log(`deploying ${contract} (tx: ${tx.hash})...: deployed at ${address}`);
+      console.log(`deploying ${alias} (tx: ${tx.hash})...: deployed at ${address}`);
       return { deployed: true, address };
   }
 }

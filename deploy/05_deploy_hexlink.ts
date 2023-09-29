@@ -14,6 +14,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     const deployed = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
+        dev ? "HexlinkDevProxy" : "HexlinkProxy",
         dev ? hash("hexlink.dev") : hash("hexlink.prod"),
     );
     const { deployer } = await hre.ethers.getNamedSigners();

@@ -62,6 +62,20 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
   );
 }
 
+export async function getAirdrop(hre: HardhatRuntimeEnvironment) {
+  const salt = hash("airdrop");
+  const { deployer } = await hre.ethers.getNamedSigners();
+  const factory = await getFactory(hre);
+  const bytecode = getBytecode(
+      await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
+  );
+  return new Contract(
+    await factory.calculateAddress(bytecode, salt),
+    await getAbi(hre, "Airdrop"),
+    deployer
+  );
+}
+
 export async function getHexlink(hre: HardhatRuntimeEnvironment) {
   const salt = hash("hexlink.dev");
   return await getHexlinkImpl(hre, salt);

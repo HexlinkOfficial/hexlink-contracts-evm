@@ -1,10 +1,9 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
+import { deterministicDeploy, hash } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
-    const {deployments} = hre;
     const {deployer} = await hre.ethers.getNamedSigners();
-
     const impl = await hre.deployments.deploy(
         "Airdrop", {
             from: deployer.address,
@@ -13,17 +12,13 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         }
     );
 
-    const proxy = await deployments.deploy(
-        "AirdropProxy",
-        {
-            from: deployer.address,
-            contract: "HexlinkERC1967Proxy",
-            args: [],
-            log: true,
-        }
+    // deploy erc1967 proxy
+    const proxy = await deterministicDeploy(
+        hre,
+        "HexlinkERC1967Proxy",
+        hash("airdrop"),
     );
-
-    if (proxy.newlyDeployed) {
+    if (proxy.deployed) {
         const airdrop = await hre.ethers.getContractAt(
             "HexlinkERC1967Proxy",
             proxy.address,

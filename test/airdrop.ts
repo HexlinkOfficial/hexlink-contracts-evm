@@ -2,21 +2,13 @@ import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import * as hre from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-    Airdrop__factory,
-    Airdrop,
-    TestHexlinkERC20
-} from "../typechain-types";
+import { TestHexlinkERC20 } from "../typechain-types";
 import { deployErc20 } from "./testers";
-import { epoch } from "../tasks/utils";
-
-async function getAirdrop(deployer: HardhatEthersSigner) {
-  const deployed = await hre.deployments.get("AirdropProxy");
-  return Airdrop__factory.connect(deployed.address, deployer);
-}
+import { epoch, getAirdrop } from "../tasks/utils";
+import { Contract } from "ethers";
 
 describe("Airdrop", function() {
-  let airdrop: Airdrop;
+  let airdrop: Contract;
   let erc20: TestHexlinkERC20;
   let deployer: HardhatEthersSigner;
 
@@ -24,7 +16,7 @@ describe("Airdrop", function() {
     const signers = await ethers.getNamedSigners();
     deployer = signers.deployer;
     await deployments.fixture(["TEST"]);
-    airdrop = await getAirdrop(deployer);
+    airdrop = await getAirdrop(hre);
     erc20 = await deployErc20();
   });
 

@@ -27,9 +27,10 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     // deploy account implementation
     const entrypoint = await getEntryPoint(hre);
     const account = await hre.deployments.deploy(
-        "HexlinkAccount",
+        dev ? "HexlinkAccountDev" : "HexlinkAccount",
         {
             from: deployer.address,
+            contract: "HexlinkAccount",
             args: [
                 await entrypoint.getAddress(),
                 deployed.address,

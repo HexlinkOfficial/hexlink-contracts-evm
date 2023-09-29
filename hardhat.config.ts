@@ -69,6 +69,16 @@ const config: HardhatUserConfig = {
       url: "https://api.proteus.nautchain.xyz/solana",
       accounts,
     },
+    bsc: {
+      chainId: 56,
+      url: "https://bsc-dataseed1.binance.org/",
+      accounts,
+    },
+    bsc_test: {
+      chainId: 97,
+      url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+      accounts,
+    },
     mumbai: {
       chainId: 80001,
       url: process.env.HARDHAT_MUMBAI_URL || "",

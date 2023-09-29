@@ -95,7 +95,9 @@ contract Airdrop {
         bytes memory proof
     ) external {
         Campaign memory c = _getCampaign(campaign);
-        bytes32 message = keccak256(abi.encodePacked(campaign, to));
+        bytes32 message = keccak256(
+            abi.encodePacked(block.chainid, address(this), campaign, to)
+        );
         if (message.toEthSignedMessageHash().recover(proof) != c.owner) {
             revert NotAuthorized();
         }
@@ -115,12 +117,11 @@ contract Airdrop {
         if (msg.sender != c.owner) {
             revert NotAuthorized();
         }
-        uint256 balance = IERC20(c.token).balanceOf(address(this));
+        uint256 balance = _getBalance(c.token);
         uint256 expected = c.amount * receipts.length;
         if (balance < expected) {
             revert InSufficientBalance(campaign, balance, expected);
         }
-
         for (uint i = 0; i < receipts.length; i++) {
             address to = receipts[i];
             if (hasClaimed(campaign, to)) {
@@ -137,7 +138,7 @@ contract Airdrop {
         uint256 campaign,
         address to
     ) internal {
-        uint256 balance = IERC20(c.token).balanceOf(address(this));
+        uint256 balance = _getBalance(c.token);
         if (balance < c.amount) {
             revert InSufficientBalance(campaign, balance, c.amount);
         }

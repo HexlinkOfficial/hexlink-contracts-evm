@@ -15,7 +15,7 @@ async function getAirdrop(deployer: HardhatEthersSigner) {
   return Airdrop__factory.connect(deployed.address, deployer);
 }
 
-describe("Hexlink", function() {
+describe("Airdrop", function() {
   let airdrop: Airdrop;
   let erc20: TestHexlinkERC20;
   let deployer: HardhatEthersSigner;
@@ -117,8 +117,13 @@ describe("Hexlink", function() {
 
     const genSig = async (campaignId: number) => {
         const message = ethers.solidityPackedKeccak256(
-            ["uint256", "address"],
-            [campaignId, validator]
+            ["uint256", "address", "uint256", "address"],
+            [
+                hre.network.config.chainId,
+                await airdrop.getAddress(),
+                campaignId,
+                validator
+            ]
         );
         return await deployer.signMessage(ethers.getBytes(message));
     };

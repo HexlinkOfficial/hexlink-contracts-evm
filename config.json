@@ -11,5 +11,8 @@
     },
     "bsc_test": {
         "admin": "0x6D9A722489fB354bcDEe362958Cc0D7cA6C33f51"
+    },
+    "mumbai": {
+        "admin": "0x150dC1A070AD40292b991b372C1C585E918c78de"
     }
 }

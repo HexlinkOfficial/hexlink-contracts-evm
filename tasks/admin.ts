@@ -99,13 +99,11 @@ task("admin_schedule_and_exec", "schedule and execute")
         console.log("scheduling...");
         await hre.run("admin_schedule", args);
         const delay = Number(args.dealy) || Number(await admin.getMinDelay());
-        if (delay > 0) {
-            const wait = (ms: number) => {
-                return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
-            };
-            console.log("Will wait for " + delay + " seconds before exec");
-            await wait(delay + 1);
-        }
+        const wait = (ms: number) => {
+            return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
+        };
+        console.log("Will wait for " + delay + " seconds before exec");
+        await wait(delay + 3);
         console.log("executing...");
         await hre.run("admin_exec", args);
         console.log("done.");

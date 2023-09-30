@@ -6,7 +6,6 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../interfaces/IAccountFactory.sol";
 
 contract Airdrop {
     using ECDSA for bytes32;
@@ -39,14 +38,9 @@ contract Airdrop {
         uint256 amount
     );
 
-    IAccountFactory internal immutable hexlink;
     uint256 nextCampaign = 0;
     mapping(uint256 => Campaign) internal campaigns;
     mapping(uint256 => mapping(address => bool)) internal claimed;
-
-    constructor(address _hexlink) {
-        hexlink = IAccountFactory(_hexlink);
-    }
 
     function getNextCampaign() external view returns(uint256) {
         return nextCampaign;
@@ -102,12 +96,12 @@ contract Airdrop {
 
     function claim(
         uint256 campaign,
-        bytes32 claimer,
+        address claimer,
         address beneficiary,
         uint256 amount,
         bytes memory proof
     ) external {
-        if (msg.sender != hexlink.getAccountAddress(claimer)) {
+        if (msg.sender != claimer) {
             revert NotCalledFromClaimer();
         }
         if (hasClaimed(campaign, msg.sender)) {

@@ -3,11 +3,24 @@ import { ethers, deployments } from "hardhat";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as hre from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { TestHexlinkERC20 } from "../typechain-types";
-import { SENDER_NAME_HASH, buildAccountExecData, callWithEntryPoint, deployErc20 } from "./testers";
+import { TestHexlinkERC20, AirdropSimple__factory } from "../typechain-types";
+import { buildAccountExecData, callWithEntryPoint, deployErc20 } from "./testers";
 import { epoch, getAirdrop, getHexlink, getEntryPoint } from "../tasks/utils";
 import { Contract } from "ethers";
 import { deploySender } from "./account";
+
+export async function deployAirdropSimple(token: string, validator: string) {
+    const {deployer} = await ethers.getNamedSigners();
+    const deployed = await hre.deployments.deploy("AirdropSimple", {
+      from: deployer.address,
+      args: [token, validator],
+      log: true,
+      autoMine: true,
+    });
+    return AirdropSimple__factory.connect(
+      deployed.address, deployer
+    );
+  }
 
 describe("Airdrop", function() {
   let hexlink: Contract;
@@ -95,8 +108,16 @@ describe("Airdrop", function() {
     expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(11000);
   });
 
-  it("should self claim one", async function() {
+  it("should self claim with hexlink account", async function() {
     const { validator } = await hre.getNamedAccounts();
+    const sender = await deploySender(hexlink);
+    const senderAddr = await sender.getAddress();
+    const tx = await deployer.sendTransaction({
+        to: senderAddr,
+        value: ethers.parseEther("1.0")
+    });
+    await tx.wait();
+
     const campaign = {
         token: await erc20.getAddress(),
         startAt: 0,
@@ -109,12 +130,12 @@ describe("Airdrop", function() {
 
     const genSig = async (campaignId: number, amount: number = 100) => {
         const message = ethers.solidityPackedKeccak256(
-            ["uint256", "address", "uint256", "bytes32", "address", "uint256"],
+            ["uint256", "address", "uint256", "address", "address", "uint256"],
             [
                 hre.network.config.chainId,
                 await airdrop.getAddress(),
                 campaignId,
-                SENDER_NAME_HASH,
+                senderAddr,
                 validator,
                 amount
             ]
@@ -122,20 +143,13 @@ describe("Airdrop", function() {
         return await deployer.signMessage(ethers.getBytes(message));
     };
     await expect(
-        airdrop.claim(0, SENDER_NAME_HASH, validator, 100, await genSig(0))
+        airdrop.claim(0, senderAddr, validator, 100, await genSig(0))
     ).to.be.revertedWithCustomError(airdrop, "NotCalledFromClaimer");
 
-    const sender = await deploySender(hexlink);
-    const tx = await deployer.sendTransaction({
-        to: sender,
-        value: ethers.parseEther("1.0")
-    });
-    await tx.wait();
-    const senderAddr = await sender.getAddress();
     const claimData = async (campaignId: number, amount: number = 100) => {
         const claimData = airdrop.interface.encodeFunctionData(
             "claim",
-            [campaignId, SENDER_NAME_HASH, validator, amount, await genSig(campaignId)]
+            [campaignId, senderAddr, validator, amount, await genSig(campaignId)]
         );
         return await buildAccountExecData(
             await airdrop.getAddress(), 0, claimData);
@@ -187,5 +201,71 @@ describe("Airdrop", function() {
         callWithEntryPoint(senderAddr, '0x', await claimData(2), entrypoint, deployer)
     ).to.emit(entrypoint, "UserOperationRevertReason")
     .withArgs(anyValue, anyValue, anyValue, error);
+  });
+
+  it("should self claim with eoa", async function() {
+    const { validator } = await hre.getNamedAccounts();
+    const campaign = {
+        token: await erc20.getAddress(),
+        startAt: 0,
+        endAt: epoch() + 3600, // now + 1 hour
+        deposit: 10000,
+        owner: deployer.address,
+    };
+    await erc20.approve(await airdrop.getAddress(), 10000);
+    await airdrop.createCampaign(campaign);
+
+    const genSig = async (campaignId: number, amount: number = 100) => {
+        const message = ethers.solidityPackedKeccak256(
+            ["uint256", "address", "uint256", "address", "address", "uint256"],
+            [
+                hre.network.config.chainId,
+                await airdrop.getAddress(),
+                campaignId,
+                deployer.address,
+                validator,
+                amount
+            ]
+        );
+        return await deployer.signMessage(ethers.getBytes(message));
+    };
+    await airdrop.claim(0, deployer.address, validator, 100, await genSig(0)); 
+  });
+
+  it("test airdrop simple", async function() {
+    const { validator } = await hre.getNamedAccounts();
+    const airdrop = await deployAirdropSimple(
+        await erc20.getAddress(), deployer.address);
+    await erc20.transfer(await airdrop.getAddress(), 10000);
+
+    expect(await airdrop.paused()).to.eq(false);
+    await airdrop.pause();
+    expect(await airdrop.paused()).to.eq(true);
+
+    const genSig = async (amount: number = 100) => {
+        const message = ethers.solidityPackedKeccak256(
+            ["uint256", "address", "address", "address", "uint256"],
+            [
+                hre.network.config.chainId,
+                await airdrop.getAddress(),
+                deployer.address,
+                validator,
+                amount
+            ]
+        );
+        return await deployer.signMessage(ethers.getBytes(message));
+    };
+    await expect(
+        airdrop.claim(deployer.address, validator, 100, await genSig())
+    ).to.be.revertedWith("Pausable: paused");
+
+    await airdrop.unpause();
+    expect(await airdrop.paused()).to.eq(false);
+
+    await airdrop.claim(deployer.address, validator, 100, await genSig());
+    expect(await erc20.balanceOf(validator)).to.eq(100);
+
+    await airdrop.withdraw(validator, 9900);
+    expect(await erc20.balanceOf(validator)).to.eq(10000);
   });
 });

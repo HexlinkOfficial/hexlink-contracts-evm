@@ -265,7 +265,7 @@ describe("Hexlink Account", function () {
     ).to.be.reverted;
   });
 
-  it("second factor", async function() {
+  it("test second factor", async function() {
     const { deployer, validator, tester } = await hre.ethers.getNamedSigners();
 
     // deploy sender

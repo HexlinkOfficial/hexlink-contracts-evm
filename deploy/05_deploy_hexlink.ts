@@ -55,15 +55,25 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
         }
     );
 
-    // init hexlink
-    if (deployed.deployed) {
-        const hexlinkImpl = await hre.ethers.getContractAt(
-            "Hexlink", impl.address);
+    // init hexlink proxy
+    const hexlinkImpl = await hre.ethers.getContractAt(
+        "Hexlink", impl.address);
+    try {
         const admin = await getAdmin(hre);
         const data = hexlinkImpl.interface.encodeFunctionData(
             "initialize", [await admin.getAddress()]
         );
         await factory.initProxy(impl.address, data)
+    } catch (e) {
+        const hexlink = await hre.ethers.getContractAt(
+          "Hexlink", deployed.address);
+        try {
+            await hexlink.implementation();
+            console.log("Hexlink Proxy alreay initialized");
+        } catch {
+            console.log("Hexlink Proxy initializing error ");
+            throw e;
+        }
     }
 }
 

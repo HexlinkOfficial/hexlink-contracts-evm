@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
-import { getHexlink, getHexlinkDev, getAdmin } from "./utils";
+import { getHexlink, getAdmin } from "./utils";
 import { Contract } from "ethers";
 
 const processArgs = async function(
@@ -145,7 +145,7 @@ task("admin_schedule_or_exec", "schedule or execute")
 task("check_deposit")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
+        const hexlink = await getHexlink(hre, args.dev);
         const entrypoint = await hre.ethers.getContractAt(
             "EntryPoint",
             "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
@@ -167,7 +167,7 @@ task("add_stake")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const { deployer } = await hre.ethers.getNamedSigners();
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
+        const hexlink = await getHexlink(hre, args.dev);
         const hexlinkAddr = await hexlink.getAddress();
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.Interface(artifact.abi);
@@ -209,7 +209,7 @@ task("upgrade_hexlink", "upgrade hexlink contract")
     .addFlag("nowait")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const hexlink = args.dev ? await getHexlinkDev(hre) : await getHexlink(hre);
+        const hexlink = await getHexlink(hre, args.dev);
         const existing = await hexlink.implementation();
         const deployed = args.dev
             ? await hre.deployments.get("HexlinkDev")
@@ -220,19 +220,39 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         }
 
         console.log("Upgrading from " + existing + " to " + deployed.address);
-        if (args.dev) {
-            const {deployer} = await hre.ethers.getNamedSigners();
-            await hexlink.connect(deployer).upgradeTo(deployed.address);
+        const data = hexlink.interface.encodeFunctionData(
+            "upgradeTo",
+            [deployed.address]
+        );
+        const hexlinkAddr = await hexlink.getAddress();
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
         } else {
-            const data = hexlink.interface.encodeFunctionData(
-                "upgradeTo",
-                [deployed.address]
-            );
-            const hexlinkAddr = await hexlink.getAddress();
-            if (args.nowait) {
-                await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-            } else {
-                await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
-            }
+            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
+        }
+    });
+
+ task("changeOwner", "change account owner")
+    .addFlag("nowait")
+    .addParam("newowner")
+    .addFlag("dev")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const hexlink = await getHexlink(hre, args.dev);
+        const existing = await hexlink.owner();
+        if (existing.toLowerCase() == args.newowner.toLowerCase()) {
+            console.log("No need to upgrade");
+            return;
+        }
+
+        console.log("Changing owner from " + existing + " to " + args.newowner);
+        const data = hexlink.interface.encodeFunctionData(
+            "transferOwnership",
+            [args.newowner]
+        );
+        const hexlinkAddr = await hexlink.getAddress();
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
+        } else {
+            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
         }
     });

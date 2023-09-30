@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { hash, getHexlink, getHexlinkDev } from "./utils";
+import { hash, getHexlink } from "./utils";
 import { Contract } from "ethers";
 
 async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
@@ -27,7 +27,7 @@ task("hexlink_check", "check hexlink metadata")
         await checkHexlink(await getHexlink(hre), hre);
         console.log("=====================================")
         console.log("Dev: ")
-        await checkHexlink(await getHexlinkDev(hre), hre);
+        await checkHexlink(await getHexlink(hre, true), hre);
         console.log("=====================================")
     });
 

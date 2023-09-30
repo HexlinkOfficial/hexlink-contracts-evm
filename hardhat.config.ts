@@ -76,7 +76,7 @@ const config: HardhatUserConfig = {
     },
     bsc_test: {
       chainId: 97,
-      url: "https://data-seed-prebsc-1-s1.binance.org:8545/",
+      url: "https://data-seed-prebsc-1-s1.bnbchain.org:8545/",
       accounts,
     },
     mumbai: {

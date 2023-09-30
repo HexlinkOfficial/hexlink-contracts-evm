@@ -84,27 +84,26 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   );
 }
 
-export async function getHexlink(hre: HardhatRuntimeEnvironment) {
-  const salt = hash("hexlink.dev");
-  return await getHexlinkImpl(hre, salt);
-}
-
-export async function getHexlinkDev(hre: HardhatRuntimeEnvironment) {
-  const salt = hash("hexlink.prod");
-  return await getHexlinkImpl(hre, salt);
-}
-
-async function getHexlinkImpl(hre: HardhatRuntimeEnvironment, salt: string) {
+export async function getHexlink(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
+  let hexlink = loadConfig(hre, dev ? "hexlinkDev" : "hexlink");
+  if (hexlink === undefined) {
+    const salt = dev ? hash("hexlink.dev") : hash("hexlink.prod");
+    hexlink = await getHexlinkProxyAddr(hre, salt);
+  }
   const { deployer } = await hre.ethers.getNamedSigners();
+  return new Contract(
+    hexlink,
+    await getAbi(hre, "Hexlink"),
+    deployer
+  );
+}
+
+async function getHexlinkProxyAddr(hre: HardhatRuntimeEnvironment, salt: string) {
   const factory = await getFactory(hre);
   const bytecode = getBytecode(
       await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
   );
-  return new Contract(
-    await factory.calculateAddress(bytecode, salt),
-    await getAbi(hre, "Hexlink"),
-    deployer
-  );
+  return await factory.calculateAddress(bytecode, salt);
 }
 
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {

@@ -41,14 +41,14 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     );
 
     // deploy hexlink impl
-    const dauthValdiator = await getValidator(hre, "dauthValidator");
+    const validator = await getValidator(hre, "hexlinkValidator");
     const impl = await hre.deployments.deploy(
         dev ? "HexlinkDev" : "Hexlink",
         {
             from: deployer.address,
             contract: "Hexlink",
             args: [
-                dauthValdiator,
+                validator,
                 account.address,
             ],
             log: true,

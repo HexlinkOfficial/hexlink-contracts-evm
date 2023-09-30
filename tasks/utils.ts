@@ -29,8 +29,16 @@ export function nameHash(name: {schema: string, domain: string, handle: string})
 }
 
 export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
+  if (hre.network.name == "hardhat") {
+    return undefined;
+  }
   let netConf = config[hre.network.name as keyof typeof config] || {};
-  return (netConf as any)[key];
+  let value = (netConf as any)[key];
+  if (!value) {
+    netConf = config.common || {};
+    value = (netConf as any)[key];
+  }
+  return value;
 }
 
 export function getBytecode(artifact: Artifact, args: string) {
@@ -42,7 +50,7 @@ export function getBytecode(artifact: Artifact, args: string) {
 
 export async function getValidator(hre: HardhatRuntimeEnvironment, name?: string) {
   let validator = loadConfig(hre, name || "dauthValidator");
-  if (hre.network.name == "hardhat" || validator == undefined) {
+  if (validator == undefined) {
       return (await hre.getNamedAccounts())["validator"];
   }
   return validator;
@@ -100,20 +108,28 @@ async function getHexlinkImpl(hre: HardhatRuntimeEnvironment, salt: string) {
 }
 
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {
+  let admin = loadConfig(hre, "admin");
+  if (admin === undefined) {
+      const deployed = await hre.deployments.get("HexlinkAdmin");
+      admin = deployed.address;
+  }
   const { deployer } = await hre.ethers.getNamedSigners();
-  const deployed = await hre.deployments.get("HexlinkAdmin");
   return new Contract(
-    deployed.address,
+    admin,
     await getAbi(hre, "TimelockController"),
     deployer
   );
 }
 
 export async function getFactory(hre: HardhatRuntimeEnvironment) {
+  let factory = loadConfig(hre, "contractFactory");
+  if (factory === undefined) {
+    const deployed = await hre.deployments.get("HexlinkContractFactory");
+    factory = deployed.address;
+  }
   const { deployer } = await hre.ethers.getNamedSigners();
-  const deployed = await hre.deployments.get("HexlinkContractFactory");
   return new Contract(
-    deployed.address,
+    factory,
     await getAbi(hre, "HexlinkContractFactory"),
     deployer
   );

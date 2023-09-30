@@ -12,9 +12,17 @@ export const SENDER_NAME_HASH = hash("mailto:sender@gmail.com");
 export const RECEIVER_NAME_HASH = hash("mailto:receiver@gmail.com");
 
 export const genInitCode = async (hexlink: Contract, owner: string, validator: Signer) => {
-    const message = ethers.solidityPackedKeccak256(
-      ["bytes32", "address"],
-      [SENDER_NAME_HASH, owner]
+    let message = ethers.solidityPackedKeccak256(
+      ["uint256", "address", "address"],
+      [
+        hre.network.config.chainId,
+        await hexlink.getAddress(),
+        owner,
+      ]
+    );
+    message = ethers.solidityPackedKeccak256(
+      ["bytes32", "bytes32"],
+      [SENDER_NAME_HASH, message]
     );
     const signature = await validator.signMessage(
       ethers.getBytes(message));
@@ -45,7 +53,7 @@ export const genUserOp = async (
   sender: string,
   initCode: string,
   callData: string,
-  entrypoint: EntryPoint
+  entrypoint: EntryPoint | Contract,
 ): Promise<[UserOperationStruct, string]> => {
   const fee = await ethers.provider.getFeeData();
   const userOp: UserOperationStruct = {
@@ -124,7 +132,7 @@ export const callWithEntryPoint = async (
   sender: string,
   initCode: string,
   callData: string,
-  entrypoint: EntryPoint,
+  entrypoint: EntryPoint | Contract,
   signer: any,
   log: boolean = false,
 ) => {
@@ -163,7 +171,7 @@ export const call2faWithEntryPoint = async (
   sender: string,
   initCode: string,
   callData: string,
-  entrypoint: EntryPoint,
+  entrypoint: EntryPoint | Contract,
   signer1: any,
   signer2: any,
   log: boolean = false

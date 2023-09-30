@@ -14,7 +14,6 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
-  let admin: string;
   let sender: string;
   let deployer: HardhatEthersSigner;
 
@@ -90,9 +89,17 @@ describe("Hexlink", function() {
   it("should deploy account contract", async function() {
     const { deployer, validator } = await ethers.getNamedSigners();
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
-    const message = ethers.solidityPackedKeccak256(
-      ["bytes32", "address"],
-      [SENDER_NAME_HASH, deployer.address]
+    let message = ethers.solidityPackedKeccak256(
+      ["uint256", "address", "address"],
+      [
+        hre.network.config.chainId,
+        await hexlink.getAddress(),
+        deployer.address
+      ]
+    );
+    message = ethers.solidityPackedKeccak256(
+      ["bytes32", "bytes32"],
+      [SENDER_NAME_HASH, message]
     );
     const signature = await validator.signMessage(
       ethers.getBytes(message));

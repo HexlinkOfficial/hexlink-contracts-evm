@@ -6,47 +6,47 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "../interfaces/IAccountFactory.sol";
 
 contract Airdrop {
     using ECDSA for bytes32;
 
     error NotAuthorized();
-    error AlreadyClaimed(uint256 campaign, address to);
-    error CampaignNotStarted(uint256 campaign);
-    error CampaignAlreadyEnded(uint256 campaign);
-    error CampaignNotEnded(uint256 campaign);
-    error CampaignNotExist(uint256 campaign);
-    error InvalidCampaignInput(Campaign c);
-    error InSufficientBalance(
-        uint256 campaign,
-        uint256 balance,
-        uint256 expected
-    );
+    error NotCalledFromClaimer();
+    error AlreadyClaimed();
+    error CampaignNotStarted();
+    error CampaignAlreadyEnded();
+    error CampaignNotEnded();
+    error CampaignNotExist();
+    error InvalidCampaignInput();
+    error InsufficientDeposit(uint256 actual, uint256 expected);
 
     struct Campaign {
         address token;
         uint48 startAt;
         uint48 endAt;
-        uint256 amount;
+        uint256 deposit;
         address owner;
     }
 
     event NewCampaign(
-        uint256 indexed batch,
-        Campaign info
+        uint256 indexed campaignId,
+        Campaign campaign
     );
     event Claim(
-        uint256 batch,
-        address indexed to
-    );
-    event ClaimBatch(
-        uint256 batch,
-        address[] indexed to
+        uint256 indexed campaignId,
+        address indexed to,
+        uint256 amount
     );
 
+    IAccountFactory internal immutable hexlink;
     uint256 nextCampaign = 0;
     mapping(uint256 => Campaign) internal campaigns;
     mapping(uint256 => mapping(address => bool)) internal claimed;
+
+    constructor(address _hexlink) {
+        hexlink = IAccountFactory(_hexlink);
+    }
 
     function getNextCampaign() external view returns(uint256) {
         return nextCampaign;
@@ -68,86 +68,72 @@ contract Airdrop {
     /* campaign */
 
     function createCampaign(Campaign memory c) external {
-        if (c.amount == 0) {
-            revert InvalidCampaignInput(c);
+        if (c.deposit == 0 || c.owner == address(0)) {
+            revert InvalidCampaignInput();
         }
+        _deposit(c.token, c.deposit);
         campaigns[nextCampaign] = c;
         emit NewCampaign(nextCampaign, c);
         nextCampaign++;
     }
 
-    function withdraw(uint256 campaign, uint256 amount) external {
+    function deposit(uint256 campaign, uint256 amount) external {
+        Campaign memory c = campaigns[campaign];
+        if (c.owner == address(0)) {
+            revert CampaignNotExist();
+        }
+        _deposit(c.token, amount);
+        campaigns[campaign].deposit = c.deposit + amount;
+    }
+
+    function withdraw(uint256 campaign) external {
         Campaign memory c = campaigns[campaign];
         if (msg.sender != c.owner) {
             revert NotAuthorized();
         }
         if (block.timestamp <= c.endAt) {
-            revert CampaignNotEnded(campaign);
+            revert CampaignNotEnded();
         }
-        IERC20(c.token).transfer(c.owner, amount);
+        campaigns[campaign].deposit = 0;
+        _transfer(c.token, c.owner, c.deposit);
     }
 
     /* claim */
 
-    function selfClaim(
+    function claim(
         uint256 campaign,
-        address to,
+        bytes32 claimer,
+        address beneficiary,
+        uint256 amount,
         bytes memory proof
     ) external {
+        if (msg.sender != hexlink.getAccountAddress(claimer)) {
+            revert NotCalledFromClaimer();
+        }
+        if (hasClaimed(campaign, msg.sender)) {
+            revert AlreadyClaimed();
+        }
         Campaign memory c = _getCampaign(campaign);
+        if (c.deposit < amount) {
+            revert InsufficientDeposit(c.deposit, amount);
+        }
         bytes32 message = keccak256(
-            abi.encodePacked(block.chainid, address(this), campaign, to)
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                campaign,
+                claimer,
+                beneficiary,
+                amount
+            )
         );
         if (message.toEthSignedMessageHash().recover(proof) != c.owner) {
             revert NotAuthorized();
         }
-        _claimOne(c, campaign, to);
-    }
-
-    function claimOne(uint256 campaign, address to) external {
-        Campaign memory c = _getCampaign(campaign);
-        if (msg.sender != c.owner) {
-            revert NotAuthorized();
-        }
-        _claimOne(c, campaign, to);
-    }
-
-    function claimBatch(uint256 campaign, address[] memory receipts) external {
-        Campaign memory c = _getCampaign(campaign);
-        if (msg.sender != c.owner) {
-            revert NotAuthorized();
-        }
-        uint256 balance = _getBalance(c.token);
-        uint256 expected = c.amount * receipts.length;
-        if (balance < expected) {
-            revert InSufficientBalance(campaign, balance, expected);
-        }
-        for (uint i = 0; i < receipts.length; i++) {
-            address to = receipts[i];
-            if (hasClaimed(campaign, to)) {
-                revert AlreadyClaimed(campaign, to);
-            }
-            claimed[campaign][to] = true;
-            _transfer(c.token, to, c.amount);
-        }
-        emit ClaimBatch(campaign, receipts);
-    }
-
-    function _claimOne(
-        Campaign memory c,
-        uint256 campaign,
-        address to
-    ) internal {
-        uint256 balance = _getBalance(c.token);
-        if (balance < c.amount) {
-            revert InSufficientBalance(campaign, balance, c.amount);
-        }
-        if (hasClaimed(campaign, to)) {
-            revert AlreadyClaimed(campaign, to);
-        }
-        claimed[campaign][to] = true;
-        _transfer(c.token, to, c.amount);
-        emit Claim(campaign, to);
+        claimed[campaign][msg.sender] = true;
+        campaigns[campaign].deposit = c.deposit - amount;
+        _transfer(c.token, beneficiary, amount);
+        emit Claim(campaign, beneficiary, amount);
     }
 
     function _getCampaign(
@@ -155,13 +141,13 @@ contract Airdrop {
     ) internal view returns(Campaign memory) {
         Campaign memory c = campaigns[campaign];
         if (c.owner == address(0)) {
-            revert CampaignNotExist(campaign);
+            revert CampaignNotExist();
         }
         if (block.timestamp < c.startAt) {
-            revert CampaignNotStarted(campaign);
+            revert CampaignNotStarted();
         }
         if (block.timestamp > c.endAt) {
-            revert CampaignAlreadyEnded(campaign);
+            revert CampaignAlreadyEnded();
         }
         return c;
     }
@@ -171,6 +157,16 @@ contract Airdrop {
             return address(this).balance;
         } else {
             return IERC20(token).balanceOf(address(this));
+        }
+    }
+
+    function _deposit(address token, uint256 amount) internal {
+        if (token == address(0)) {
+            if (msg.value < amount) {
+                revert InsufficientDeposit(msg.value, amount);
+            }
+        } else {
+            IERC20(token).transferFrom(msg.sender, address(this), amount);
         }
     }
 

@@ -10,13 +10,11 @@ import {
   genInitCode,
   deployErc20
 } from "./testers";
-import { getHexlink } from "../tasks/utils";
+import { getHexlink, getEntryPoint } from "../tasks/utils";
 import {
-  EntryPoint__factory,
   HexlinkAccount__factory,
   TestHexlinkERC1155__factory,
   HexlinkAccount,
-  EntryPoint
 } from "../typechain-types";
 import { Contract } from "ethers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
@@ -24,9 +22,17 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 export const deploySender = async (hexlink: Contract) : Promise<HexlinkAccount> => {
   const {deployer, validator} = await ethers.getNamedSigners();
   const accountAddr = await hexlink.getAccountAddress(SENDER_NAME_HASH);
-  const message = ethers.solidityPackedKeccak256(
-    ["bytes32", "address"],
-    [SENDER_NAME_HASH, deployer.address]
+  let message = ethers.solidityPackedKeccak256(
+    ["uint256", "address", "address"],
+    [
+      hre.network.config.chainId,
+      await hexlink.getAddress(),
+      deployer.address
+    ]
+  );
+  message = ethers.solidityPackedKeccak256(
+    ["bytes32", "bytes32"],
+    [SENDER_NAME_HASH, message]
   );
   const signature = await validator.signMessage(
     ethers.getBytes(message));
@@ -41,7 +47,7 @@ export const deploySender = async (hexlink: Contract) : Promise<HexlinkAccount> 
 
 describe("Hexlink Account", function () {
   let hexlink: Contract;
-  let entrypoint: EntryPoint;
+  let entrypoint: Contract;
   let sender: string;
   let receiver: string;
   let admin: string;
@@ -56,10 +62,7 @@ describe("Hexlink Account", function () {
     admin = (await deployments.get("HexlinkAdmin")).address;
     sender = await hexlink.getAccountAddress(SENDER_NAME_HASH);
     receiver = await hexlink.getAccountAddress(RECEIVER_NAME_HASH);
-    entrypoint = EntryPoint__factory.connect(
-      (await deployments.get("EntryPoint")).address,
-      hre.ethers.provider
-    ).connect(deployer);
+    entrypoint = await getEntryPoint(hre);
     // deposit eth before account created
     await deployer.sendTransaction({
       to: sender,

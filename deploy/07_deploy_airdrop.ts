@@ -1,13 +1,14 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, hash } from "../tasks/utils";
+import { deterministicDeploy, getHexlink, hash } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployer} = await hre.ethers.getNamedSigners();
+    const hexlink = await getHexlink(hre);
     const impl = await hre.deployments.deploy(
         "Airdrop", {
             from: deployer.address,
-            args: [],
+            args: [await hexlink.getAddress()],
             log: true,
         }
     );

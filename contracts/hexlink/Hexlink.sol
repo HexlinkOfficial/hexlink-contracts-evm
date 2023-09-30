@@ -59,7 +59,10 @@ contract Hexlink is
         address owner,
         bytes memory proof
     ) external returns(address account) {
-        bytes32 message = keccak256(abi.encodePacked(name, owner));
+        bytes32 message = keccak256(
+            abi.encodePacked(block.chainid, address(this), owner)
+        );
+        message = keccak256(abi.encodePacked(name, message));
         if (message.toEthSignedMessageHash().recover(proof) != validator) {
             revert NameValidationError(name);
         }

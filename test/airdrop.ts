@@ -1,14 +1,18 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as hre from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { TestHexlinkERC20 } from "../typechain-types";
-import { deployErc20 } from "./testers";
-import { epoch, getAirdrop } from "../tasks/utils";
+import { SENDER_NAME_HASH, buildAccountExecData, callWithEntryPoint, deployErc20 } from "./testers";
+import { epoch, getAirdrop, getHexlink, getEntryPoint } from "../tasks/utils";
 import { Contract } from "ethers";
+import { deploySender } from "./account";
 
 describe("Airdrop", function() {
+  let hexlink: Contract;
   let airdrop: Contract;
+  let entrypoint: Contract;
   let erc20: TestHexlinkERC20;
   let deployer: HardhatEthersSigner;
 
@@ -18,6 +22,8 @@ describe("Airdrop", function() {
     await deployments.fixture(["TEST"]);
     airdrop = await getAirdrop(hre);
     erc20 = await deployErc20();
+    hexlink = await getHexlink(hre);
+    entrypoint = await getEntryPoint(hre);
   });
 
   it("should create campaign", async function() {
@@ -26,16 +32,17 @@ describe("Airdrop", function() {
         token: await erc20.getAddress(),
         startAt: 0,
         endAt: epoch() + 3600, // now + 1 hour
-        amount: 100,
+        deposit: 10000,
         owner: deployer.address,
     };
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await expect(
         airdrop.createCampaign(campaign)
     ).to.emit(airdrop, "NewCampaign").withArgs(0, [
         campaign.token,
         campaign.startAt,
         campaign.endAt,
-        campaign.amount,
+        campaign.deposit,
         campaign.owner
     ]);
     expect(await airdrop.getNextCampaign()).to.eq(1);
@@ -44,56 +51,48 @@ describe("Airdrop", function() {
     expect(c.token).to.eq(campaign.token);
     expect(c.startAt).to.eq(campaign.startAt);
     expect(c.endAt).to.eq(campaign.endAt);
-    expect(c.amount).to.eq(campaign.amount);
+    expect(c.deposit).to.eq(campaign.deposit);
     expect(c.owner).to.eq(campaign.owner);
   });
 
-  it("should claim one", async function() {
-    const { validator } = await hre.getNamedAccounts();
+  it("should deposit and withdraw", async function() {
+    const {validator} = await ethers.getNamedSigners();
+    expect(await airdrop.getNextCampaign()).to.eq(0);
     const campaign = {
         token: await erc20.getAddress(),
         startAt: 0,
         endAt: epoch() + 3600, // now + 1 hour
-        amount: 100,
+        deposit: 10000,
         owner: deployer.address,
     };
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
-
-    await expect(
-        airdrop.claimOne(1, validator)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotExist");
-
-    await expect(
-        airdrop.claimOne(0, validator)
-    ).to.be.revertedWithCustomError(airdrop, "InSufficientBalance");
-
-    // deposit and claim
-    await erc20.transfer(await airdrop.getAddress(), 10000);
     expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(10000);
-    await airdrop.claimOne(0, validator);
-    expect(await erc20.balanceOf(validator)).to.eq(100);
 
-    // reclaim
-    await expect(
-        airdrop.claimOne(0, validator)
-    ).to.be.revertedWithCustomError(airdrop, "AlreadyClaimed");
+    await erc20.approve(await airdrop.getAddress(), 10000);
+    await airdrop.deposit(0, 1000);
+    expect((await airdrop.getCampaign(0)).deposit).to.eq(11000);
+    expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(11000);
 
-    // campaign not started
-    campaign.startAt = epoch() + 3600;
-    await airdrop.createCampaign(campaign);
-    expect(await airdrop.getNextCampaign()).to.eq(2);
-    await expect(
-        airdrop.claimOne(1, validator)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotStarted");
+    await expect((await getAirdrop(hre, validator)).withdraw(0))
+      .to.be.revertedWithCustomError(airdrop, "NotAuthorized");
 
-    // campaign already ended
+    await expect(airdrop.withdraw(0))
+      .to.be.revertedWithCustomError(airdrop, "CampaignNotEnded");
+
+    // withdraw
     campaign.startAt = 0;
     campaign.endAt = epoch() - 3600;
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
-    expect(await airdrop.getNextCampaign()).to.eq(3);
-    await expect(
-        airdrop.claimOne(2, validator)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignAlreadyEnded");
+
+    expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(21000);
+    expect(await airdrop.getNextCampaign()).to.eq(2);
+    expect((await airdrop.getCampaign(1)).deposit).to.eq(10000);
+
+    await airdrop.withdraw(1);
+    expect((await airdrop.getCampaign(1)).deposit).to.eq(0);
+    expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(11000);
   });
 
   it("should self claim one", async function() {
@@ -102,109 +101,91 @@ describe("Airdrop", function() {
         token: await erc20.getAddress(),
         startAt: 0,
         endAt: epoch() + 3600, // now + 1 hour
-        amount: 100,
+        deposit: 10000,
         owner: deployer.address,
     };
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
 
-    const genSig = async (campaignId: number) => {
+    const genSig = async (campaignId: number, amount: number = 100) => {
         const message = ethers.solidityPackedKeccak256(
-            ["uint256", "address", "uint256", "address"],
+            ["uint256", "address", "uint256", "bytes32", "address", "uint256"],
             [
                 hre.network.config.chainId,
                 await airdrop.getAddress(),
                 campaignId,
-                validator
+                SENDER_NAME_HASH,
+                validator,
+                amount
             ]
         );
         return await deployer.signMessage(ethers.getBytes(message));
     };
-
     await expect(
-        airdrop.selfClaim(1, validator, await genSig(1))
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotExist");
+        airdrop.claim(0, SENDER_NAME_HASH, validator, 100, await genSig(0))
+    ).to.be.revertedWithCustomError(airdrop, "NotCalledFromClaimer");
 
-    await expect(
-        airdrop.selfClaim(0, validator, await genSig(0))
-    ).to.be.revertedWithCustomError(airdrop, "InSufficientBalance");
-
-    // deposit and claim
-    await erc20.transfer(await airdrop.getAddress(), 10000);
-    expect(await erc20.balanceOf(await airdrop.getAddress())).to.eq(10000);
-    await airdrop.selfClaim(0, validator, await genSig(0));
-    expect(await erc20.balanceOf(validator)).to.eq(100);
-
-    // reclaim
-    await expect(
-        airdrop.selfClaim(0, validator, await genSig(0))
-    ).to.be.revertedWithCustomError(airdrop, "AlreadyClaimed");
-
-    // campaign not started
-    campaign.startAt = epoch() + 3600;
-    await airdrop.createCampaign(campaign);
-    expect(await airdrop.getNextCampaign()).to.eq(2);
-    await expect(
-        airdrop.selfClaim(1, validator, await genSig(1))
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotStarted");
-
-    // campaign already ended
-    campaign.startAt = 0;
-    campaign.endAt = epoch() - 3600;
-    await airdrop.createCampaign(campaign);
-    expect(await airdrop.getNextCampaign()).to.eq(3);
-    await expect(
-        airdrop.selfClaim(2, validator, await genSig(2))
-    ).to.be.revertedWithCustomError(airdrop, "CampaignAlreadyEnded");
-  });
-
-  it("should claim batch", async function() {
-    const { validator, tester } = await hre.getNamedAccounts();
-    const campaign = {
-        token: await erc20.getAddress(),
-        startAt: 0,
-        endAt: epoch() + 3600, // now + 1 hour
-        amount: 100,
-        owner: deployer.address,
+    const sender = await deploySender(hexlink);
+    const tx = await deployer.sendTransaction({
+        to: sender,
+        value: ethers.parseEther("1.0")
+    });
+    await tx.wait();
+    const senderAddr = await sender.getAddress();
+    const claimData = async (campaignId: number, amount: number = 100) => {
+        const claimData = airdrop.interface.encodeFunctionData(
+            "claim",
+            [campaignId, SENDER_NAME_HASH, validator, amount, await genSig(campaignId)]
+        );
+        return await buildAccountExecData(
+            await airdrop.getAddress(), 0, claimData);
     };
-    await airdrop.createCampaign(campaign);
 
-    const receipts = [deployer.address, validator, tester];
+    let error = airdrop.interface.encodeErrorResult("CampaignNotExist", []);
     await expect(
-        airdrop.claimBatch(1, receipts)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotExist");
+        callWithEntryPoint(senderAddr, '0x', await claimData(1), entrypoint, deployer)
+    ).to.emit(entrypoint, "UserOperationRevertReason")
+    .withArgs(anyValue, anyValue, anyValue, error);
 
-    // transfer 400 which should not cover 3
-    await erc20.transfer(await airdrop.getAddress(), 200);
+    error = airdrop.interface.encodeErrorResult("InsufficientDeposit", [10000, 10001]);
     await expect(
-        airdrop.claimBatch(0, receipts)
-    ).to.be.revertedWithCustomError(airdrop, "InSufficientBalance");
+        callWithEntryPoint(senderAddr, '0x', await claimData(0, 10001), entrypoint, deployer)
+    ).to.emit(entrypoint, "UserOperationRevertReason")
+    .withArgs(anyValue, anyValue, anyValue, error);
 
     // deposit and claim
-    await erc20.transfer(await airdrop.getAddress(), 1000);
-    await airdrop.claimBatch(0, receipts);
+    await callWithEntryPoint(senderAddr, '0x', await claimData(0), entrypoint, deployer)
     expect(await erc20.balanceOf(validator)).to.eq(100);
-    expect(await erc20.balanceOf(tester)).to.eq(100);
+    expect((await airdrop.getCampaign(0)).deposit).to.eq(9900);
 
     // reclaim
+    error = airdrop.interface.encodeErrorResult("AlreadyClaimed", []);
     await expect(
-        airdrop.claimBatch(0, receipts)
-    ).to.be.revertedWithCustomError(airdrop, "AlreadyClaimed");
+        callWithEntryPoint(senderAddr, '0x', await claimData(0), entrypoint, deployer)
+    ).to.emit(entrypoint, "UserOperationRevertReason")
+    .withArgs(anyValue, anyValue, anyValue, error);
 
     // campaign not started
     campaign.startAt = epoch() + 3600;
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
     expect(await airdrop.getNextCampaign()).to.eq(2);
+    error = airdrop.interface.encodeErrorResult("CampaignNotStarted", []);
     await expect(
-        airdrop.claimBatch(1, receipts)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignNotStarted");
+        callWithEntryPoint(senderAddr, '0x', await claimData(1), entrypoint, deployer)
+    ).to.emit(entrypoint, "UserOperationRevertReason")
+    .withArgs(anyValue, anyValue, anyValue, error);
 
     // campaign already ended
     campaign.startAt = 0;
     campaign.endAt = epoch() - 3600;
+    await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
     expect(await airdrop.getNextCampaign()).to.eq(3);
+    error = airdrop.interface.encodeErrorResult("CampaignAlreadyEnded", []);
     await expect(
-        airdrop.claimBatch(2, receipts)
-    ).to.be.revertedWithCustomError(airdrop, "CampaignAlreadyEnded");
+        callWithEntryPoint(senderAddr, '0x', await claimData(2), entrypoint, deployer)
+    ).to.emit(entrypoint, "UserOperationRevertReason")
+    .withArgs(anyValue, anyValue, anyValue, error);
   });
 });

@@ -62,7 +62,7 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
   );
 }
 
-export async function getAirdrop(hre: HardhatRuntimeEnvironment) {
+export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   const salt = hash("airdrop");
   const { deployer } = await hre.ethers.getNamedSigners();
   const factory = await getFactory(hre);
@@ -72,7 +72,7 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment) {
   return new Contract(
     await factory.calculateAddress(bytecode, salt),
     await getAbi(hre, "Airdrop"),
-    deployer
+    signer ?? deployer
   );
 }
 

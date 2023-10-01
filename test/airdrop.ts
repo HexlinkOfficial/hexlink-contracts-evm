@@ -20,7 +20,7 @@ export async function deployAirdropSimple(token: string, validator: string) {
     return AirdropSimple__factory.connect(
       deployed.address, deployer
     );
-  }
+}
 
 describe("Airdrop", function() {
   let hexlink: Contract;

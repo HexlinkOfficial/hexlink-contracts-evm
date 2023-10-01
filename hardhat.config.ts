@@ -10,6 +10,7 @@ import "hardhat-deploy-ethers";
 
 import "./tasks/admin";
 import "./tasks/hexlink";
+import "./tasks/airdrop";
 
 task("abi", "Prints abi of contract")
     .addParam("contract", "contract name")

@@ -48,8 +48,8 @@ export function getBytecode(artifact: Artifact, args: string) {
   );
 }
 
-export async function getValidator(hre: HardhatRuntimeEnvironment, name?: string) {
-  let validator = loadConfig(hre, name || "dauthValidator");
+export async function getValidator(hre: HardhatRuntimeEnvironment, name: string) {
+  let validator = loadConfig(hre, name);
   if (validator == undefined) {
       return (await hre.getNamedAccounts())["validator"];
   }
@@ -71,14 +71,19 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 }
 
 export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
-  const salt = hash("airdrop");
+  let airdrop = loadConfig(hre, "airdrop");
+  if (airdrop === undefined) {
+    const salt = hash("airdrop");
+    const { deployer } = await hre.ethers.getNamedSigners();
+    const factory = await getFactory(hre);
+    const bytecode = getBytecode(
+        await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
+    );
+    airdrop = await factory.calculateAddress(bytecode, salt);
+  }
   const { deployer } = await hre.ethers.getNamedSigners();
-  const factory = await getFactory(hre);
-  const bytecode = getBytecode(
-      await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
-  );
   return new Contract(
-    await factory.calculateAddress(bytecode, salt),
+    airdrop,
     await getAbi(hre, "Airdrop"),
     signer ?? deployer
   );

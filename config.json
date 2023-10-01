@@ -5,6 +5,7 @@
         "hexlinkDev": "0xFd659562921F7BBB364e740f0c3781631DCb2124",
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
+        "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9",
         "airdrop": "0xa55E15207867C0633412429b9afD729798f791C4"
     },
     "sepolia": {

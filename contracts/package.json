@@ -1,10 +1,9 @@
 {
     "name": "@hexlink/contracts",
     "description": "Hexlink contracts",
-    "version": "0.9.10",
+    "version": "0.9.12",
     "main": "./dist/index.js",
     "scripts": {
-      "prepack": "../scripts/prepack-contracts-package.sh",
       "postpack": "../scripts/postpack-contracts-package.sh"
     },
     "repository": {

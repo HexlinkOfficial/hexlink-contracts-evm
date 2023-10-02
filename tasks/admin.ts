@@ -181,25 +181,17 @@ task("add_stake")
         }
 
         console.log("Adding stake 0.05 ETH to " + entrypoint + " for " + hexlinkAddr);
-        if (args.dev) {
-            await hexlink.connect(deployer).addStake(
+        const data = iface.encodeFunctionData(
+            'addStake', [
                 entrypoint,
                 ethers.parseEther("0.05"),
-                86400,
-            );
+                86400
+            ]
+        );
+        if (args.nowait) {
+            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
         } else {
-            const data = iface.encodeFunctionData(
-                'addStake', [
-                    entrypoint,
-                    ethers.parseEther("0.05"),
-                    86400
-                ]
-            );
-            if (args.nowait) {
-                await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-            } else {
-                await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
-            }
+            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
         }
     });
 

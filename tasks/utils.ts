@@ -88,15 +88,18 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   );
 }
 
-export async function getAirdropPaymaster(hre: HardhatRuntimeEnvironment) {
-  let paymaster = loadConfig(hre, "airdropPaymaster");
+export async function getAirdropPaymaster(
+  hre: HardhatRuntimeEnvironment,
+  dev: boolean = false
+) {
+  let paymaster = loadConfig(hre, dev ? "airdropPaymasterDev" : "airdropPaymaster");
   if (paymaster === undefined) {
     const { deployer } = await hre.ethers.getNamedSigners();
     const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
       ["address", "address", "address", "address"],
       [
           await (await getEntryPoint(hre)).getAddress(),
-          await (await getHexlink(hre)).getAddress(),
+          await (await getHexlink(hre, dev)).getAddress(),
           await (await getAirdrop(hre)).getAddress(),
           deployer.address,
       ]
@@ -105,7 +108,8 @@ export async function getAirdropPaymaster(hre: HardhatRuntimeEnvironment) {
       await hre.artifacts.readArtifact("AirdropPaymaster"), args
     );
     const factory = await getFactory(hre);
-    paymaster = await factory.calculateAddress(bytecode, hash("airdrop.paymaster"));
+    paymaster = await factory.calculateAddress(
+      bytecode, hash(dev ? "airdrop.paymaster.dev" : "airdrop.paymaster"));
   }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(

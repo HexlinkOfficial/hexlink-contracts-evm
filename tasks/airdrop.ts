@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { getAirdrop, getValidator } from "./utils";
-import { Contract } from "ethers";
+import { getAirdrop, getAirdropPaymaster } from "./utils";
+import { Contract, ethers } from "ethers";
 
 task("create_campaign", "create new campaign")
     .addOptionalParam("token")
@@ -55,12 +55,23 @@ task("get_campaign", "Get campaign info")
 task("check_airdrop", "Get campaign info")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const airdrop = await getAirdrop(hre);
-        console.log(await airdrop.getAddress());
+        const paymaster = await getAirdropPaymaster(hre);
+        const paymasterDev = await getAirdropPaymaster(hre, true);
         console.log({
             owner: await airdrop.owner(),
-            implementation: await airdrop.implementation(),
-            proxy: await airdrop.getAddress(),
+            airdropImpl: await airdrop.implementation(),
+            airdrop: await airdrop.getAddress(),
             paused: await airdrop.paused(),
+            paymaster: {
+                owner: await paymaster.owner(),
+                airdrop: await paymaster.airdrop(),
+                hexlink: await paymaster.hexlink(),
+            },
+            paymasterDev: {
+                owner: await paymasterDev.owner(),
+                airdrop: await paymasterDev.airdrop(),
+                hexlink: await paymasterDev.hexlink(),
+            }
         });
     });
 
@@ -78,4 +89,13 @@ task("upgrade_airdrop", "upgrade airdrop contract")
         console.log("Upgrading from " + existing + " to " + latest.address);
         const tx = await airdrop.upgradeTo(latest.address);
         console.log(await tx.wait());
+    });
+
+task("setup_paymaster", "setup paymaster")
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
+        const paymaster = await getAirdropPaymaster(hre);
+        console.log("depositing 1 native token for ", paymaster.target);
+        await paymaster.deposit({value: ethers.parseEther("1")});
+        console.log("staking 1 native token");
+        await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
     });

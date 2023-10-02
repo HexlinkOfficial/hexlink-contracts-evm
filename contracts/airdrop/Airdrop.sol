@@ -3,11 +3,15 @@
 
 pragma solidity ^0.8.12;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract Airdrop {
+contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
     using ECDSA for bytes32;
 
     error NotAuthorized();
@@ -43,6 +47,18 @@ contract Airdrop {
     mapping(uint256 => Campaign) internal campaigns;
     mapping(uint256 => mapping(address => bool)) internal claimed;
 
+    function initialize(address owner) public initializer {
+        _transferOwnership(owner);
+    }
+
+    function pause() onlyOwner external {
+        _pause();
+    }
+
+    function unpause() onlyOwner external {
+        _unpause();
+    }
+
     function getNextCampaign() external view returns(uint256) {
         return nextCampaign;
     }
@@ -62,7 +78,7 @@ contract Airdrop {
 
     /* campaign */
 
-    function createCampaign(Campaign memory c) external {
+    function createCampaign(Campaign memory c) whenNotPaused external {
         if (c.deposit == 0 || c.owner == address(0)) {
             revert InvalidCampaignInput();
         }
@@ -72,7 +88,7 @@ contract Airdrop {
         nextCampaign++;
     }
 
-    function deposit(uint256 campaign, uint256 amount) external {
+    function deposit(uint256 campaign, uint256 amount) external whenNotPaused {
         Campaign memory c = campaigns[campaign];
         if (c.owner == address(0) || c.validator == address(0)) {
             revert CampaignNotExist();
@@ -81,7 +97,7 @@ contract Airdrop {
         campaigns[campaign].deposit = c.deposit + amount;
     }
 
-    function withdraw(uint256 campaign) external {
+    function withdraw(uint256 campaign) external whenNotPaused {
         Campaign memory c = campaigns[campaign];
         if (msg.sender != c.owner) {
             revert NotAuthorized();
@@ -101,7 +117,7 @@ contract Airdrop {
         address beneficiary,
         uint256 amount,
         bytes memory proof
-    ) external {
+    ) external whenNotPaused {
         if (msg.sender != claimer) {
             revert NotCalledFromClaimer();
         }
@@ -172,4 +188,14 @@ contract Airdrop {
             IERC20(token).transfer(to, amount);
         }
     }
+
+    /** UUPSUpgradeable */
+
+    function implementation() external view returns (address) {
+        return _getImplementation();
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view onlyOwner override { }
 }

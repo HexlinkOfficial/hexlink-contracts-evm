@@ -50,3 +50,31 @@ task("get_campaign", "Get campaign info")
         const campaign = await airdrop.getCampaign(args.id);
         console.log("campaign: ", campaign);
     });
+
+task("check_airdrop", "Get campaign info")
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
+        const airdrop = await getAirdrop(hre);
+        console.log(await airdrop.getAddress());
+        console.log({
+            owner: await airdrop.owner(),
+            implementation: await airdrop.implementation(),
+            proxy: await airdrop.getAddress(),
+            paused: await airdrop.paused(),
+        });
+    });
+
+task("upgrade_airdrop", "upgrade airdrop contract")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const airdrop = await getAirdrop(hre, args.dev);
+        const proxy = await hre.ethers.getContractAt(
+              "HexlinkERC1967Proxy", await airdrop.getAddress());
+        const existing = await airdrop.implementation();
+        const latest = await hre.deployments.get("Airdrop");
+        if (existing.toLowerCase() == latest.address.toLowerCase()) {
+            console.log("No need to upgrade");
+            return;
+        }
+        console.log("Upgrading from " + existing + " to " + latest.address);
+        const tx = await airdrop.upgradeTo(latest.address);
+        console.log(await tx.wait());
+    });

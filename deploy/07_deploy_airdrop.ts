@@ -17,7 +17,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         hre,
         "HexlinkERC1967Proxy",
         "AirdropProxy", /* alias */
-        hash("airdrop"),
+        hash("airdrop.v2"),
     );
     if (proxy.deployed) {
         const airdrop = await hre.ethers.getContractAt(
@@ -25,7 +25,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
             proxy.address,
             deployer
         );
-        await airdrop.initProxy(impl.address, "0x")
+        const airdropImpl = await hre.ethers.getContractAt(
+            "Airdrop", impl.address);
+        const data = airdropImpl.interface.encodeFunctionData(
+            "initialize", [deployer.address]
+        );
+        await airdrop.initProxy(impl.address, data);
     }
 
     // deploy airdrop paymaster

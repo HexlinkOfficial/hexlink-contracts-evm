@@ -73,7 +73,7 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   let airdrop = loadConfig(hre, "airdrop");
   if (airdrop === undefined) {
-    const salt = hash("airdrop");
+    const salt = hash("airdrop.v2");
     const factory = await getFactory(hre);
     const bytecode = getBytecode(
         await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'

@@ -63,7 +63,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
         const data = hexlinkImpl.interface.encodeFunctionData(
             "initialize", [await admin.getAddress()]
         );
-        await factory.initProxy(impl.address, data)
+        await factory.initProxy(impl.address, data);
     } catch (e) {
         const hexlink = await hre.ethers.getContractAt(
           "Hexlink", deployed.address);

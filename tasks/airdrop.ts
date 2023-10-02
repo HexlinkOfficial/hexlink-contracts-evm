@@ -33,7 +33,8 @@ task("create_campaign", "create new campaign")
             startAt: 0,
             endAt: args.endAt ?? "0xffffffffffff",
             deposit: amount,
-            owner: validator,
+            validator: validator,
+            owner: deployer.address,
         };
         console.log("Creating campaign: ", campaign);
         const tx = await airdrop.createCampaign(campaign);

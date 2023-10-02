@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, hash } from "../tasks/utils";
+import { deterministicDeploy, getEntryPoint, getHexlink, hash } from "../tasks/utils";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     const {deployer} = await hre.ethers.getNamedSigners();
@@ -12,7 +12,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         }
     );
 
-    // deploy erc1967 proxy
+    // deploy airdrop proxy
     const proxy = await deterministicDeploy(
         hre,
         "HexlinkERC1967Proxy",
@@ -27,6 +27,26 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         );
         await airdrop.initProxy(impl.address, "0x")
     }
+
+    // deploy airdrop paymaster
+    const entrypoint = await getEntryPoint(hre);
+    const hexlink = await getHexlink(hre);
+    const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "address", "address", "address"],
+        [
+            await entrypoint.getAddress(),
+            await hexlink.getAddress(),
+            proxy.address,
+            deployer.address,
+        ]
+    );
+    await deterministicDeploy(
+        hre,
+        "AirdropPaymaster",
+        "AirdropPaymaster", /* alias */
+        hash("airdrop.paymaster"),
+        args
+    );
 }
 
 export default func;

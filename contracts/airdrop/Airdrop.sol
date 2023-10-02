@@ -25,6 +25,7 @@ contract Airdrop {
         uint48 startAt;
         uint48 endAt;
         uint256 deposit;
+        address validator;
         address owner;
     }
 
@@ -73,7 +74,7 @@ contract Airdrop {
 
     function deposit(uint256 campaign, uint256 amount) external {
         Campaign memory c = campaigns[campaign];
-        if (c.owner == address(0)) {
+        if (c.owner == address(0) || c.validator == address(0)) {
             revert CampaignNotExist();
         }
         _deposit(c.token, amount);
@@ -121,7 +122,7 @@ contract Airdrop {
                 amount
             )
         );
-        if (message.toEthSignedMessageHash().recover(proof) != c.owner) {
+        if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
             revert NotAuthorized();
         }
         claimed[campaign][msg.sender] = true;

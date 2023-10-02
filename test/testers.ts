@@ -49,11 +49,12 @@ export const buildAccountExecData = async (
     ]);
 }
 
-export const genUserOp = async (
+const genUserOp = async (
+  entrypoint: EntryPoint | Contract,
   sender: string,
   initCode: string,
   callData: string,
-  entrypoint: EntryPoint | Contract,
+  paymasterAndData?: string,
 ): Promise<[UserOperationStruct, string]> => {
   const fee = await ethers.provider.getFeeData();
   const userOp: UserOperationStruct = {
@@ -66,7 +67,7 @@ export const genUserOp = async (
     preVerificationGas: 0,
     maxFeePerGas: fee.maxFeePerGas ?? 0,
     maxPriorityFeePerGas: fee.maxPriorityFeePerGas ?? 0,
-    paymasterAndData: "0x",
+    paymasterAndData: paymasterAndData ?? "0x",
     signature: "0x",
   };
   const op = await ethers.resolveProperties(userOp);
@@ -134,9 +135,11 @@ export const callWithEntryPoint = async (
   callData: string,
   entrypoint: EntryPoint | Contract,
   signer: any,
+  paymasterAndData: string = "0x",
   log: boolean = false,
 ) => {
-  const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
+  const [userOp, userOpHash] = await genUserOp(
+    entrypoint, sender, initCode, callData, paymasterAndData);
   const validation = 0;
   let message = ethers.solidityPackedKeccak256(
     ["uint8", "uint96", "bytes32"],
@@ -156,6 +159,7 @@ export const callWithEntryPoint = async (
       signer.address as string
     );
   } catch (e: any) {
+    console.log(e);
     if (log) {
       const match = e.message.match(/0x[0-9a-z]+/);
       console.log(match);
@@ -176,7 +180,7 @@ export const call2faWithEntryPoint = async (
   signer2: any,
   log: boolean = false
 ) => {
-  const [userOp, userOpHash] = await genUserOp(sender, initCode, callData, entrypoint);
+  const [userOp, userOpHash] = await genUserOp(entrypoint, sender, initCode, callData,);
   const validation = genValidationData();
   let message = ethers.solidityPackedKeccak256(
     ["uint8", "uint96", "bytes32"],

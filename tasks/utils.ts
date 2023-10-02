@@ -74,7 +74,6 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   let airdrop = loadConfig(hre, "airdrop");
   if (airdrop === undefined) {
     const salt = hash("airdrop");
-    const { deployer } = await hre.ethers.getNamedSigners();
     const factory = await getFactory(hre);
     const bytecode = getBytecode(
         await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
@@ -86,6 +85,33 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
     airdrop,
     await getAbi(hre, "Airdrop"),
     signer ?? deployer
+  );
+}
+
+export async function getAirdropPaymaster(hre: HardhatRuntimeEnvironment) {
+  let paymaster = loadConfig(hre, "airdropPaymaster");
+  if (paymaster === undefined) {
+    const { deployer } = await hre.ethers.getNamedSigners();
+    const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
+      ["address", "address", "address", "address"],
+      [
+          await (await getEntryPoint(hre)).getAddress(),
+          await (await getHexlink(hre)).getAddress(),
+          await (await getAirdrop(hre)).getAddress(),
+          deployer.address,
+      ]
+    );
+    const bytecode = getBytecode(
+      await hre.artifacts.readArtifact("AirdropPaymaster"), args
+    );
+    const factory = await getFactory(hre);
+    paymaster = await factory.calculateAddress(bytecode, hash("airdrop.paymaster"));
+  }
+  const { deployer } = await hre.ethers.getNamedSigners();
+  return new Contract(
+    paymaster,
+    await getAbi(hre, "AirdropPaymaster"),
+    deployer
   );
 }
 
@@ -155,11 +181,11 @@ export async function deterministicDeploy(
       console.log(`Reusing ${alias} deployed at ${address}`);
       return { deployed: false, address };
   } else {
-      const tx = await factory.deployAndCall(
-        bytecode, salt, data || "0x");
-      await tx.wait();
-      console.log(`deploying ${alias} (tx: ${tx.hash})...: deployed at ${address}`);
-      return { deployed: true, address };
+    const tx = await factory.deployAndCall(
+      bytecode, salt, data || "0x");
+    await tx.wait();
+    console.log(`deploying ${alias} (tx: ${tx.hash})...: deployed at ${address}`);
+    return { deployed: true, address };
   }
 }
 

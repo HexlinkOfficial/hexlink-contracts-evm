@@ -12,6 +12,7 @@ async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
         hexlink: hexlinkAddr,
         owner: await hexlink.owner(),
         admin: admin.address,
+        validator: await hexlink.getValidator(),
         hexlinkImpl: await hexlink.implementation(),
         accountProxy: hexlinkAddr,
         accountImpl: await hexlink.getAccountImplementation(),
@@ -20,7 +21,7 @@ async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
     return result;
 }
 
-task("hexlink_check", "check hexlink metadata")
+task("check_hexlink", "check hexlink metadata")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         console.log("=====================================")
         console.log("Prod: ")

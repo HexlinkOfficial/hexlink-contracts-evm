@@ -41,7 +41,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     );
 
     // deploy hexlink impl
-    const validator = await getValidator(hre, "hexlinkValidator");
+    const validator = await getValidator(hre, dev ? "hexlinkDevValidator" : "hexlinkValidator");
     const impl = await hre.deployments.deploy(
         dev ? "HexlinkDev" : "Hexlink",
         {

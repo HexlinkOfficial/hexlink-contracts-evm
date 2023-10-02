@@ -26,7 +26,8 @@ task("create_campaign", "create new campaign")
         const allownence = await erc20.allowance(deployer.address, airdropAddr);
         if (allownence < amount) {
             console.log("Approving token...");
-            await erc20.approve(airdropAddr, amount);
+            const tx = await erc20.approve(airdropAddr, amount);
+            await tx.wait();
         }
         const campaign = {
             token,

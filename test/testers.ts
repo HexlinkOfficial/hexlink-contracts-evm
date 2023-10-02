@@ -159,7 +159,6 @@ export const callWithEntryPoint = async (
       signer.address as string
     );
   } catch (e: any) {
-    console.log(e);
     if (log) {
       const match = e.message.match(/0x[0-9a-z]+/);
       console.log(match);

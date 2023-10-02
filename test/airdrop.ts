@@ -277,7 +277,7 @@ describe("Airdrop", function() {
     expect(await erc20.balanceOf(tester)).to.eq(10000);
   });
 
-  it.only("test airdrop paymaster", async function() {
+  it("test airdrop paymaster", async function() {
     const paymaster = await getAirdropPaymaster(hre);
     const tx1 = await paymaster.deposit({value: ethers.parseEther("1.0")});
     await tx1.wait();

@@ -92,10 +92,23 @@ task("upgrade_airdrop", "upgrade airdrop contract")
     });
 
 task("setup_paymaster", "setup paymaster")
-    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
-        const paymaster = await getAirdropPaymaster(hre);
+    .addFlag("dev")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const paymaster = await getAirdropPaymaster(hre, args.dev);
         console.log("depositing 1 native token for ", paymaster.target);
         await paymaster.deposit({value: ethers.parseEther("1")});
-        console.log("staking 1 native token");
+        console.log("staking 0.05 native token for ", paymaster.target);
         await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
+    });
+
+task("cleanup_paymaster", "cleanup paymaster")
+    .addFlag("dev")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const paymaster = await getAirdropPaymaster(hre, args.dev);
+        console.log("withdrawing 1 native token for ", paymaster.target);
+        const {deployer} = await hre.getNamedAccounts();
+        await paymaster.withdrawTo(
+            deployer,
+            ethers.parseEther("0.9")
+        );
     });

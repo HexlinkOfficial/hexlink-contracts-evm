@@ -7,8 +7,8 @@
         "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
         "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9",
         "airdrop": "0xB97fC768F744D9aa7cc69382af622b490DC7596B",
-        "airdropPaymaster": "0xD0eD5078184690d18492E5BBe305A5e7B39c9972",
-        "airdropPaymasterDev": "0x267F17ce8159e5B06EA0D7c69D595aBbcFC6Ba1E"
+        "airdropPaymaster": "0xCE832a996a5DB4DeB3E237B35AfbDd90034A9BaC",
+        "airdropPaymasterDev": "0x7888c91AeE919c861096603D18c620e78317a793"
     },
     "sepolia": {
         "admin": "0x9c42484e43690B327AefFc3c866536415fBe3cB8"

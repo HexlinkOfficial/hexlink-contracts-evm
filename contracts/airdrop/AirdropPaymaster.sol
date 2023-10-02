@@ -16,7 +16,7 @@ contract AirdropPaymaster is BasePaymaster {
 
     uint256 private constant VALID_TIMESTAMP_OFFSET = 20;
     uint256 private constant SIGNATURE_OFFSET = 84;
-    IAccountFactory public immutable hexlink;
+    address public immutable hexlink;
     address public immutable airdrop;
 
     constructor(
@@ -25,9 +25,26 @@ contract AirdropPaymaster is BasePaymaster {
         address _airdrop,
         address owner
     ) BasePaymaster(_entryPoint) {
-        hexlink = IAccountFactory(_hexlink);
+        hexlink = _hexlink;
         airdrop = _airdrop;
         _transferOwnership(owner);
+    }
+
+    function getHexlinkAccount(
+        bytes32 salt
+    ) public view returns (address account) {
+        address impl = hexlink;
+        /// @solidity memory-safe-assembly
+        assembly {
+            let ptr := mload(0x40)
+            mstore(add(ptr, 0x38), impl)
+            mstore(add(ptr, 0x24), 0x5af43d82803e903d91602b57fd5bf3ff)
+            mstore(add(ptr, 0x14), impl)
+            mstore(ptr, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73)
+            mstore(add(ptr, 0x58), salt)
+            mstore(add(ptr, 0x78), keccak256(add(ptr, 0x0c), 0x37))
+            account := keccak256(add(ptr, 0x43), 0x55)
+        }
     }
 
     function _validatePaymasterUserOp(
@@ -36,7 +53,7 @@ contract AirdropPaymaster is BasePaymaster {
         uint256 /* requiredPreFund */
     ) internal view override returns (bytes memory context, uint256 validationData) {
         bytes32 name = bytes32(userOp.paymasterAndData[20:52]);
-        address account = hexlink.getAccountAddress(name);
+        address account = getHexlinkAccount(name);
         if (userOp.sender != account) {
             revert NotFromHexlinkAccount();
         }

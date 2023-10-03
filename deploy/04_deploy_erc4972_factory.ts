@@ -5,20 +5,21 @@ import {
     hash,
     deterministicDeploy,
     getEntryPoint,
+    getBytecode,
 } from "../tasks/utils";
 
 async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     // deploy erc1967 proxy
-    const deployed = await deterministicDeploy(
-        hre,
-        "HexlinkERC1967Proxy",
-        dev ? "ERC4972AccountFactoryDevProxy" : "ERC4972AccountFactoryProxy",
-        dev ? hash("dev.ERC4972AccountFactory") : hash("ERC4972AccountFactory"),
-    );
     const { deployer } = await hre.ethers.getNamedSigners();
     const artifact = await hre.artifacts.readArtifact("HexlinkERC1967Proxy");
+    const proxy = await deterministicDeploy(
+        hre,
+        "HexlinkERC1967Proxy",
+        getBytecode(artifact, "0x"),
+        dev ? hash("hexlink.dev") : hash("hexlink.prod"),
+    );
     const factory = new Contract(
-        deployed.address,
+        proxy.address,
         artifact.abi,
         deployer
     );
@@ -32,7 +33,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
             contract: "ERC4972Account",
             args: [
                 await entrypoint.getAddress(),
-                deployed.address,
+                proxy.address,
             ],
             log: true,
         }
@@ -55,7 +56,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     );
 
     // init hexlink
-    if (deployed.deployed) {
+    if (proxy.deployed) {
         const factoryImpl = await hre.ethers.getContractAt(
             "ERC4972AccountFactory", devImpl.address);
         const data = factoryImpl.interface.encodeFunctionData(

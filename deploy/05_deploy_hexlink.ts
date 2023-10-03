@@ -7,34 +7,35 @@ import {
     getValidator,
     getEntryPoint,
     getAdmin,
+    getBytecode,
 } from "../tasks/utils";
+import { getEntryPointAddress } from "../tasks/deployer";
 
 async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     // deploy erc1967 proxy
-    const deployed = await deterministicDeploy(
-        hre,
-        "HexlinkERC1967Proxy",
-        dev ? "HexlinkDevProxy" : "HexlinkProxy",
-        dev ? hash("hexlink.dev") : hash("hexlink.prod"),
-    );
     const { deployer } = await hre.ethers.getNamedSigners();
     const artifact = await hre.artifacts.readArtifact("HexlinkERC1967Proxy");
+    const proxy = await deterministicDeploy(
+        hre,
+        dev ? "HexlinkDevProxy" : "HexlinkProxy",
+        getBytecode(artifact, "0x"),
+        dev ? hash("hexlink.dev") : hash("hexlink.prod"),
+    );
     const factory = new Contract(
-        deployed.address,
+        proxy.address,
         artifact.abi,
         deployer
     );
 
     // deploy account implementation
-    const entrypoint = await getEntryPoint(hre);
     const account = await hre.deployments.deploy(
         dev ? "HexlinkAccountDev" : "HexlinkAccount",
         {
             from: deployer.address,
             contract: "HexlinkAccount",
             args: [
-                await entrypoint.getAddress(),
-                deployed.address,
+                getEntryPointAddress(),
+                proxy.address,
             ],
             log: true,
         }
@@ -66,7 +67,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
         await factory.initProxy(impl.address, data);
     } catch (e) {
         const hexlink = await hre.ethers.getContractAt(
-          "Hexlink", deployed.address);
+          "Hexlink", proxy.address);
         try {
             await hexlink.implementation();
             console.log("Hexlink Proxy alreay initialized");

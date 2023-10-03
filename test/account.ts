@@ -10,7 +10,7 @@ import {
   genInitCode,
   deployErc20
 } from "./testers";
-import { getHexlink, getEntryPoint } from "../tasks/utils";
+import { getHexlink, getEntryPoint, loadConfig } from "../tasks/utils";
 import {
   HexlinkAccount__factory,
   TestHexlinkERC1155__factory,
@@ -59,7 +59,7 @@ describe("Hexlink Account", function () {
     await deployments.fixture(["TEST"]);
     hexlink = await getHexlink(hre);
 
-    admin = (await deployments.get("HexlinkAdmin")).address;
+    admin = loadConfig(hre, "admin");
     sender = await hexlink.getAccountAddress(SENDER_NAME_HASH);
     receiver = await hexlink.getAccountAddress(RECEIVER_NAME_HASH);
     entrypoint = await getEntryPoint(hre);

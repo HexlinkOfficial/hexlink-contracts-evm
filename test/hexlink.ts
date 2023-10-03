@@ -8,9 +8,10 @@ import {
   genInitCode
 } from "./testers";
 import { Contract } from "ethers";
-import { getHexlink } from "../tasks/utils";
+import { getEntryPoint, getHexlink } from "../tasks/utils";
 import { EntryPoint__factory } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
+import { getEntryPointAddress } from "../tasks/deployer";
 
 describe("Hexlink", function() {
   let hexlink: Contract;
@@ -36,7 +37,7 @@ describe("Hexlink", function() {
       {
         from: deployer.address,
         args: [
-          (await deployments.get("EntryPoint")).address,
+          getEntryPointAddress(),
           await hexlink.getAddress()
         ]
       }
@@ -119,10 +120,7 @@ describe("Hexlink", function() {
 
   it("should deploy account with erc4337 entrypoint", async function() {
     const { deployer, validator } = await ethers.getNamedSigners();
-    const entrypoint = EntryPoint__factory.connect(
-      (await deployments.get("EntryPoint")).address,
-      deployer
-    );
+    const entrypoint = await getEntryPoint(hre);
     expect(await ethers.provider.getCode(sender)).to.eq("0x");
     // deposit eth before account created
     await deployer.sendTransaction({

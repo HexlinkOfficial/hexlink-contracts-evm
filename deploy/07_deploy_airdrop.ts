@@ -1,6 +1,7 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, getEntryPoint, getHexlink, hash } from "../tasks/utils";
+import { deterministicDeploy, getBytecode, getEntryPoint, getHexlink, hash } from "../tasks/utils";
+import { getEntryPointAddress } from "../tasks/deployer";
 
 async function deployAirdropPaymaster(
     hre: HardhatRuntimeEnvironment,
@@ -8,23 +9,22 @@ async function deployAirdropPaymaster(
     airdrop: string,
 ) {
     const {deployer} = await hre.ethers.getNamedSigners();
-    const entrypoint = await getEntryPoint(hre);
     const hexlink = await getHexlink(hre, dev);
     const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["address", "address", "address", "address"],
         [
-            await entrypoint.getAddress(),
+            getEntryPointAddress(),
             await hexlink.getAddress(),
             airdrop,
             deployer.address,
         ]
     );
+    const artifact = await hre.artifacts.readArtifact("AirdropPaymaster");
     await deterministicDeploy(
         hre,
-        "AirdropPaymaster",
-        dev ? "AirdropPaymasterDev" : "AirdropPaymaster", /* alias */
+        dev ? "AirdropPaymasterDev" : "AirdropPaymaster",
+        getBytecode(artifact, args),
         hash(dev ? "airdrop.paymaster.dev" : "airdrop.paymaster"),
-        args
     );
 }
 
@@ -39,11 +39,12 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     );
 
     // deploy airdrop proxy
+    const artifact = await hre.artifacts.readArtifact("HexlinkERC1967Proxy");
     const proxy = await deterministicDeploy(
         hre,
-        "HexlinkERC1967Proxy",
-        "AirdropProxy", /* alias */
-        hash("airdrop.v2"),
+        "AirdropProxy",
+        getBytecode(artifact, "0x"),
+        hash("airdrop")
     );
     if (proxy.deployed) {
         const airdrop = await hre.ethers.getContractAt(
@@ -65,7 +66,6 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         false,
         proxy.address,
     );
-
     // deploy paymaster for hexlink dev
     await deployAirdropPaymaster(
         hre,

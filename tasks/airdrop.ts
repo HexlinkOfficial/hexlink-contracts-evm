@@ -66,11 +66,13 @@ task("check_airdrop", "Get campaign info")
                 owner: await paymaster.owner(),
                 airdrop: await paymaster.airdrop(),
                 hexlink: await paymaster.hexlink(),
+                deposit: ethers.formatEther(await paymaster.getDeposit()),
             },
             paymasterDev: {
                 owner: await paymasterDev.owner(),
                 airdrop: await paymasterDev.airdrop(),
                 hexlink: await paymasterDev.hexlink(),
+                deposit: ethers.formatEther(await paymasterDev.getDeposit()),
             }
         });
     });
@@ -109,6 +111,6 @@ task("cleanup_paymaster", "cleanup paymaster")
         const {deployer} = await hre.getNamedAccounts();
         await paymaster.withdrawTo(
             deployer,
-            ethers.parseEther("0.9")
+            await paymaster.getDeposit()
         );
     });

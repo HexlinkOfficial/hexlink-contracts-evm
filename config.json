@@ -1,22 +1,16 @@
 {
     "common": {
-        "contractFactory": "0x09E2f4BE0720122C5a914cf29920d4261732047F",
-        "hexlink": "0x50B91eA5647079F7c3234EBEF5E4D14217105e6c",
-        "hexlinkDev": "0xFd659562921F7BBB364e740f0c3781631DCb2124",
+        "admin": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",
+        "contractFactory": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+        "hexlink": "0x252063225Faf25bffFC77f3929c27845449babC7",
+        "hexlinkDev": "0xe4aba067a62e78846d02737E125361F40141b553",
+
+        "airdrop": "0x70db527Eb155260ff7723F5c30088E3c6484aa8E",
+        "airdropPaymaster": "0x6A650adbd0D6955d4F3b302A933fa3Cb23eFeBD5",
+        "airdropPaymasterDev": "0xbE342bD63b809f5bD5Ec72098614096287a3AE23",
+
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
-        "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9",
-        "airdrop": "0xB97fC768F744D9aa7cc69382af622b490DC7596B",
-        "airdropPaymaster": "0xCE832a996a5DB4DeB3E237B35AfbDd90034A9BaC",
-        "airdropPaymasterDev": "0x7888c91AeE919c861096603D18c620e78317a793"
-    },
-    "sepolia": {
-        "admin": "0x9c42484e43690B327AefFc3c866536415fBe3cB8"
-    },
-    "bsc_test": {
-        "admin": "0x6D9A722489fB354bcDEe362958Cc0D7cA6C33f51"
-    },
-    "mumbai": {
-        "admin": "0x150dC1A070AD40292b991b372C1C585E918c78de"
+        "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9"
     }
 }

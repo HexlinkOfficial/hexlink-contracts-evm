@@ -2,6 +2,7 @@ import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
 import * as config from '../config.json';
 import { Contract } from "ethers";
+import { getDeterministicDeployer } from "./deployer";
 
 export function epoch() {
   return Math.round(Date.now() / 1000);
@@ -29,9 +30,6 @@ export function nameHash(name: {schema: string, domain: string, handle: string})
 }
 
 export function loadConfig(hre: HardhatRuntimeEnvironment, key: string) : any {
-  if (hre.network.name == "hardhat") {
-    return undefined;
-  }
   let netConf = config[hre.network.name as keyof typeof config] || {};
   let value = (netConf as any)[key];
   if (!value) {
@@ -49,19 +47,14 @@ export function getBytecode(artifact: Artifact, args: string) {
 }
 
 export async function getValidator(hre: HardhatRuntimeEnvironment, name: string) {
-  let validator = loadConfig(hre, name);
-  if (validator == undefined) {
-      return (await hre.getNamedAccounts())["validator"];
+  if (hre.network.name === 'hardhat') {
+    return (await hre.getNamedAccounts())["validator"];
   }
-  return validator;
+  return loadConfig(hre, name);
 }
 
 export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
   let entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
-  if (hre.network.name === 'hardhat') {
-      const deployed = await hre.deployments.get("EntryPoint");
-      entrypoint = deployed.address;
-  }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(
     entrypoint,
@@ -72,14 +65,6 @@ export async function getEntryPoint(hre: HardhatRuntimeEnvironment) {
 
 export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
   let airdrop = loadConfig(hre, "airdrop");
-  if (airdrop === undefined) {
-    const salt = hash("airdrop.v2");
-    const factory = await getFactory(hre);
-    const bytecode = getBytecode(
-        await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
-    );
-    airdrop = await factory.calculateAddress(bytecode, salt);
-  }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(
     airdrop,
@@ -93,24 +78,6 @@ export async function getAirdropPaymaster(
   dev: boolean = false
 ) {
   let paymaster = loadConfig(hre, dev ? "airdropPaymasterDev" : "airdropPaymaster");
-  if (paymaster === undefined) {
-    const { deployer } = await hre.ethers.getNamedSigners();
-    const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
-      ["address", "address", "address", "address"],
-      [
-          await (await getEntryPoint(hre)).getAddress(),
-          await (await getHexlink(hre, dev)).getAddress(),
-          await (await getAirdrop(hre)).getAddress(),
-          deployer.address,
-      ]
-    );
-    const bytecode = getBytecode(
-      await hre.artifacts.readArtifact("AirdropPaymaster"), args
-    );
-    const factory = await getFactory(hre);
-    paymaster = await factory.calculateAddress(
-      bytecode, hash(dev ? "airdrop.paymaster.dev" : "airdrop.paymaster"));
-  }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(
     paymaster,
@@ -121,10 +88,6 @@ export async function getAirdropPaymaster(
 
 export async function getHexlink(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
   let hexlink = loadConfig(hre, dev ? "hexlinkDev" : "hexlink");
-  if (hexlink === undefined) {
-    const salt = dev ? hash("hexlink.dev") : hash("hexlink.prod");
-    hexlink = await getHexlinkProxyAddr(hre, salt);
-  }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(
     hexlink,
@@ -133,20 +96,8 @@ export async function getHexlink(hre: HardhatRuntimeEnvironment, dev: boolean = 
   );
 }
 
-async function getHexlinkProxyAddr(hre: HardhatRuntimeEnvironment, salt: string) {
-  const factory = await getFactory(hre);
-  const bytecode = getBytecode(
-      await hre.artifacts.readArtifact("HexlinkERC1967Proxy"), '0x'
-  );
-  return await factory.calculateAddress(bytecode, salt);
-}
-
 export async function getAdmin(hre: HardhatRuntimeEnvironment) {
   let admin = loadConfig(hre, "admin");
-  if (admin === undefined) {
-      const deployed = await hre.deployments.get("HexlinkAdmin");
-      admin = deployed.address;
-  }
   const { deployer } = await hre.ethers.getNamedSigners();
   return new Contract(
     admin,
@@ -155,40 +106,26 @@ export async function getAdmin(hre: HardhatRuntimeEnvironment) {
   );
 }
 
-export async function getFactory(hre: HardhatRuntimeEnvironment) {
-  let factory = loadConfig(hre, "contractFactory");
-  if (factory === undefined) {
-    const deployed = await hre.deployments.get("HexlinkContractFactory");
-    factory = deployed.address;
-  }
-  const { deployer } = await hre.ethers.getNamedSigners();
-  return new Contract(
-    factory,
-    await getAbi(hre, "HexlinkContractFactory"),
-    deployer
-  );
-}
-
 export async function deterministicDeploy(
   hre: HardhatRuntimeEnvironment,
   contract: string,
-  alias: string,
-  salt: string,
-  args?: string,
-  data?: string,
+  bytecode: string,
+  salt: string
 ) : Promise<{address: string, deployed: boolean}> {
-  const factory = await getFactory(hre);
-  const artifact = await hre.artifacts.readArtifact(contract);
-  const bytecode = getBytecode(artifact, args ?? "0x");
-  const address = await factory.calculateAddress(bytecode, salt);
+  const address = ethers.getCreate2Address(
+    getDeterministicDeployer(),
+    salt,
+    ethers.keccak256(ethers.getBytes(bytecode))
+  );
   if (await isContract(hre, address)) {
-      console.log(`Reusing ${alias} deployed at ${address}`);
+      console.log(`Reusing ${contract} deployed at ${address}`);
       return { deployed: false, address };
   } else {
-    const tx = await factory.deployAndCall(
-      bytecode, salt, data || "0x");
+    const {deployer} = await hre.ethers.getNamedSigners();
+    const data = ethers.solidityPacked(["bytes32", "bytes"], [salt, bytecode]);
+    const tx = await deployer.sendTransaction({ to: "0x4e59b44847b379578588920ca78fbf26c0b4956c", data});
     await tx.wait();
-    console.log(`deploying ${alias} (tx: ${tx.hash})...: deployed at ${address}`);
+    console.log(`deploying ${contract} (tx: ${tx.hash})...: deployed at ${address}`);
     return { deployed: true, address };
   }
 }

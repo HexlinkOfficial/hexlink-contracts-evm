@@ -5,7 +5,6 @@ import {
     hash,
     deterministicDeploy,
     getValidator,
-    getEntryPoint,
     getAdmin,
     getBytecode,
 } from "../tasks/utils";
@@ -19,7 +18,7 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
         hre,
         dev ? "HexlinkDevProxy" : "HexlinkProxy",
         getBytecode(artifact, "0x"),
-        dev ? hash("hexlink.dev") : hash("hexlink.prod"),
+        dev ? hash("hexlink.dev.v0") : hash("hexlink.prod.v0"),
     );
     const factory = new Contract(
         proxy.address,
@@ -84,4 +83,4 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 }
 
 export default func;
-func.tags = ["PROD", "TEST"];
+func.tags = ["PROD", "TEST", "HEXLINK"];

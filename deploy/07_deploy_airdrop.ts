@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, getBytecode, getEntryPoint, getHexlink, hash } from "../tasks/utils";
+import { deterministicDeploy, getBytecode, getHexlink, hash } from "../tasks/utils";
 import { getEntryPointAddress } from "../tasks/deployer";
 
 async function deployAirdropPaymaster(
@@ -75,4 +75,4 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 }
 
 export default func;
-func.tags = ["PROD", "TEST"];
+func.tags = ["PROD", "TEST", "AIRDROP"];

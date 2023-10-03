@@ -62,6 +62,7 @@ task("check_airdrop", "Get campaign info")
             airdropImpl: await airdrop.implementation(),
             airdrop: await airdrop.getAddress(),
             paused: await airdrop.paused(),
+            nextCampaign: await airdrop.getNextCampaign(),
             paymaster: {
                 owner: await paymaster.owner(),
                 airdrop: await paymaster.airdrop(),
@@ -80,8 +81,6 @@ task("check_airdrop", "Get campaign info")
 task("upgrade_airdrop", "upgrade airdrop contract")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const airdrop = await getAirdrop(hre, args.dev);
-        const proxy = await hre.ethers.getContractAt(
-              "HexlinkERC1967Proxy", await airdrop.getAddress());
         const existing = await airdrop.implementation();
         const latest = await hre.deployments.get("Airdrop");
         if (existing.toLowerCase() == latest.address.toLowerCase()) {

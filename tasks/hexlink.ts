@@ -1,20 +1,17 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { hash, getHexlink } from "./utils";
+import { hash, getHexlink, getAdmin } from "./utils";
 import { Contract } from "ethers";
 
 async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
     const hexlinkAddr = await hexlink.getAddress();
-    const factory = await hre.deployments.get("HexlinkContractFactory");
-    const admin = await hre.deployments.get("HexlinkAdmin");
+    const admin = await getAdmin(hre);
     const result = {
-        contractFactory: factory.address,
         hexlink: hexlinkAddr,
         owner: await hexlink.owner(),
-        admin: admin.address,
+        admin: await admin.getAddress(),
         validator: await hexlink.getValidator(),
         hexlinkImpl: await hexlink.implementation(),
-        accountProxy: hexlinkAddr,
         accountImpl: await hexlink.getAccountImplementation(),
     }
     console.log(result);

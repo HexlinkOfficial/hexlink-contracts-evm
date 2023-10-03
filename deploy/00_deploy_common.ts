@@ -8,7 +8,6 @@ import {
 } from "../tasks/deployer";
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
-    const {getNamedAccounts, deployments} = hre;
     const {deployer} = await hre.ethers.getNamedSigners();
 
     // setup determinsitic deployer deployed at 0x4e59b44847b379578588920ca78fbf26c0b4956c
@@ -48,4 +47,4 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
 }
 
 export default func;
-func.tags = ["PROD", "TEST"];
+func.tags = ["PROD", "TEST", "COMMON"];

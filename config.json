@@ -10,7 +10,7 @@
         "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52",
 
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
-        "hexlinkValidator": "0x943fabe0d1ae7130fc48cf2abc85f01fc987ec81",
+        "hexlinkValidator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
         "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9"
     },
     "hardhat": {

@@ -130,18 +130,6 @@ export async function deterministicDeploy(
   }
 }
 
-export async function getDeterministicAddress(
-  hre: HardhatRuntimeEnvironment,
-  contract: string,
-  salt: string,
-  args: string,
-) {
-  const factory = await getFactory(hre);
-  const artifact = await hre.artifacts.readArtifact(contract);
-  const bytecode = getBytecode(artifact, args ?? '0x');
-  return await factory.calculateAddress(bytecode, salt);
-}
-
 export async function isContract(hre: HardhatRuntimeEnvironment, address: string) {
   try {
       const code = await hre.ethers.provider.getCode(address);

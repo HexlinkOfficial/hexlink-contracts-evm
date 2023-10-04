@@ -65,12 +65,14 @@ task("check_airdrop", "Get campaign info")
             paused: await airdrop.paused(),
             nextCampaign: await airdrop.getNextCampaign(),
             paymaster: {
+                address: await paymaster.getAddress(),
                 owner: await paymaster.owner(),
                 airdrop: await paymaster.airdrop(),
                 hexlink: await paymaster.hexlink(),
                 deposit: await entryPoint.getDepositInfo(await paymaster.getAddress()),
             },
             paymasterDev: {
+                address: await paymasterDev.getAddress(),
                 owner: await paymasterDev.owner(),
                 airdrop: await paymasterDev.airdrop(),
                 hexlink: await paymasterDev.hexlink(),

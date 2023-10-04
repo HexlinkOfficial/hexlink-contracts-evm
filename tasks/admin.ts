@@ -3,6 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
 import { getAirdropPaymaster, getHexlink, getTimelock, hash, loadConfig } from "./utils";
 import { Contract } from "ethers";
+import { scheduler } from "timers/promises";
 
 function getGasOptions(hre: HardhatRuntimeEnvironment) {
     if (hre.network.name == "bsc_test") {
@@ -86,6 +87,7 @@ task("admin_schedule", "schedule a tx")
         } else {
             await admin.schedule(...processed, getGasOptions(hre));
         }
+        return "scheduled";
     });
 
 task("admin_exec", "execute a tx")
@@ -106,6 +108,7 @@ task("admin_exec", "execute a tx")
         } else {
             await admin.execute(...processed, getGasOptions(hre));
         }
+        return "executed";
     });
 
 task("admin_schedule_and_exec", "schedule and execute")
@@ -152,8 +155,7 @@ task("admin_schedule_or_exec", "schedule or execute")
         );
         if (await timelock.isOperationReady(operationId)) {
             console.log("Operation is ready, will execute.");
-            await hre.run("admin_exec", args);
-            return "excuted";
+            return await hre.run("admin_exec", args);
         } else if (await timelock.isOperationPending(operationId)) {
             console.log("Operation is pending, please try later.");
             console.log("Timestamp is " + (await timelock.getTimestamp(operationId)));
@@ -163,8 +165,7 @@ task("admin_schedule_or_exec", "schedule or execute")
             return "excuted";
         }else {
             console.log("Operation is not scheduled, will schedule.");
-            await hre.run("admin_schedule", args);
-            return "scheduled";
+            return await hre.run("admin_schedule", args);
         }
     });
 
@@ -263,8 +264,11 @@ task("rotateOwner", "ratate timelock and paymaster owner")
         console.log("old owner is: ", oldDeployer);
         console.log("old owner is executor: ", await timelock.hasRole(hash("EXECUTOR_ROLE"), oldDeployer));
         console.log("old owner is proposer: ", await timelock.hasRole(hash("PROPOSER_ROLE"), oldDeployer));
+        console.log("old owner is canceller: ", await timelock.hasRole(hash("CANCELLER_ROLE"), oldDeployer));
+
         console.log("new owner is executor: ", await timelock.hasRole(hash("EXECUTOR_ROLE"), owner));
         console.log("new owner is proposer: ", await timelock.hasRole(hash("PROPOSER_ROLE"), owner));
+        console.log("new owner is canceller: ", await timelock.hasRole(hash("CANCELLER_ROLE"), owner));
 
         if (!await timelock.hasRole(hash("PROPOSER_ROLE"), owner)) {
             console.log("Granting PROPOSER_ROLE role to " + owner);
@@ -309,8 +313,8 @@ task("rotateOwner", "ratate timelock and paymaster owner")
                 {
                     target: timelockAddr,
                     data,
-                    proposer: "deployer",
-                    executor: "deployer",
+                    proposer: "oldDeployer",
+                    executor: "oldDeployer",
                 });
         }
 
@@ -319,6 +323,38 @@ task("rotateOwner", "ratate timelock and paymaster owner")
             const data = timelock.interface.encodeFunctionData(
                 "revokeRole",
                 [hash("PROPOSER_ROLE"), oldDeployer]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "deployer",
+                    executor: "deployer",
+                });
+        }
+
+        if (!await timelock.hasRole(hash("CANCELLER_ROLE"), owner)) {
+            console.log("Granting CANCELLER_ROLE role to " + owner);
+            const data = timelock.interface.encodeFunctionData(
+                "grantRole",
+                [hash("CANCELLER_ROLE"), owner]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "deployer",
+                    executor: "deployer",
+                });
+        }
+
+        if (await timelock.hasRole(hash("CANCELLER_ROLE"), oldDeployer)) {
+            console.log("Revoking CANCELLER_ROLE role from " + oldDeployer);
+            const data = timelock.interface.encodeFunctionData(
+                "revokeRole",
+                [hash("CANCELLER_ROLE"), oldDeployer]
             );
             await hre.run(
                 "admin_schedule_and_exec",

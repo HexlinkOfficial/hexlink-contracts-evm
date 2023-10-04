@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, getBytecode, getHexlink, hash } from "../tasks/utils";
+import { deterministicDeploy, getBytecode, getHexlink, hash, loadConfig } from "../tasks/utils";
 import { getEntryPointAddress } from "../tasks/deployer";
 
 async function deployAirdropPaymaster(
@@ -10,13 +10,14 @@ async function deployAirdropPaymaster(
 ) {
     const {deployer} = await hre.ethers.getNamedSigners();
     const hexlink = await getHexlink(hre, dev);
+    const owner = loadConfig(hre, "safe") ?? deployer.address;
     const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["address", "address", "address", "address"],
         [
             getEntryPointAddress(),
             await hexlink.getAddress(),
             airdrop,
-            deployer.address,
+            owner,
         ]
     );
     const artifact = await hre.artifacts.readArtifact("AirdropPaymaster");
@@ -54,8 +55,9 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         );
         const airdropImpl = await hre.ethers.getContractAt(
             "Airdrop", impl.address);
+        const timelock = loadConfig(hre, "timelock");
         const data = airdropImpl.interface.encodeFunctionData(
-            "initialize", [deployer.address]
+            "initialize", [timelock]
         );
         await airdrop.initProxy(impl.address, data);
     }

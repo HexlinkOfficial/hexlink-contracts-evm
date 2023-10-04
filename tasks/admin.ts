@@ -1,8 +1,15 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
-import { getHexlink, getAdmin } from "./utils";
+import { getAirdropPaymaster, getHexlink, getTimelock, hash, loadConfig } from "./utils";
 import { Contract } from "ethers";
+
+function getGasOptions(hre: HardhatRuntimeEnvironment) {
+    if (hre.network.name == "bsc_test") {
+        return {gasPrice: 10000000000n}// 10gwei
+    }
+    return {};
+}
 
 const processArgs = async function(
     timelock: Contract,
@@ -27,7 +34,7 @@ const processArgs = async function(
 
 task("admin_check", "check if has role")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre);
+        const admin = await getTimelock(hre);
         const minDelay = await admin.getMinDelay();
         const adminAddr = await admin.getAddress();
         console.log("admin is " + adminAddr + ", with min delay as " + minDelay);
@@ -64,61 +71,78 @@ task("admin_check", "check if has role")
 task("admin_schedule", "schedule a tx")
     .addParam("target")
     .addParam("data")
+    .addOptionalParam("proposer")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre);
+        let admin = await getTimelock(hre, args.proposer);
         const processed = await processArgs(admin, args);
-        await admin.schedule(...processed);
+        const safe = loadConfig(hre, "safe");
+        if (safe) {
+            console.log("schedueling...");
+            console.log(processed);
+        } else {
+            await admin.schedule(...processed, getGasOptions(hre));
+        }
     });
 
 task("admin_exec", "execute a tx")
     .addParam("target")
     .addParam("data")
+    .addOptionalParam("executor")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre);
+        const admin = await getTimelock(hre, args.executor);
         const rawProcessed = await processArgs(admin, args);
         const processed = rawProcessed.slice(0, -1) as [string, bigint, string, string, string];
-        await admin.execute(...processed);
+        const safe = loadConfig(hre, "safe");
+        if (safe) {
+            console.log("executing...");
+            console.log(processed);
+        } else {
+            await admin.execute(...processed, getGasOptions(hre));
+        }
     });
 
 task("admin_schedule_and_exec", "schedule and execute")
     .addParam("target")
     .addParam("data")
+    .addOptionalParam("proposer")
+    .addOptionalParam("executor")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre);
-        console.log("scheduling...");
-        await hre.run("admin_schedule", args);
-        const delay = Number(args.dealy) || Number(await admin.getMinDelay());
-        const wait = (ms: number) => {
-            return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
-        };
-        console.log("Will wait for " + delay + " seconds before exec");
-        await wait(delay + 3);
-        console.log("executing...");
-        await hre.run("admin_exec", args);
-        console.log("done.");
+        const timelock = await getTimelock(hre);
+        const result = await hre.run("admin_schedule_or_exec", args);
+        if (result != "executed") {
+            const delay = (Number(args.dealy) || Number(await timelock.getMinDelay())) + 3;
+            const wait = (ms: number) => {
+                return new Promise( resolve => setTimeout(resolve, ms * 1000 + 2000) );
+            };
+            console.log("Will wait for " + delay + " seconds before exec");
+            await wait(delay);
+            await hre.run("admin_schedule_or_exec", args);
+        }
     });
 
 task("admin_schedule_or_exec", "schedule or execute")
     .addParam("target")
     .addParam("data")
+    .addOptionalParam("proposer")
+    .addOptionalParam("executor")
     .addOptionalParam("value")
     .addOptionalParam("predecessor")
     .addOptionalParam("salt")
     .addOptionalParam("delay")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const admin = await getAdmin(hre);
-        const processed = await processArgs(admin, args);
+        const timelock = await getTimelock(hre);
+        const processed = await processArgs(timelock, args);
         processed.pop();
         const operationId = ethers.keccak256(
             ethers.AbiCoder.defaultAbiCoder().encode(
@@ -126,17 +150,21 @@ task("admin_schedule_or_exec", "schedule or execute")
                 processed
             )
         );
-        if (await admin.isOperationReady(operationId)) {
+        if (await timelock.isOperationReady(operationId)) {
             console.log("Operation is ready, will execute.");
             await hre.run("admin_exec", args);
-        } else if (await admin.isOperationPending(operationId)) {
+            return "excuted";
+        } else if (await timelock.isOperationPending(operationId)) {
             console.log("Operation is pending, please try later.");
-            console.log("Timestamp is " + (await admin.getTimestamp(operationId)));
-        } else if (await admin.isOperationDone(operationId)) {
+            console.log("Timestamp is " + (await timelock.getTimestamp(operationId)));
+            return "scheduled";
+        } else if (await timelock.isOperationDone(operationId)) {
             console.log("Operation is Done.");
+            return "excuted";
         }else {
             console.log("Operation is not scheduled, will schedule.");
             await hre.run("admin_schedule", args);
+            return "scheduled";
         }
     });
 
@@ -161,7 +189,6 @@ task("check_deposit")
     });
 
 task("add_stake")
-    .addFlag("nowait")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const { deployer } = await hre.ethers.getNamedSigners();
@@ -170,16 +197,8 @@ task("add_stake")
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.Interface(artifact.abi);
         const entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
-        const balance = await hre.ethers.provider.getBalance(hexlinkAddr);
-        if (balance < ethers.parseEther("0.05")) {
-            console.log("depositing 0.05 ETH to " + hexlinkAddr);
-            const tx = await deployer.sendTransaction({
-                to: hexlinkAddr,
-                value: ethers.parseEther("0.05")
-            });
-            await tx.wait();
-        }
 
+        console.log(hexlinkAddr);
         console.log("Adding stake 0.05 ETH to " + entrypoint + " for " + hexlinkAddr);
         const data = iface.encodeFunctionData(
             'addStake', [
@@ -188,15 +207,10 @@ task("add_stake")
                 86400
             ]
         );
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
-        }
+        await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
     });
 
 task("upgrade_hexlink", "upgrade hexlink contract")
-    .addFlag("nowait")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const hexlink = await getHexlink(hre, args.dev);
@@ -215,15 +229,10 @@ task("upgrade_hexlink", "upgrade hexlink contract")
             [deployed.address]
         );
         const hexlinkAddr = await hexlink.getAddress();
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
-        }
+        await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
     });
 
- task("changeOwner", "change account owner")
-    .addFlag("nowait")
+task("changeOwner", "change account owner")
     .addParam("newowner")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
@@ -240,9 +249,95 @@ task("upgrade_hexlink", "upgrade hexlink contract")
             [args.newowner]
         );
         const hexlinkAddr = await hexlink.getAddress();
-        if (args.nowait) {
-            await hre.run("admin_schedule_or_exec", { target: hexlinkAddr, data });
-        } else {
-            await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
+        await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
+    });
+
+task("rotateOwner", "ratate timelock and paymaster owner")
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
+        const {deployer, oldDeployer} = await hre.getNamedAccounts();
+        const timelock = await getTimelock(hre);
+        const timelockAddr = await timelock.getAddress();
+        const owner = loadConfig(hre, "safe") ?? deployer;
+        console.log(timelockAddr);
+        console.log("new owner is: ", owner);
+        console.log("old owner is: ", oldDeployer);
+        console.log("old owner is executor: ", await timelock.hasRole(hash("EXECUTOR_ROLE"), oldDeployer));
+        console.log("old owner is proposer: ", await timelock.hasRole(hash("PROPOSER_ROLE"), oldDeployer));
+        console.log("new owner is executor: ", await timelock.hasRole(hash("EXECUTOR_ROLE"), owner));
+        console.log("new owner is proposer: ", await timelock.hasRole(hash("PROPOSER_ROLE"), owner));
+
+        if (!await timelock.hasRole(hash("PROPOSER_ROLE"), owner)) {
+            console.log("Granting PROPOSER_ROLE role to " + owner);
+            const data = timelock.interface.encodeFunctionData(
+                "grantRole",
+                [hash("PROPOSER_ROLE"), owner]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "oldDeployer",
+                    executor: "oldDeployer",
+                });
+        }
+        
+        if (!await timelock.hasRole(hash("EXECUTOR_ROLE"), owner)) {
+            console.log("Granting EXECUTOR_ROLE role to " + owner);
+            const data = timelock.interface.encodeFunctionData(
+                "grantRole",
+                [hash("EXECUTOR_ROLE"), owner]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "oldDeployer",
+                    executor: "oldDeployer",
+                });
+        }
+
+        if (await timelock.hasRole(hash("EXECUTOR_ROLE"), oldDeployer)) {
+            console.log("Revoking EXECUTOR_ROLE role from " + oldDeployer);
+            const data = timelock.interface.encodeFunctionData(
+                "revokeRole",
+                [hash("EXECUTOR_ROLE"), oldDeployer]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "deployer",
+                    executor: "deployer",
+                });
+        }
+
+        if (await timelock.hasRole(hash("PROPOSER_ROLE"), oldDeployer)) {
+            console.log("Revoking PROPOSER_ROLE role from " + oldDeployer);
+            const data = timelock.interface.encodeFunctionData(
+                "revokeRole",
+                [hash("PROPOSER_ROLE"), oldDeployer]
+            );
+            await hre.run(
+                "admin_schedule_and_exec",
+                {
+                    target: timelockAddr,
+                    data,
+                    proposer: "deployer",
+                    executor: "deployer",
+                });
+        }
+
+        const paymaster = await getAirdropPaymaster(hre, false, "oldDeployer");
+        if ((await paymaster.owner()) == oldDeployer) {
+            console.log("Transferring ownership of paymaster from " + oldDeployer + " to " + owner);
+            await paymaster.transferOwnership(owner);
+        }
+        const paymasterDev = await getAirdropPaymaster(hre, true, "oldDeployer");
+        if ((await paymasterDev.owner()) == oldDeployer) {
+            console.log("Transferring ownership of paymaster dev from " + oldDeployer + " to " + owner);
+            await paymasterDev.transferOwnership(owner);
         }
     });

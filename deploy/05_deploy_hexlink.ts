@@ -5,8 +5,8 @@ import {
     hash,
     deterministicDeploy,
     getValidator,
-    getAdmin,
     getBytecode,
+    loadConfig,
 } from "../tasks/utils";
 import { getEntryPointAddress } from "../tasks/deployer";
 
@@ -59,9 +59,9 @@ async function deploy(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
     const hexlinkImpl = await hre.ethers.getContractAt(
         "Hexlink", impl.address);
     try {
-        const admin = await getAdmin(hre);
+        const timelock = loadConfig(hre, "timelock");
         const data = hexlinkImpl.interface.encodeFunctionData(
-            "initialize", [await admin.getAddress()]
+            "initialize", [timelock]
         );
         await factory.initProxy(impl.address, data);
     } catch (e) {

@@ -9,7 +9,6 @@ import {
 } from "./testers";
 import { Contract } from "ethers";
 import { getEntryPoint, getHexlink } from "../tasks/utils";
-import { EntryPoint__factory } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { getEntryPointAddress } from "../tasks/deployer";
 

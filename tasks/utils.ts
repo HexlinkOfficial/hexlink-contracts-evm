@@ -75,14 +75,15 @@ export async function getAirdrop(hre: HardhatRuntimeEnvironment, signer?: any) {
 
 export async function getAirdropPaymaster(
   hre: HardhatRuntimeEnvironment,
-  dev: boolean = false
+  dev: boolean = false,
+  operator: string = "deployer"
 ) {
   let paymaster = loadConfig(hre, dev ? "airdropPaymasterDev" : "airdropPaymaster");
-  const { deployer } = await hre.ethers.getNamedSigners();
+  const signers = await hre.ethers.getNamedSigners();
   return new Contract(
     paymaster,
     await getAbi(hre, "AirdropPaymaster"),
-    deployer
+    signers[operator]
   );
 }
 
@@ -96,13 +97,16 @@ export async function getHexlink(hre: HardhatRuntimeEnvironment, dev: boolean = 
   );
 }
 
-export async function getAdmin(hre: HardhatRuntimeEnvironment) {
-  let admin = loadConfig(hre, "admin");
-  const { deployer } = await hre.ethers.getNamedSigners();
+export async function getTimelock(
+  hre: HardhatRuntimeEnvironment,
+  signer?: string
+) {
+  let timelock = loadConfig(hre, "timelock");
+  const signers = await hre.ethers.getNamedSigners();
   return new Contract(
-    admin,
+    timelock,
     await getAbi(hre, "TimelockController"),
-    deployer
+    signer ? signers[signer] : signers.deployer
   );
 }
 

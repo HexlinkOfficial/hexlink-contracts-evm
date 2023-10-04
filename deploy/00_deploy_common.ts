@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 import {DeployFunction} from "hardhat-deploy/types";
-import { deterministicDeploy, getBytecode } from "../tasks/utils";
+import { deterministicDeploy, getBytecode, loadConfig } from "../tasks/utils";
 import {
     getDeterministicDeployerSigner,
     getEntryPointCreationCode,
@@ -33,17 +33,22 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
     }
 
     // deploy admin contract
-    const artifact = await hre.artifacts.readArtifact("TimelockController");
-    const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
-        ["uint256", "address[]", "address[]", "address"],
-        [0, [deployer.address], [deployer.address], hre.ethers.ZeroAddress]
-    );
-    await deterministicDeploy(
-        hre,
-        "HexlinkAdmin",
-        getBytecode(artifact, args),
-        hre.ethers.ZeroHash,
-    );
+    const timelock = loadConfig(hre, "timelock");
+    if (!timelock || hre.network.name === 'hardhat') {
+        const safe = loadConfig(hre, "safe");
+        const owner = safe ?? deployer.address;
+        const artifact = await hre.artifacts.readArtifact("TimelockController");
+        const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
+            ["uint256", "address[]", "address[]", "address"],
+            [0, [owner], [owner], hre.ethers.ZeroAddress]
+        );
+        await deterministicDeploy(
+            hre,
+            "HexlinkAdmin",
+            getBytecode(artifact, args),
+            hre.ethers.ZeroHash,
+        );
+    }
 }
 
 export default func;

@@ -1,21 +1,42 @@
 {
     "common": {
-        "admin": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
         "contractFactory": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
         "hexlink": "0x5d710eB40B46Acf46d26C99725e39F344C569Cc3",
         "hexlinkDev": "0xee5D73C7A86A17FfbE632967c3cD79bA79A1FdC0",
-
         "airdrop": "0x70db527Eb155260ff7723F5c30088E3c6484aa8E",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52",
-
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "hexlinkValidator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
         "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9"
     },
     "hardhat": {
-        "admin": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",
-        "airdropPaymaster": "0x6A650adbd0D6955d4F3b302A933fa3Cb23eFeBD5",
-        "airdropPaymasterDev": "0xbE342bD63b809f5bD5Ec72098614096287a3AE23"
+        "timelock": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",
+        "airdropPaymaster": "0xeadab94eC61e5828cdD7ED0F4B60ec85ef15037b",
+        "airdropPaymasterDev": "0xbE46558190d84a24ca9f1fFd60D1390a4c7Aa13b"
+    },
+    "bsc": {
+        "safe": "0x7604442B1A3098C2F14Cf27b08076759D0EeCB0e",
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
+        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
+        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+    },
+    "bsc_test": {
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
+        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
+        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+    },
+    "mumbai": {
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
+        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
+        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+    },
+    "sepolia": {
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
+        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
+        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+    },
+    "naut": {
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
+        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
+        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
     }
 }

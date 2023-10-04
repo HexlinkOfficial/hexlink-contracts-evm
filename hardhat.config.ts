@@ -18,7 +18,7 @@ task("abi", "Prints abi of contract")
     .setAction(async (args, {artifacts}) => {
       const artifact = await artifacts.readArtifact(args.contract);
       if (args.print) {
-        console.log(JSON.stringify(artifact.abi, null, 2));
+        console.log(JSON.stringify(artifact.abi));
       }
       return artifact.abi;
     });
@@ -30,7 +30,8 @@ task("accounts", "Prints the list of accounts", async (_taskArgs, hre) => {
   }
 });
 
-const accounts = process.env.HARDHAT_DEPLOYER ? [process.env.HARDHAT_DEPLOYER] :
+const accounts = process.env.HARDHAT_DEPLOYER && process.env.HARDHAT_DEPLOYER_V2 ?
+  [process.env.HARDHAT_DEPLOYER_V2, process.env.HARDHAT_DEPLOYER] :
   [
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
     "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
@@ -76,7 +77,7 @@ const config: HardhatUserConfig = {
     },
     bsc_test: {
       chainId: 97,
-      url: "https://data-seed-prebsc-2-s3.binance.org:8545/",
+      url: "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
       accounts,
     },
     mumbai: {
@@ -113,7 +114,7 @@ const config: HardhatUserConfig = {
     deployer: {
       default: 0,
     },
-    factoryDeployer: {
+    oldDeployer: {
       default: 1,
     },
     validator: {

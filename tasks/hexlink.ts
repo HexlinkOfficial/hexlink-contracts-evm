@@ -1,11 +1,12 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { hash, getHexlink, getAdmin } from "./utils";
+import { hash, getHexlink, getTimelock, getEntryPoint } from "./utils";
 import { Contract } from "ethers";
 
 async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
     const hexlinkAddr = await hexlink.getAddress();
-    const admin = await getAdmin(hre);
+    const entrypoint = await getEntryPoint(hre);
+    const admin = await getTimelock(hre);
     const result = {
         hexlink: hexlinkAddr,
         owner: await hexlink.owner(),
@@ -13,6 +14,7 @@ async function checkHexlink(hexlink: Contract, hre: HardhatRuntimeEnvironment) {
         validator: await hexlink.getValidator(),
         hexlinkImpl: await hexlink.implementation(),
         accountImpl: await hexlink.getAccountImplementation(),
+        stake: await entrypoint.getDepositInfo(hexlinkAddr),
     }
     console.log(result);
     return result;

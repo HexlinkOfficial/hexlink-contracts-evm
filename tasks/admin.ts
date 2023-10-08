@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ethers } from "ethers";
-import { getAirdropPaymaster, getHexlink, getTimelock, hash, loadConfig } from "./utils";
+import { getAirdrop, getAirdropPaymaster, getHexlink, getTimelock, hash, loadConfig } from "./utils";
 import { Contract } from "ethers";
 import { scheduler } from "timers/promises";
 
@@ -253,6 +253,16 @@ task("changeOwner", "change account owner")
         await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
     });
 
+async function checkAirdrop(hre : HardhatRuntimeEnvironment) {
+    const {deployer, oldDeployer} = await hre.ethers.getNamedSigners();
+    const owner = loadConfig(hre, "safe") ?? deployer.address;
+    const airdrop = await getAirdrop(hre, oldDeployer);
+    if ((await airdrop.owner()) == oldDeployer.address) {
+        console.log(`Transferring ownership of Airdrop from ${oldDeployer.address} to ${owner}`);
+        await airdrop.transferOwnership(owner);
+    }
+}
+
 task("rotateOwner", "ratate timelock and paymaster owner")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const {deployer, oldDeployer} = await hre.getNamedAccounts();
@@ -376,4 +386,5 @@ task("rotateOwner", "ratate timelock and paymaster owner")
             console.log("Transferring ownership of paymaster dev from " + oldDeployer + " to " + owner);
             await paymasterDev.transferOwnership(owner);
         }
+        await checkAirdrop(hre);
     });

@@ -81,20 +81,6 @@ task("check_airdrop", "Get campaign info")
         });
     });
 
-task("upgrade_airdrop", "upgrade airdrop contract")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const airdrop = await getAirdrop(hre, args.dev);
-        const existing = await airdrop.implementation();
-        const latest = await hre.deployments.get("Airdrop");
-        if (existing.toLowerCase() == latest.address.toLowerCase()) {
-            console.log("No need to upgrade");
-            return;
-        }
-        console.log("Upgrading from " + existing + " to " + latest.address);
-        const tx = await airdrop.upgradeTo(latest.address);
-        console.log(await tx.wait());
-    });
-
 task("setup_paymaster", "setup paymaster")
     .addParam("deposit")
     .addFlag("dev")

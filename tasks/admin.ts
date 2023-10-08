@@ -233,6 +233,30 @@ task("upgrade_hexlink", "upgrade hexlink contract")
         await hre.run("admin_schedule_and_exec", { target: hexlinkAddr, data });
     });
 
+task("upgrade_airdrop", "upgrade airdrop contract")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const airdrop = await getAirdrop(hre);
+        const existing = await airdrop.implementation();
+        const deployed = await hre.deployments.get("Airdrop");
+        if (existing.toLowerCase() == deployed.address.toLowerCase()) {
+            console.log("No need to upgrade");
+            return;
+        }
+
+        console.log("Upgrading from " + existing + " to " + deployed.address);
+        const data = airdrop.interface.encodeFunctionData(
+            "upgradeTo",
+            [deployed.address]
+        );
+        const airdropAddress = await airdrop.getAddress();
+        const timelock = loadConfig(hre, "timelock");
+        if (timelock == await airdrop.owner()) {
+            await hre.run("admin_schedule_and_exec", { target: airdropAddress, data });
+        } else {
+            await airdrop.upgradeTo(deployed.address);
+        }
+    });
+
 task("changeOwner", "change account owner")
     .addParam("newowner")
     .addFlag("dev")
@@ -388,3 +412,7 @@ task("rotateOwner", "ratate timelock and paymaster owner")
         }
         await checkAirdrop(hre);
     });
+
+function getAdmin(hre: HardhatRuntimeEnvironment) {
+    throw new Error("Function not implemented.");
+}

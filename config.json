@@ -35,8 +35,8 @@
         "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
     },
     "naut": {
-        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+        "timelock": "0x9fFa1527b886E36653fC084c77780693898bF419",
+        "airdropPaymaster": "0xE04DA149030f04555cc46f0ff2eF9867720D4c87",
+        "airdropPaymasterDev": "0x443c9E6981dD3f495985B0bcd7f668d050724f36"
     }
 }

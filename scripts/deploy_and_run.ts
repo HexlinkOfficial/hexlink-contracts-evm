@@ -1,6 +1,6 @@
 import * as hre from "hardhat";
 import { ethers } from "hardhat";
-import { getEntryPoint, getHexlinkDev } from "../tasks/utils";
+import { getEntryPoint, getHexlink } from "../tasks/utils";
 import { hash, isContract } from '../tasks/utils'
 import { buildAccountExecData, callWithEntryPoint } from '../test/testers';
 
@@ -9,7 +9,7 @@ const RECEIVER_NAME = hash("mailto:dongs2011@gmail.com");
 
 async function main() {
     const { deployer } = await hre.ethers.getNamedSigners();
-    const hexlink = await getHexlinkDev(hre);
+    const hexlink = await getHexlink(hre, true);
     const accountAddr = await hexlink.getOwnedAccount(SENDER_NAME);
     console.log("Account: ", accountAddr);
     console.log("Account Impl: ", await hexlink.getAccountImplementation());

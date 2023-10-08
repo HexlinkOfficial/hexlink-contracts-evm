@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { getAirdrop, getAirdropPaymaster, getEntryPoint } from "./utils";
+import { getAirdrop, getAirdropPaymaster, getEntryPoint, loadConfig } from "./utils";
 import { Contract, ethers } from "ethers";
 
 task("create_campaign", "create new campaign")
@@ -12,8 +12,8 @@ task("create_campaign", "create new campaign")
         const airdrop = await getAirdrop(hre);
         const airdropAddr = await airdrop.getAddress();
         const {deployer} = await hre.ethers.getNamedSigners();
-        const token = args.token ?? "0xEC5dCb5Dbf4B114C9d0F65BcCAb49EC54F6A0867";
-        const amount = BigInt(args.amount ?? 10n ** 18n);
+        const token = args.token ?? "0x37a56cdcD83Dce2868f721De58cB3830C44C6303";
+        const amount = args.amount ?? 50n * (10n ** 9n);
         const validator = args.validator ?? deployer.address;
         const erc20 = new Contract(
             token,
@@ -35,7 +35,7 @@ task("create_campaign", "create new campaign")
             endAt: args.endAt ?? "0xffffffffffff",
             deposit: amount,
             validator: validator,
-            owner: deployer.address,
+            owner: loadConfig(hre, "safe") ?? deployer.address,
         };
         console.log("Creating campaign: ", campaign);
         const tx = await airdrop.createCampaign(campaign);

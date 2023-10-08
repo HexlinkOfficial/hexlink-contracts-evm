@@ -175,7 +175,9 @@ describe("Airdrop", function() {
     .withArgs(anyValue, anyValue, anyValue, error);
 
     // claim
-    await callWithEntryPoint(senderAddr, '0x', await claimData(0), entrypoint, deployer)
+    await expect(
+        callWithEntryPoint(senderAddr, '0x', await claimData(0), entrypoint, deployer)
+    ).emit(airdrop, "NewClaim").withArgs(0, senderAddr, tester, 100);
     expect(await erc20.balanceOf(tester)).to.eq(100);
     expect((await airdrop.getCampaign(0)).deposit).to.eq(9900);
 
@@ -237,7 +239,9 @@ describe("Airdrop", function() {
         );
         return await validator.signMessage(ethers.getBytes(message));
     };
-    await airdrop.claim(0, deployer.address, tester, 100, await genSig(0)); 
+    await expect(
+        airdrop.claim(0, deployer.address, tester, 100, await genSig(0))
+    ).emit(airdrop, "NewClaim").withArgs(0, deployer.address, tester, 100);
   });
 
   it("test airdrop simple", async function() {
@@ -332,8 +336,11 @@ describe("Airdrop", function() {
         ["address", "bytes32"],
         [await paymaster.getAddress(), SENDER_NAME_HASH]
     );
-    await callWithEntryPoint(
-        senderAddr, '0x', accountData, entrypoint, deployer, paymasterData);
+
+    await expect(
+        callWithEntryPoint(
+            senderAddr, '0x', accountData, entrypoint, deployer, paymasterData)
+    ).emit(airdrop, "NewClaim").withArgs(0, senderAddr, tester, 100);
 
     expect(await erc20.balanceOf(tester)).to.eq(100);
     expect((await airdrop.getCampaign(0)).deposit).to.eq(9900);

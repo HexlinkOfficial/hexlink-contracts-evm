@@ -37,9 +37,10 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 indexed campaignId,
         Campaign campaign
     );
-    event Claim(
+    event NewClaim(
         uint256 indexed campaignId,
-        address indexed to,
+        address indexed claimer,
+        address indexed beneficiary,
         uint256 amount
     );
 
@@ -144,7 +145,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         claimed[campaign][msg.sender] = true;
         campaigns[campaign].deposit = c.deposit - amount;
         _transfer(c.token, beneficiary, amount);
-        emit Claim(campaign, beneficiary, amount);
+        emit NewClaim(campaign, claimer, beneficiary, amount);
     }
 
     function _getCampaign(

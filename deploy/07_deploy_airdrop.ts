@@ -3,30 +3,53 @@ import {DeployFunction} from "hardhat-deploy/types";
 import { deterministicDeploy, getBytecode, getHexlink, hash, loadConfig } from "../tasks/utils";
 import { getEntryPointAddress } from "../tasks/deployer";
 
-async function deployAirdropPaymaster(
+async function deployHexlinkPaymaster(
     hre: HardhatRuntimeEnvironment,
-    dev: boolean,
     airdrop: string,
 ) {
     const {deployer} = await hre.ethers.getNamedSigners();
-    const hexlink = await getHexlink(hre, dev);
-    const owner = loadConfig(hre, "safe") ?? deployer.address;
-    const args = hre.ethers.AbiCoder.defaultAbiCoder().encode(
-        ["address", "address", "address", "address"],
-        [
-            getEntryPointAddress(),
-            await hexlink.getAddress(),
-            airdrop,
-            owner,
-        ]
+    const hexlink = await getHexlink(hre);
+    const hexlinkDev = await getHexlink(hre, true);
+    const impl = await hre.deployments.deploy(
+        "HexlinkPaymaster", {
+            from: deployer.address,
+            args: [
+                getEntryPointAddress(),
+                await hexlink.getAddress(),
+                await hexlinkDev.getAddress(),
+            ],
+            log: true,
+        }
     );
-    const artifact = await hre.artifacts.readArtifact("AirdropPaymaster");
-    await deterministicDeploy(
+
+    // deploy hexlink paymaster proxy
+    const artifact = await hre.artifacts.readArtifact("HexlinkERC1967Proxy");
+    const proxy = await deterministicDeploy(
         hre,
-        dev ? "AirdropPaymasterDev" : "AirdropPaymaster",
-        getBytecode(artifact, args),
-        hash(dev ? "airdrop.paymaster.dev" : "airdrop.paymaster"),
+        "HexlinkPaymasterProxy",
+        getBytecode(artifact, "0x"),
+        hash("hexlink.paymaster")
     );
+    if (proxy.deployed) {
+        const paymaster = await hre.ethers.getContractAt(
+            "HexlinkERC1967Proxy",
+            proxy.address,
+            deployer
+        );
+        const paymasterImpl = await hre.ethers.getContractAt(
+            "HexlinkPaymaster", impl.address);
+        const owner = loadConfig(hre, "safe") ?? deployer.address;
+        const artifact = await hre.artifacts.readArtifact("Airdrop");
+        const iface = new hre.ethers.Interface(artifact.abi);
+        const data = paymasterImpl.interface.encodeFunctionData(
+            "initialize", [
+                owner,
+                [airdrop],
+                [iface.getFunction("claimV2")!.selector]
+            ]
+        );
+        await paymaster.initProxy(impl.address, data);
+    }
 }
 
 const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
@@ -62,18 +85,7 @@ const func: DeployFunction = async function(hre: HardhatRuntimeEnvironment) {
         await airdrop.initProxy(impl.address, data);
     }
 
-    // deploy paymaster for hexlink
-    await deployAirdropPaymaster(
-        hre,
-        false,
-        proxy.address,
-    );
-    // deploy paymaster for hexlink dev
-    await deployAirdropPaymaster(
-        hre,
-        true,
-        proxy.address,
-    );
+    await deployHexlinkPaymaster(hre, proxy.address);
 }
 
 export default func;

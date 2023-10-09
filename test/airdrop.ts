@@ -5,7 +5,7 @@ import * as hre from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { TestHexlinkERC20, AirdropSimple__factory } from "../typechain-types";
 import { SENDER_NAME_HASH, buildAccountExecData, callWithEntryPoint, deployErc20 } from "./testers";
-import { epoch, getAirdrop, getHexlink, getEntryPoint, getAirdropPaymaster } from "../tasks/utils";
+import { epoch, getAirdrop, getHexlink, getEntryPoint, getHexlinkPaymaster } from "../tasks/utils";
 import { Contract } from "ethers";
 import { deploySender } from "./account";
 
@@ -289,7 +289,7 @@ describe("Airdrop", function() {
   });
 
   it("test airdrop paymaster with double claim", async function() {
-    const paymaster = await getAirdropPaymaster(hre);
+    const paymaster = await getHexlinkPaymaster(hre);
     const tx1 = await paymaster.deposit({value: ethers.parseEther("1.0")});
     await tx1.wait();
 
@@ -341,8 +341,12 @@ describe("Airdrop", function() {
     };
     const accountData = await claimData(0);
     const paymasterData = ethers.solidityPacked(
-        ["address", "bytes32"],
-        [await paymaster.getAddress(), SENDER_NAME_HASH]
+        ["address", "address", "bytes32"],
+        [
+            await paymaster.getAddress(),
+            await hexlink.getAddress(),
+            SENDER_NAME_HASH
+        ]
     );
 
     await expect(
@@ -356,7 +360,7 @@ describe("Airdrop", function() {
   });
 
   it("test airdrop paymaster without double claim", async function() {
-    const paymaster = await getAirdropPaymaster(hre);
+    const paymaster = await getHexlinkPaymaster(hre);
     const tx1 = await paymaster.deposit({value: ethers.parseEther("1.0")});
     await tx1.wait();
 
@@ -406,8 +410,12 @@ describe("Airdrop", function() {
     };
     const accountData = await claimData(0);
     const paymasterData = ethers.solidityPacked(
-        ["address", "bytes32"],
-        [await paymaster.getAddress(), SENDER_NAME_HASH]
+        ["address", "address", "bytes32"],
+        [
+            await paymaster.getAddress(),
+            await hexlink.getAddress(),
+            SENDER_NAME_HASH
+        ]
     );
 
     await expect(

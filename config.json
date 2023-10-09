@@ -6,7 +6,8 @@
         "airdrop": "0x70db527Eb155260ff7723F5c30088E3c6484aa8E",
         "dauthValidator": "0xf3b4e49Fd77A959B704f6a045eeA92bd55b3b571",
         "hexlinkValidator": "0x72cf1663d40c5215e5f9607df3464becdffd59d9",
-        "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9"
+        "hexlinkDevValidator": "0xA44B4bAb275668Dffc6B866A313C64cBA6422bd9",
+        "paymaster": "0xc0d4417d2C3B641205138dE09aeC4B00fD735111"
     },
     "hardhat": {
         "timelock": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",

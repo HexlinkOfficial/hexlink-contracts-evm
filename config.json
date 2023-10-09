@@ -10,8 +10,8 @@
     },
     "hardhat": {
         "timelock": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",
-        "airdropPaymaster": "0xD5249b468219355FC199bbF5c067Fc97315f470b",
-        "airdropPaymasterDev": "0x595C5EDB34B9e2C1182158dC079028d9052192EC"
+        "airdropPaymaster": "0xb5f1820ADeeF7f6d277C4DCB85E63a50Ea794b22",
+        "airdropPaymasterDev": "0xA4f46fA94077a232D85CB7f76F61eA140af5A66F"
     },
     "bsc": {
         "safe": "0x7604442B1A3098C2F14Cf27b08076759D0EeCB0e",

@@ -6,8 +6,6 @@ pragma solidity ^0.8.12;
 import "@account-abstraction/contracts/core/BasePaymaster.sol";
 import "@account-abstraction/contracts/samples/SimpleAccount.sol";
 import "../interfaces/IAccountFactory.sol";
-import "../airdrop/Airdrop.sol";
-import "hardhat/console.sol";
 
 contract AirdropPaymaster is BasePaymaster {
     error NotFromHexlinkAccount();
@@ -70,7 +68,9 @@ contract AirdropPaymaster is BasePaymaster {
         }
         // skip the location and length of claim calldata(bytes64)
         // claim function of airdrop
-        if (bytes4(userOp.callData[132:136]) != Airdrop.claim.selector) {
+        bytes4 selector = bytes4(userOp.callData[132:136]);
+        // Airdrop.claim.selector or Airdrop.claimV2.selector
+        if (selector != 0xb3ef31ea && selector != 0x8f7dc101) {
             revert NotClaimingAirdrop();
         }
         return ("", _packValidationData(false, 0, 0));

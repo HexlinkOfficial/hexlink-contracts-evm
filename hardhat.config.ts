@@ -64,6 +64,7 @@ const config: HardhatUserConfig = {
       chainId: 22222,
       url: "https://api.nautilus.nautchain.xyz",
       accounts,
+      gasPrice: 30000000000,
     },
     naut_test: {
       chainId: 88002,

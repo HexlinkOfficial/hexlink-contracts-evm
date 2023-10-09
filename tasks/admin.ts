@@ -192,14 +192,12 @@ task("check_deposit")
 task("add_stake")
     .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const { deployer } = await hre.ethers.getNamedSigners();
         const hexlink = await getHexlink(hre, args.dev);
         const hexlinkAddr = await hexlink.getAddress();
         const artifact = await hre.artifacts.readArtifact("EntryPointStaker");
         const iface = new ethers.Interface(artifact.abi);
         const entrypoint = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
 
-        console.log(hexlinkAddr);
         console.log("Adding stake 0.05 ETH to " + entrypoint + " for " + hexlinkAddr);
         const data = iface.encodeFunctionData(
             'addStake', [
@@ -234,7 +232,7 @@ task("upgrade_hexlink", "upgrade hexlink contract")
     });
 
 task("upgrade_airdrop", "upgrade airdrop contract")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const airdrop = await getAirdrop(hre);
         const existing = await airdrop.implementation();
         const deployed = await hre.deployments.get("Airdrop");

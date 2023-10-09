@@ -31,6 +31,9 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 deposit;
         address validator;
         address owner;
+        // 0: only to beneficiary
+        // 1: to both claimer and beneficiary if claimer is not beneficiary
+        uint8 mode;
     }
 
     event NewCampaign(
@@ -146,6 +149,43 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         campaigns[campaign].deposit = c.deposit - amount;
         _transfer(c.token, beneficiary, amount);
         emit NewClaim(campaign, claimer, beneficiary, amount);
+    }
+
+    function claimV2(
+        uint256 campaign,
+        address beneficiary,
+        uint256 amount,
+        bytes memory proof
+    ) external whenNotPaused {
+        if (hasClaimed(campaign, msg.sender)) {
+            revert AlreadyClaimed();
+        }
+        Campaign memory c = _getCampaign(campaign);
+        bool isDoubleClaim = (c.mode == 1 && msg.sender != beneficiary);
+        uint256 totalAirdrop = amount * (isDoubleClaim ? 2 : 1);
+        if (c.deposit < totalAirdrop) {
+            revert InsufficientDeposit(c.deposit, amount);
+        }
+        bytes32 message = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                campaign,
+                msg.sender,
+                beneficiary,
+                amount
+            )
+        );
+        if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
+            revert NotAuthorized();
+        }
+        claimed[campaign][msg.sender] = true;
+        campaigns[campaign].deposit = c.deposit - totalAirdrop;
+        _transfer(c.token, beneficiary, amount);
+        if (isDoubleClaim) {
+            _transfer(c.token, msg.sender, amount);
+        }
+        emit NewClaim(campaign, msg.sender, beneficiary, amount);
     }
 
     function _getCampaign(

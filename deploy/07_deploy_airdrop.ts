@@ -38,17 +38,24 @@ async function deployHexlinkPaymaster(
         );
         const paymasterImpl = await hre.ethers.getContractAt(
             "HexlinkPaymaster", impl.address);
-        const owner = loadConfig(hre, "safe") ?? deployer.address;
-        const artifact = await hre.artifacts.readArtifact("Airdrop");
-        const iface = new hre.ethers.Interface(artifact.abi);
+        const artifact2 = await hre.artifacts.readArtifact("Airdrop");
+        const iface = new hre.ethers.Interface(artifact2.abi);
         const data = paymasterImpl.interface.encodeFunctionData(
             "initialize", [
-                owner,
+                deployer.address,
                 [airdrop],
                 [iface.getFunction("claimV2")!.selector]
             ]
         );
         await paymaster.initProxy(impl.address, data);
+    
+        // check ownership
+        const owner = loadConfig(hre, "safe") ?? deployer.address;
+        const pmaster = await hre.ethers.getContractAt(
+            "HexlinkPaymaster", proxy.address, deployer);
+        if ((await pmaster.owner()) != owner) {
+            await pmaster.transferOwnership(owner);
+        }
     }
 }
 

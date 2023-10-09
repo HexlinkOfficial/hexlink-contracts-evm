@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { getAirdrop, getAirdropPaymaster, getEntryPoint, loadConfig } from "./utils";
+import { getAirdrop, getAirdropPaymaster, getEntryPoint, getHexlinkPaymaster, loadConfig } from "./utils";
 import { Contract, ethers } from "ethers";
 
 task("create_campaign", "create new campaign")
@@ -36,6 +36,7 @@ task("create_campaign", "create new campaign")
             deposit: amount,
             validator: validator,
             owner: loadConfig(hre, "safe") ?? deployer.address,
+            mode: 1,
         };
         console.log("Creating campaign: ", campaign);
         const tx = await airdrop.createCampaign(campaign);
@@ -58,6 +59,7 @@ task("check_airdrop", "Get campaign info")
         const paymaster = await getAirdropPaymaster(hre);
         const paymasterDev = await getAirdropPaymaster(hre, true);
         const entryPoint = await getEntryPoint(hre);
+        const hpaymaster = await getHexlinkPaymaster(hre);
         console.log({
             owner: await airdrop.owner(),
             airdropImpl: await airdrop.implementation(),
@@ -77,6 +79,18 @@ task("check_airdrop", "Get campaign info")
                 airdrop: await paymasterDev.airdrop(),
                 hexlink: await paymasterDev.hexlink(),
                 deposit: await entryPoint.getDepositInfo(await paymasterDev.getAddress()),
+            },
+            hexlinkPaymaster: {
+                address: await hpaymaster.getAddress(),
+                owner: await hpaymaster.owner(),
+                implementation: await hpaymaster.implementation(),
+                hexlink: await hpaymaster.hexlink(),
+                hexlinkDev: await hpaymaster.hexlinkDev(),
+                entrypoint: await hpaymaster.entryPoint(),
+                airdropApproved: await hpaymaster.isApproved(
+                    await airdrop.getAddress(),
+                    airdrop.interface.getFunction("claimV2")?.selector
+                ),
             }
         });
     });
@@ -102,4 +116,14 @@ task("cleanup_paymaster", "cleanup paymaster")
             deployer,
             await paymaster.getDeposit()
         );
+    });
+
+task("setup_hexlink_paymaster", "setup paymaster")
+    .addParam("deposit")
+    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
+        const paymaster = await getHexlinkPaymaster(hre);
+        console.log("depositing 1 native token for ", paymaster.target);
+        await paymaster.deposit({value: ethers.parseEther(args.deposit)});
+        console.log("staking 0.05 native token for ", paymaster.target);
+        await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
     });

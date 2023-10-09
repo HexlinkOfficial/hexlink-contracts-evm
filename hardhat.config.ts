@@ -80,6 +80,7 @@ const config: HardhatUserConfig = {
       chainId: 97,
       url: "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
       accounts,
+      gasPrice: 10000000000,
     },
     mumbai: {
       chainId: 80001,

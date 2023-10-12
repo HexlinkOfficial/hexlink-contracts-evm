@@ -32,13 +32,14 @@ task("create_campaign", "create new campaign")
         const campaign = {
             token,
             startAt: 0,
-            endAt: args.endAt ?? "0xffffffffffff",
+            endAt: args.endat ?? "0xffffffffffff",
             deposit: amount,
             validator: validator,
             owner: loadConfig(hre, "safe") ?? deployer.address,
             mode: 1,
         };
         console.log("Creating campaign: ", campaign);
+        console.log(airdrop.interface.encodeFunctionData("createCampaign", [campaign]));
         const tx = await airdrop.createCampaign(campaign);
         console.log("Tx sent: ", tx.hash);
         const receipt = await tx.wait();
@@ -91,6 +92,7 @@ task("check_airdrop", "Get campaign info")
                     await airdrop.getAddress(),
                     airdrop.interface.getFunction("claimV2")?.selector
                 ),
+                deposit: await entryPoint.getDepositInfo(await hpaymaster.getAddress()),
             }
         });
     });

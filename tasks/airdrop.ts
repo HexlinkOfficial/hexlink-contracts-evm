@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { getAirdrop, getAirdropPaymaster, getEntryPoint, getHexlinkPaymaster, loadConfig } from "./utils";
+import { getAirdrop, getEntryPoint, getHexlinkPaymaster, loadConfig } from "./utils";
 import { Contract, ethers } from "ethers";
 
 task("create_campaign", "create new campaign")
@@ -57,8 +57,6 @@ task("get_campaign", "Get campaign info")
 task("check_airdrop", "Get campaign info")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const airdrop = await getAirdrop(hre);
-        const paymaster = await getAirdropPaymaster(hre);
-        const paymasterDev = await getAirdropPaymaster(hre, true);
         const entryPoint = await getEntryPoint(hre);
         const hpaymaster = await getHexlinkPaymaster(hre);
         console.log({
@@ -68,20 +66,6 @@ task("check_airdrop", "Get campaign info")
             paused: await airdrop.paused(),
             nextCampaign: await airdrop.getNextCampaign(),
             paymaster: {
-                address: await paymaster.getAddress(),
-                owner: await paymaster.owner(),
-                airdrop: await paymaster.airdrop(),
-                hexlink: await paymaster.hexlink(),
-                deposit: await entryPoint.getDepositInfo(await paymaster.getAddress()),
-            },
-            paymasterDev: {
-                address: await paymasterDev.getAddress(),
-                owner: await paymasterDev.owner(),
-                airdrop: await paymasterDev.airdrop(),
-                hexlink: await paymasterDev.hexlink(),
-                deposit: await entryPoint.getDepositInfo(await paymasterDev.getAddress()),
-            },
-            hexlinkPaymaster: {
                 address: await hpaymaster.getAddress(),
                 owner: await hpaymaster.owner(),
                 implementation: await hpaymaster.implementation(),

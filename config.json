@@ -10,34 +10,22 @@
         "paymaster": "0xc0d4417d2C3B641205138dE09aeC4B00fD735111"
     },
     "hardhat": {
-        "timelock": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b",
-        "airdropPaymaster": "0xb5f1820ADeeF7f6d277C4DCB85E63a50Ea794b22",
-        "airdropPaymasterDev": "0xA4f46fA94077a232D85CB7f76F61eA140af5A66F"
+        "timelock": "0x18fa586a95e5AAadbA3Aa449ad4bce840896B60b"
     },
     "bsc": {
         "safe": "0x7604442B1A3098C2F14Cf27b08076759D0EeCB0e",
-        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d"
     },
     "bsc_test": {
-        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d"
     },
     "mumbai": {
-        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d"
     },
     "sepolia": {
-        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d",
-        "airdropPaymaster": "0xA0ccF153CC76F11240F3c7A6A86E8d4Dadf026E0",
-        "airdropPaymasterDev": "0x67ce31C6f092A67305eB520d01128aDb625b0A52"
+        "timelock": "0x36814e0faE4E97f188E9Cc9DB54d9A17A79a977d"
     },
     "naut": {
-        "timelock": "0x9fFa1527b886E36653fC084c77780693898bF419",
-        "airdropPaymaster": "0xE04DA149030f04555cc46f0ff2eF9867720D4c87",
-        "airdropPaymasterDev": "0x443c9E6981dD3f495985B0bcd7f668d050724f36"
+        "timelock": "0x9fFa1527b886E36653fC084c77780693898bF419"
     }
 }

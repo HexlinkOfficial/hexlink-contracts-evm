@@ -85,20 +85,6 @@ export async function getHexlinkPaymaster(
   );
 }
 
-export async function getAirdropPaymaster(
-  hre: HardhatRuntimeEnvironment,
-  dev: boolean = false,
-  operator: string = "deployer"
-) {
-  let paymaster = loadConfig(hre, dev ? "airdropPaymasterDev" : "airdropPaymaster");
-  const signers = await hre.ethers.getNamedSigners();
-  return new Contract(
-    paymaster,
-    await getAbi(hre, "AirdropPaymaster"),
-    signers[operator]
-  );
-}
-
 export async function getHexlink(hre: HardhatRuntimeEnvironment, dev: boolean = false) {
   let hexlink = loadConfig(hre, dev ? "hexlinkDev" : "hexlink");
   const { deployer } = await hre.ethers.getNamedSigners();

@@ -58,7 +58,7 @@ task("check_airdrop", "Get campaign info")
     .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
         const airdrop = await getAirdrop(hre);
         const entryPoint = await getEntryPoint(hre);
-        const hpaymaster = await getHexlinkPaymaster(hre);
+        const paymaster = await getHexlinkPaymaster(hre);
         console.log({
             owner: await airdrop.owner(),
             airdropImpl: await airdrop.implementation(),
@@ -66,17 +66,21 @@ task("check_airdrop", "Get campaign info")
             paused: await airdrop.paused(),
             nextCampaign: await airdrop.getNextCampaign(),
             paymaster: {
-                address: await hpaymaster.getAddress(),
-                owner: await hpaymaster.owner(),
-                implementation: await hpaymaster.implementation(),
-                hexlink: await hpaymaster.hexlink(),
-                hexlinkDev: await hpaymaster.hexlinkDev(),
-                entrypoint: await hpaymaster.entryPoint(),
-                airdropApproved: await hpaymaster.isApproved(
+                address: await paymaster.getAddress(),
+                owner: await paymaster.owner(),
+                implementation: await paymaster.implementation(),
+                hexlink: await paymaster.hexlink(),
+                hexlinkDev: await paymaster.hexlinkDev(),
+                entrypoint: await paymaster.entryPoint(),
+                claimV2Approved: await paymaster.isApproved(
                     await airdrop.getAddress(),
                     airdrop.interface.getFunction("claimV2")?.selector
                 ),
-                deposit: await entryPoint.getDepositInfo(await hpaymaster.getAddress()),
+                claimV2WithMessageApproved: await paymaster.isApproved(
+                    await airdrop.getAddress(),
+                    airdrop.interface.getFunction("claimV2WithMessage")?.selector
+                ),
+                deposit: await entryPoint.getDepositInfo(await paymaster.getAddress()),
             }
         });
     });
@@ -110,4 +114,13 @@ task("setup_paymaster", "setup paymaster")
             console.log("staking 0.05 native token for ", paymaster.target);
             await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
         }
+    });
+
+task("whitelist_paymaster")
+    .setAction(async (_args, hre : HardhatRuntimeEnvironment) => {
+        const airdrop = await getAirdrop(hre);
+        const selector = airdrop.interface.getFunction("claimV2WithMessage")!.selector;
+
+        const paymaster = await getHexlinkPaymaster(hre);
+        await paymaster.approve(await airdrop.getAddress(), selector);
     });

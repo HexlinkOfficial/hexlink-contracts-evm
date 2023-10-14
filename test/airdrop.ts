@@ -442,10 +442,8 @@ describe("Airdrop", function() {
     await tx2.wait();
 
     // whitelist claimV2WithMessage
-    await paymaster.approve(
-        await airdrop.getAddress(),
-        airdrop.interface.getFunction("claimV2WithMessage")!.selector
-    );
+    const selector = airdrop.interface.getFunction("claimV2WithMessage")!.selector;
+    await paymaster.approve(await airdrop.getAddress(), selector);
 
     // create campaign
     const campaign = {

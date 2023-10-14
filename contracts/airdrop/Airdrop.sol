@@ -46,6 +46,13 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         address indexed beneficiary,
         uint256 amount
     );
+    event NewClaimWithMessage(
+        uint256 indexed campaignId,
+        address indexed claimer,
+        address indexed beneficiary,
+        uint256 amount,
+        string message
+    );
 
     uint256 nextCampaign = 0;
     mapping(uint256 => Campaign) internal campaigns;
@@ -114,49 +121,34 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
     }
 
     /* claim */
-
-    function claim(
-        uint256 campaign,
-        address claimer,
-        address beneficiary,
-        uint256 amount,
-        bytes memory proof
-    ) external whenNotPaused {
-        if (msg.sender != claimer) {
-            revert NotCalledFromClaimer();
-        }
-        if (hasClaimed(campaign, msg.sender)) {
-            revert AlreadyClaimed();
-        }
-        Campaign memory c = _getCampaign(campaign);
-        if (c.deposit < amount) {
-            revert InsufficientDeposit(c.deposit, amount);
-        }
-        bytes32 message = keccak256(
-            abi.encodePacked(
-                block.chainid,
-                address(this),
-                campaign,
-                claimer,
-                beneficiary,
-                amount
-            )
-        );
-        if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
-            revert NotAuthorized();
-        }
-        claimed[campaign][msg.sender] = true;
-        campaigns[campaign].deposit = c.deposit - amount;
-        _transfer(c.token, beneficiary, amount);
-        emit NewClaim(campaign, claimer, beneficiary, amount);
-    }
-
     function claimV2(
         uint256 campaign,
         address beneficiary,
         uint256 amount,
         bytes memory proof
     ) external whenNotPaused {
+        _claim(campaign, beneficiary, amount, proof);
+        emit NewClaim(campaign, msg.sender, beneficiary, amount);
+    }
+
+    function claimV2WithMessage(
+        uint256 campaign,
+        address beneficiary,
+        uint256 amount,
+        string calldata message,
+        bytes memory proof
+    ) external whenNotPaused {
+        _claim(campaign, beneficiary, amount, proof);
+        emit NewClaimWithMessage(
+            campaign, msg.sender, beneficiary, amount, message);
+    }
+
+    function _claim(
+        uint256 campaign,
+        address beneficiary,
+        uint256 amount,
+        bytes memory proof
+    ) internal {
         if (hasClaimed(campaign, msg.sender)) {
             revert AlreadyClaimed();
         }
@@ -166,7 +158,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         if (c.deposit < totalAirdrop) {
             revert InsufficientDeposit(c.deposit, amount);
         }
-        bytes32 message = keccak256(
+        bytes32 signed = keccak256(
             abi.encodePacked(
                 block.chainid,
                 address(this),
@@ -176,7 +168,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
                 amount
             )
         );
-        if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
+        if (signed.toEthSignedMessageHash().recover(proof) != c.validator) {
             revert NotAuthorized();
         }
         claimed[campaign][msg.sender] = true;
@@ -185,7 +177,6 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         if (isDoubleClaim) {
             _transfer(c.token, msg.sender, amount);
         }
-        emit NewClaim(campaign, msg.sender, beneficiary, amount);
     }
 
     function _getCampaign(

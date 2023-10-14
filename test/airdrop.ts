@@ -154,13 +154,13 @@ describe("Airdrop", function() {
         return await validator.signMessage(ethers.getBytes(message));
     };
     await expect(
-        airdrop.claim(0, senderAddr, tester, 100, await genSig(0))
-    ).to.be.revertedWithCustomError(airdrop, "NotCalledFromClaimer");
+        airdrop.claimV2(0, tester, 100, await genSig(0))
+    ).to.be.revertedWithCustomError(airdrop, "NotAuthorized");
 
     const claimData = async (campaignId: number, amount: number = 100) => {
         const claimData = airdrop.interface.encodeFunctionData(
-            "claim",
-            [campaignId, senderAddr, tester, amount, await genSig(campaignId)]
+            "claimV2",
+            [campaignId, tester, amount, await genSig(campaignId)]
         );
         return await buildAccountExecData(
             await airdrop.getAddress(), 0, claimData);
@@ -246,7 +246,7 @@ describe("Airdrop", function() {
         return await validator.signMessage(ethers.getBytes(message));
     };
     await expect(
-        airdrop.claim(0, deployer.address, tester, 100, await genSig(0))
+        airdrop.claimV2(0, tester, 100, await genSig(0))
     ).emit(airdrop, "NewClaim").withArgs(0, deployer.address, tester, 100);
     expect(await erc20.balanceOf(tester)).to.eq(100);
   });

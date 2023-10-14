@@ -81,35 +81,33 @@ task("check_airdrop", "Get campaign info")
         });
     });
 
-task("setup_paymaster", "setup paymaster")
-    .addParam("deposit")
-    .addFlag("dev")
-    .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const paymaster = await getAirdropPaymaster(hre, args.dev);
-        console.log("depositing 1 native token for ", paymaster.target);
-        await paymaster.deposit({value: ethers.parseEther(args.deposit)});
-        console.log("staking 0.05 native token for ", paymaster.target);
-        await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
-    });
-
 task("cleanup_paymaster", "cleanup paymaster")
-    .addFlag("dev")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
-        const paymaster = await getAirdropPaymaster(hre, args.dev);
+        const paymaster = await getHexlinkPaymaster(hre);
         console.log("withdrawing 1 native token for ", paymaster.target);
         const {deployer} = await hre.getNamedAccounts();
         await paymaster.withdrawTo(
             deployer,
             await paymaster.getDeposit()
         );
+        const entrypoint = await getEntryPoint(hre);
+        const depositInfo = await entrypoint.getDepositInfo(await paymaster.getAddress());
+        if (depositInfo.staked) {
+            await paymaster.unlockStake();
+        }
     });
 
-task("setup_hexlink_paymaster", "setup paymaster")
+task("setup_paymaster", "setup paymaster")
     .addParam("deposit")
     .setAction(async (args, hre : HardhatRuntimeEnvironment) => {
         const paymaster = await getHexlinkPaymaster(hre);
         console.log("depositing 1 native token for ", paymaster.target);
         await paymaster.deposit({value: ethers.parseEther(args.deposit)});
-        console.log("staking 0.05 native token for ", paymaster.target);
-        await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
+        
+        const entrypoint = await getEntryPoint(hre);
+        const depositInfo = await entrypoint.getDepositInfo(await paymaster.getAddress());
+        if (depositInfo.stake === 0) {
+            console.log("staking 0.05 native token for ", paymaster.target);
+            await paymaster.addStake(86400, {value: ethers.parseEther("0.05")});
+        }
     });

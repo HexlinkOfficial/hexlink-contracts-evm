@@ -73,7 +73,7 @@ const config: HardhatUserConfig = {
     },
     bsc: {
       chainId: 56,
-      url: "https://bsc.publicnode.com",
+      url: "https://bsc-dataseed1.binance.org/",
       accounts,
     },
     bsc_test: {

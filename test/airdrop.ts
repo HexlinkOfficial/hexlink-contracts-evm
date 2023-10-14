@@ -425,4 +425,88 @@ describe("Airdrop", function() {
     expect(await erc20.balanceOf(senderAddr)).to.eq(100);
     expect((await airdrop.getCampaign(0)).deposit).to.eq(9900);
   });
+
+  it("test airdrop paymaster without double claim and message", async function() {
+    const {tester} = await hre.getNamedAccounts();
+    const paymaster = await getHexlinkPaymaster(hre);
+    const tx1 = await paymaster.deposit({value: ethers.parseEther("1.0")});
+    await tx1.wait();
+
+    // deployer sender account
+    const sender = await deploySender(hexlink);
+    const senderAddr = await sender.getAddress();
+    const tx2 = await deployer.sendTransaction({
+        to: senderAddr,
+        value: ethers.parseEther("1.0")
+    });
+    await tx2.wait();
+
+    // whitelist claimV2WithMessage
+    await paymaster.approve(
+        await airdrop.getAddress(),
+        airdrop.interface.getFunction("claimV2WithMessage")!.selector
+    );
+
+    // create campaign
+    const campaign = {
+        token: await erc20.getAddress(),
+        startAt: 0,
+        endAt: epoch() + 3600, // now + 1 hour
+        deposit: 10000,
+        owner: deployer.address,
+        validator: validator.address,
+        mode: 1,
+    };
+    await erc20.approve(await airdrop.getAddress(), 10000);
+    await airdrop.createCampaign(campaign);
+
+    const txMsg = "hexlink airdrop";
+    const genSig = async (campaignId: number, amount: number = 100) => {
+        const message = ethers.solidityPackedKeccak256(
+            ["uint256", "address", "uint256", "address", "address", "uint256", "string"],
+            [
+                hre.network.config.chainId,
+                await airdrop.getAddress(),
+                campaignId,
+                senderAddr,
+                tester,
+                amount,
+                txMsg,
+            ]
+        );
+        return await validator.signMessage(ethers.getBytes(message));
+    };
+    const claimData = async (campaignId: number, amount: number = 100) => {
+        const claimData = airdrop.interface.encodeFunctionData(
+            "claimV2WithMessage",
+            [
+                campaignId,
+                tester,
+                amount,
+                txMsg,
+                await genSig(campaignId)
+            ]
+        );
+        return await buildAccountExecData(
+            await airdrop.getAddress(), 0, claimData);
+    };
+    const accountData = await claimData(0);
+    const paymasterData = ethers.solidityPacked(
+        ["address", "address", "bytes32"],
+        [
+            await paymaster.getAddress(),
+            await hexlink.getAddress(),
+            SENDER_NAME_HASH
+        ]
+    );
+
+    await expect(
+        callWithEntryPoint(
+            senderAddr, '0x', accountData, entrypoint, deployer, paymasterData, true)
+    ).emit(airdrop, "NewClaimWithMessage").withArgs(
+        0, senderAddr, tester, 100, txMsg);
+    expect(await erc20.balanceOf(tester)).to.eq(100);
+    expect(await erc20.balanceOf(senderAddr)).to.eq(100);
+    expect((await airdrop.getCampaign(0)).deposit).to.eq(9800);
+  });
 });

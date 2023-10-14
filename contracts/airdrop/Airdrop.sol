@@ -127,7 +127,17 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 amount,
         bytes memory proof
     ) external whenNotPaused {
-        _claim(campaign, beneficiary, amount, proof);
+        bytes32 signed = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                campaign,
+                msg.sender,
+                beneficiary,
+                amount
+            )
+        );
+        _claim(campaign, beneficiary, amount, signed, proof);
         emit NewClaim(campaign, msg.sender, beneficiary, amount);
     }
 
@@ -138,7 +148,18 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         string calldata message,
         bytes memory proof
     ) external whenNotPaused {
-        _claim(campaign, beneficiary, amount, proof);
+        bytes32 signed = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                campaign,
+                msg.sender,
+                beneficiary,
+                amount,
+                message
+            )
+        );
+        _claim(campaign, beneficiary, amount, signed, proof);
         emit NewClaimWithMessage(
             campaign, msg.sender, beneficiary, amount, message);
     }
@@ -147,6 +168,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 campaign,
         address beneficiary,
         uint256 amount,
+        bytes32 message,
         bytes memory proof
     ) internal {
         if (hasClaimed(campaign, msg.sender)) {
@@ -158,17 +180,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         if (c.deposit < totalAirdrop) {
             revert InsufficientDeposit(c.deposit, amount);
         }
-        bytes32 signed = keccak256(
-            abi.encodePacked(
-                block.chainid,
-                address(this),
-                campaign,
-                msg.sender,
-                beneficiary,
-                amount
-            )
-        );
-        if (signed.toEthSignedMessageHash().recover(proof) != c.validator) {
+        if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
             revert NotAuthorized();
         }
         claimed[campaign][msg.sender] = true;

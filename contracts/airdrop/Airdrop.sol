@@ -87,7 +87,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         return claimed[campaign][to];
     }
 
-    /* campaign */
+    /* campaign management */
 
     function createCampaign(Campaign memory c) whenNotPaused external {
         if (c.deposit == 0 || c.owner == address(0)) {
@@ -97,6 +97,23 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         campaigns[nextCampaign] = c;
         emit NewCampaign(nextCampaign, c);
         nextCampaign++;
+    }
+
+    function setCampaignExpiry(uint256 campaign, uint48 endAt) external whenNotPaused {
+        if (campaigns[campaign].owner != msg.sender) {
+            revert NotAuthorized();
+        }
+        campaigns[campaign].endAt = endAt;
+    }
+
+    function transferCampaignOwnership(
+        uint256 campaign,
+        address newOwner
+    ) external whenNotPaused {
+        if (campaigns[campaign].owner != msg.sender) {
+            revert NotAuthorized();
+        }
+        campaigns[campaign].owner = newOwner;
     }
 
     function deposit(uint256 campaign, uint256 amount) external whenNotPaused {

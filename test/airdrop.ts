@@ -78,10 +78,11 @@ describe("Airdrop", function() {
   it("should deposit and withdraw", async function() {
     const {validator} = await ethers.getNamedSigners();
     expect(await airdrop.getNextCampaign()).to.eq(0);
+    const endAt = BigInt(epoch() + 3600);
     const campaign = {
         token: await erc20.getAddress(),
         startAt: 0,
-        endAt: epoch() + 3600, // now + 1 hour
+        endAt, // now + 1 hour
         deposit: 10000,
         owner: deployer.address,
         validator: validator.address,
@@ -102,9 +103,27 @@ describe("Airdrop", function() {
     await expect(airdrop.withdraw(0))
       .to.be.revertedWithCustomError(airdrop, "CampaignNotEnded");
 
+    // transfer ownership
+    const airdropAsValidator = airdrop.connect(validator) as Contract;
+    await expect(
+        airdropAsValidator.transferCampaignOwnership(0, validator.address)
+    ).to.be.revertedWithCustomError(airdrop, "NotAuthorized");
+    expect((await airdrop.getCampaign(0)).owner).to.eq(deployer.address);
+    await airdrop.transferCampaignOwnership(0, validator.address);
+    expect((await airdrop.getCampaign(0)).owner).to.eq(validator.address);
+
+    // reset expiry
+    expect((await airdrop.getCampaign(0)).endAt).to.eq(endAt);
+    const newEndAt = BigInt(epoch() + 7200);
+    await expect(
+        airdrop.setCampaignExpiry(0, newEndAt)
+    ).to.be.revertedWithCustomError(airdrop, "NotAuthorized");
+    await airdropAsValidator.setCampaignExpiry(0, newEndAt);
+    expect((await airdrop.getCampaign(0)).endAt).to.eq(newEndAt);
+
     // withdraw
     campaign.startAt = 0;
-    campaign.endAt = epoch() - 3600;
+    campaign.endAt = BigInt(epoch() - 3600);
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
 

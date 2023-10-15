@@ -51,6 +51,8 @@ describe("Airdrop", function() {
         validator: validator.address,
         owner: deployer.address,
         mode: 0,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await expect(
@@ -62,7 +64,9 @@ describe("Airdrop", function() {
         campaign.deposit,
         campaign.validator,
         campaign.owner,
-        campaign.mode
+        campaign.mode,
+        campaign.reserved,
+        campaign.message,
     ]);
     expect(await airdrop.getNextCampaign()).to.eq(1);
 
@@ -87,6 +91,8 @@ describe("Airdrop", function() {
         owner: deployer.address,
         validator: validator.address,
         mode: 0,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
@@ -154,6 +160,8 @@ describe("Airdrop", function() {
         owner: deployer.address,
         validator: validator.address,
         mode: 0,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
@@ -246,6 +254,8 @@ describe("Airdrop", function() {
         validator: validator.address,
         owner: deployer.address,
         mode: 0,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
@@ -331,6 +341,8 @@ describe("Airdrop", function() {
         owner: deployer.address,
         validator: validator.address,
         mode: 1,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
@@ -401,6 +413,8 @@ describe("Airdrop", function() {
         owner: deployer.address,
         validator: validator.address,
         mode: 1,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
     await airdrop.createCampaign(campaign);
@@ -465,6 +479,7 @@ describe("Airdrop", function() {
     await paymaster.approve(await airdrop.getAddress(), selector);
 
     // create campaign
+    const txMsg = "hexlink airdrop";
     const campaign = {
         token: await erc20.getAddress(),
         startAt: 0,
@@ -473,14 +488,14 @@ describe("Airdrop", function() {
         owner: deployer.address,
         validator: validator.address,
         mode: 1,
+        reserved: 0,
+        message: ethers.ZeroHash,
     };
     await erc20.approve(await airdrop.getAddress(), 10000);
-    await airdrop.createCampaign(campaign);
-
-    const txMsg = "hexlink airdrop";
+    await airdrop.createCampaignWithMessage(campaign, txMsg);
     const genSig = async (campaignId: number, amount: number = 100) => {
         const message = ethers.solidityPackedKeccak256(
-            ["uint256", "address", "uint256", "address", "address", "uint256", "string"],
+            ["uint256", "address", "uint256", "address", "address", "uint256"],
             [
                 hre.network.config.chainId,
                 await airdrop.getAddress(),
@@ -488,26 +503,24 @@ describe("Airdrop", function() {
                 senderAddr,
                 tester,
                 amount,
-                txMsg,
             ]
         );
         return await validator.signMessage(ethers.getBytes(message));
     };
-    const claimData = async (campaignId: number, amount: number = 100) => {
+    const claimData = async (campaignId: number, message: string, amount: number = 100) => {
         const claimData = airdrop.interface.encodeFunctionData(
             "claimV2WithMessage",
             [
                 campaignId,
                 tester,
                 amount,
-                txMsg,
+                message,
                 await genSig(campaignId)
             ]
         );
         return await buildAccountExecData(
             await airdrop.getAddress(), 0, claimData);
     };
-    const accountData = await claimData(0);
     const paymasterData = ethers.solidityPacked(
         ["address", "address", "bytes32"],
         [
@@ -517,9 +530,16 @@ describe("Airdrop", function() {
         ]
     );
 
+    const accountDataInvalid = await claimData(0, "invalid tx message");
+    expect(
+        await callWithEntryPoint(
+            senderAddr, '0x', accountDataInvalid, entrypoint, deployer, paymasterData)
+    ).to.throw;
+
+    const accountData = await claimData(0, txMsg);
     await expect(
         callWithEntryPoint(
-            senderAddr, '0x', accountData, entrypoint, deployer, paymasterData, true)
+            senderAddr, '0x', accountData, entrypoint, deployer, paymasterData)
     ).emit(airdrop, "NewClaimWithMessage").withArgs(
         0, senderAddr, tester, 100, txMsg);
     expect(await erc20.balanceOf(tester)).to.eq(100);

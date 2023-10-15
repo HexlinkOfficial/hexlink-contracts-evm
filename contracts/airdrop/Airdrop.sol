@@ -23,6 +23,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
     error CampaignNotExist();
     error InvalidCampaignInput();
     error InsufficientDeposit(uint256 actual, uint256 expected);
+    error NotValidMessage();
 
     struct Campaign {
         address token;
@@ -34,11 +35,18 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         // 0: only to beneficiary
         // 1: to both claimer and beneficiary if claimer is not beneficiary
         uint8 mode;
+        uint88 reserved;
+        bytes32 message;
     }
 
     event NewCampaign(
         uint256 indexed campaignId,
         Campaign campaign
+    );
+    event NewCampaignWithMessage(
+        uint256 indexed campaignId,
+        Campaign campaign,
+        string message
     );
     event NewClaim(
         uint256 indexed campaignId,
@@ -90,16 +98,32 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
     /* campaign management */
 
     function createCampaign(Campaign memory c) whenNotPaused external {
+        uint256 campaign = _createCampaign(c);
+        emit NewCampaign(campaign, c);
+    }
+
+    function createCampaignWithMessage(
+        Campaign memory c,
+        string calldata message
+    ) whenNotPaused external {
+        c.message = keccak256(abi.encode(message));
+        uint256 campaign = _createCampaign(c);
+        emit NewCampaignWithMessage(campaign, c, message);
+    }
+
+    function _createCampaign(Campaign memory c) internal returns(uint256) {
         if (c.deposit == 0 || c.owner == address(0)) {
             revert InvalidCampaignInput();
         }
         _deposit(c.token, c.deposit);
         campaigns[nextCampaign] = c;
-        emit NewCampaign(nextCampaign, c);
-        nextCampaign++;
+        return nextCampaign++;
     }
 
-    function setCampaignExpiry(uint256 campaign, uint48 endAt) external whenNotPaused {
+    function setCampaignExpiry(
+        uint256 campaign,
+        uint48 endAt
+    ) external whenNotPaused {
         if (campaigns[campaign].owner != msg.sender) {
             revert NotAuthorized();
         }
@@ -144,17 +168,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 amount,
         bytes memory proof
     ) external whenNotPaused {
-        bytes32 signed = keccak256(
-            abi.encodePacked(
-                block.chainid,
-                address(this),
-                campaign,
-                msg.sender,
-                beneficiary,
-                amount
-            )
-        );
-        _claim(campaign, beneficiary, amount, signed, proof);
+        _claim(campaign, beneficiary, amount, proof);
         emit NewClaim(campaign, msg.sender, beneficiary, amount);
     }
 
@@ -165,18 +179,10 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         string calldata message,
         bytes memory proof
     ) external whenNotPaused {
-        bytes32 signed = keccak256(
-            abi.encodePacked(
-                block.chainid,
-                address(this),
-                campaign,
-                msg.sender,
-                beneficiary,
-                amount,
-                message
-            )
-        );
-        _claim(campaign, beneficiary, amount, signed, proof);
+        Campaign memory c = _claim(campaign, beneficiary, amount, proof);
+        if (keccak256(abi.encode(message)) != c.message) {
+            revert NotValidMessage();
+        }
         emit NewClaimWithMessage(
             campaign, msg.sender, beneficiary, amount, message);
     }
@@ -185,9 +191,8 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         uint256 campaign,
         address beneficiary,
         uint256 amount,
-        bytes32 message,
         bytes memory proof
-    ) internal {
+    ) internal returns(Campaign memory) {
         if (hasClaimed(campaign, msg.sender)) {
             revert AlreadyClaimed();
         }
@@ -197,6 +202,16 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         if (c.deposit < totalAirdrop) {
             revert InsufficientDeposit(c.deposit, amount);
         }
+        bytes32 message = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                campaign,
+                msg.sender,
+                beneficiary,
+                amount
+            )
+        );
         if (message.toEthSignedMessageHash().recover(proof) != c.validator) {
             revert NotAuthorized();
         }
@@ -206,6 +221,7 @@ contract Airdrop is Ownable, UUPSUpgradeable, Initializable, Pausable {
         if (isDoubleClaim) {
             _transfer(c.token, msg.sender, amount);
         }
+        return c;
     }
 
     function _getCampaign(
